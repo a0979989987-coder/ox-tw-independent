@@ -58,7 +58,7 @@ function updateLive(){
 }
 liveChoice.addEventListener('change',updateLive);updateLive();
 async function updateHeadline(){
-  try{const r=await fetch('/data/news.json',{signal:AbortSignal.timeout(8000)});const d=await r.json();
+  try{const r=await fetch(new URL('../../data/news.json',import.meta.url),{signal:AbortSignal.timeout(8000)});const d=await r.json();
     const item=d.news.find(n=>n.markets?.includes('tw'));document.getElementById('ox-live-text').textContent=item?.titleZh||item?.title||'台灣市場 · 官方日行情';
   }catch{document.getElementById('ox-live-text').textContent='台灣市場 · 官方日行情';}
 }

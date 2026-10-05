@@ -12,6 +12,11 @@ test('independent runtime exposes Taiwan only and rejects requests from the orig
  const other=await worker.fetch(new Request(origin+'/api/v1/crypto/health'),env,{});assert.equal(other.status,404);
  const old=await worker.fetch(new Request(origin+'/api/v1/tw/health',{headers:{Origin:'https://ox-crypto-screener.vercel.app'}}),env,{});assert.equal(old.status,403);
  const own=await worker.fetch(new Request(origin+'/api/v1/tw/health',{headers:{Origin:origin}}),env,{});assert.equal(own.status,200);
+ const pagesOrigin='https://a0979989987-coder.github.io';
+ const pages=await worker.fetch(new Request(origin+'/api/v1/tw/health',{headers:{Origin:pagesOrigin}}),env,{});
+ assert.equal(pages.status,200);assert.equal(pages.headers.get('Access-Control-Allow-Origin'),pagesOrigin);
+ const ownAgain=await worker.fetch(new Request(origin+'/api/v1/tw/health',{headers:{Origin:origin}}),env,{});
+ assert.equal(ownAgain.headers.get('Access-Control-Allow-Origin'),origin);
 });
 test('Taiwan snapshots, morning source list and news catalog contain no crypto market',async()=>{
  const home=JSON.parse(await readFile(new URL('../data/tw-home.json',import.meta.url)));

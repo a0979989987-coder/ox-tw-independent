@@ -2,8 +2,12 @@ import {build} from 'esbuild';
 import {readFile,writeFile,mkdir,cp,rm} from 'node:fs/promises';
 import {resolve,relative,dirname} from 'node:path';
 const root=resolve(import.meta.dirname,'..');
+const basePath=process.env.SITE_BASE_PATH||'';
+if(basePath&&!/^\/[a-zA-Z0-9_.-]+$/.test(basePath))throw Error('Invalid site base path');
+const apiBase=process.env.TW_API_BASE||'';
+if(apiBase){const url=new URL(apiBase);if(url.protocol!=='https:'&&!['localhost','127.0.0.1','terminal.local'].includes(url.hostname))throw Error('Taiwan API must use HTTPS');}
 const resolveVersion={name:'versioned-imports',setup(b){b.onResolve({filter:/^\./},args=>({path:resolve(args.resolveDir,args.path.split('?')[0])}));}};
-const browserURLs={name:'original-browser-urls',setup(b){b.onLoad({filter:/\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('import.meta.url',`new URL(${JSON.stringify('/'+relative(root,args.path))},location.href).href`),loader:'js',resolveDir:dirname(args.path)}));}};
+const browserURLs={name:'original-browser-urls',setup(b){b.onLoad({filter:/\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('import.meta.url',`new URL(${JSON.stringify(basePath+'/'+relative(root,args.path))},location.href).href`),loader:'js',resolveDir:dirname(args.path)}));}};
 await mkdir(resolve(root,'src/generated'),{recursive:true});
 const entries=['/src/components/patterns/view.js','/src/markets/tw/patterns/source.js','/src/markets/tw/patterns/index-cache.js','/src/markets/tw/bubbles/view.js','/src/markets/tw/etf/view.js','/src/markets/tw/etf/savings.js'];
 const contents="import './src/app/app.js';\n"+entries.map((p,i)=>`import * as m${i} from '.${p}';`).join('\n')+`\nexport const tools={${entries.map((p,i)=>JSON.stringify(p)+`:m${i}`).join(',')}};`;
@@ -14,6 +18,10 @@ await build({entryPoints:[resolve(root,'src/components/patterns/worker.js')],bun
 await rm(resolve(root,'dist'),{recursive:true,force:true});
 await mkdir(resolve(root,'dist/client'),{recursive:true});
 for(const name of ['index.html','favicon.svg','src','data'])await cp(resolve(root,name),resolve(root,'dist/client',name),{recursive:true});
+let html=await readFile(resolve(root,'dist/client/index.html'),'utf8');
+html=html.replace('<head>',`<head><meta name="ox-site-base-path" content="${basePath}">${apiBase?`<meta name="ox-tw-data-api-base" content="${apiBase}">`:''}`).replace('href="/favicon.svg"',`href="${basePath}/favicon.svg"`);
+await writeFile(resolve(root,'dist/client/index.html'),html);
+await writeFile(resolve(root,'dist/client/.nojekyll'),'');
 const fsShim={name:'worker-assets',setup(b){
  b.onResolve({filter:/^node:fs\/promises$/},()=>({path:'asset-fs',namespace:'asset-fs'}));
  b.onLoad({filter:/.*/,namespace:'asset-fs'},()=>({contents:`import {Buffer} from 'node:buffer';export async function readFile(url,encoding){const r=await globalThis.__twAssets.fetch(new Request(new URL(url).href));if(!r.ok)throw Error('Snapshot unavailable');const b=Buffer.from(await r.arrayBuffer());return encoding?b.toString(encoding):b;}`,loader:'js'}));

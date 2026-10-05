@@ -30,9 +30,9 @@ async function loadModule(url,{current=()=>true,importer=url=>import(url),pause=
 
 export async function loadToolModule(url,options={}) {
   if(options.current&&!options.current())throw new DOMException('已切換工具','AbortError');
-  const original=String(url),parsed=new URL(original),bundle=bundledTools.has(parsed.pathname);
+  const original=String(url),parsed=new URL(original),index=parsed.pathname.indexOf('/src/'),path=index<0?parsed.pathname:parsed.pathname.slice(index),bundle=bundledTools.has(path);
   if(!bundle)return loadModule(original,options);
-  if(globalThis.OXToolModules)return globalThis.OXToolModules[parsed.pathname];
-  if(globalThis.OXRuntimeReady){await globalThis.OXRuntimeReady;if(options.current&&!options.current())throw new DOMException('已切換工具','AbortError');return globalThis.OXToolModules[parsed.pathname];}
+  if(globalThis.OXToolModules)return globalThis.OXToolModules[path];
+  if(globalThis.OXRuntimeReady){await globalThis.OXRuntimeReady;if(options.current&&!options.current())throw new DOMException('已切換工具','AbortError');return globalThis.OXToolModules[path];}
   throw Error('市場介面尚未載入，請重新連線');
 }

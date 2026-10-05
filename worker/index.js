@@ -2,14 +2,15 @@ import handler from '../api/v1/tw/[endpoint].js';
 const cache=new Map();
 export default {
  async fetch(request,env,ctx){
-  globalThis.__twEnv={...env,OX_ALLOWED_ORIGINS:new URL(request.url).origin};
+  const allowedOrigins=new Set([new URL(request.url).origin,'https://a0979989987-coder.github.io']);
+  globalThis.__twEnv={...env,OX_ALLOWED_ORIGINS:[...allowedOrigins].join(',')};
   globalThis.__twAssets=env.ASSETS;
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/')){
     const origin=request.headers.get('Origin');
-    if(origin&&origin!==url.origin)return Response.json({ok:false,error:{code:'ORIGIN_NOT_ALLOWED'}},{status:403});
+    if(origin&&!allowedOrigins.has(origin))return Response.json({ok:false,error:{code:'ORIGIN_NOT_ALLOWED'}},{status:403});
     if(!/^\/api\/v1\/tw\/[a-z-]+$/.test(url.pathname))return Response.json({ok:false,error:{code:'ENDPOINT_NOT_FOUND'}},{status:404});
-    const endpoint=url.pathname.split('/').at(-1),key=url.pathname+url.search;
+    const endpoint=url.pathname.split('/').at(-1),key=url.pathname+url.search+'|'+(origin||'');
     const saved=cache.get(key);if(request.method==='GET'&&endpoint!=='outlook'&&!url.searchParams.has('refresh')&&saved&&Date.now()-saved.time<60000)return new Response(saved.body,{status:saved.status,headers:saved.headers});
     const headers=Object.fromEntries(request.headers);headers.host=url.host;headers['x-forwarded-host']=url.host;
     let body;if(request.method==='POST')try{body=await request.json();}catch{return Response.json({error:'INVALID_JSON'},{status:400});}
