@@ -1,0 +1,60 @@
+/* Crypto supplies surfaces, media queries, controls and row styling via market-workspace. */
+.tw-chart-radar{position:relative;display:flex;flex-direction:column;min-width:0;--green:#f16a70;--red:#48b78e}
+.tw-chart-radar [hidden]{display:none}
+.twcr-search-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 28px));max-height:70dvh;padding:16px;border:1px solid var(--line,#ffffff26);border-radius:14px;background:var(--bg,#101216);color:var(--ink,#eeece7);font:13px system-ui;box-shadow:0 12px 50px #0008}
+.twcr-search-dialog::backdrop{background:#0008;backdrop-filter:blur(5px)}
+.twcr-search-dialog header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.twcr-search-dialog header button{width:36px;height:36px;border:0;background:none;color:inherit;cursor:pointer}
+.twcr-search-dialog svg,.twcr-search-open svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6}
+.twcr-search-dialog input{box-sizing:border-box;width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#ffffff26);border-radius:7px;background:var(--bg,#101216);color:inherit;font:14px system-ui}
+.twcr-search-results{max-height:45dvh;overflow:auto;margin:10px 0}
+.twcr-search-results button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:10px 4px;border:0;border-bottom:1px solid var(--line,#ffffff18);background:none;color:inherit;text-align:left;font:13px system-ui;cursor:pointer}
+.twcr-search-results small,.twcr-search-dialog>small{color:var(--muted,#aaa)}
+#market-unavailable-card.tw-radar-root .tw-chart-radar .market-line-price{position:relative;padding-right:34px!important}
+#market-unavailable-card.tw-radar-root .tw-chart-radar #tw-radar-ticker-pair::after{content:none!important}
+#market-unavailable-card.tw-radar-root .tw-chart-radar .twcr-search-open{position:absolute;top:2px;right:2px;display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:6px;padding:0;background:none;color:var(--ink,#eeece7);cursor:pointer}
+.twcr-workspace>.twcr-details{grid-column:1/-1;grid-row:2;min-width:0;margin-top:0}
+.twcr-workspace>.twcr-scanner{grid-column:2;grid-row:1}
+.twcr-series-note:empty{display:none}
+.tw-chart-radar.is-focused .twcr-details{display:none}
+.twcr-quote{flex:none}
+.twcr-date{color:var(--muted);font:9px/1.4 system-ui;white-space:nowrap}
+.tw-chart-radar .market-line-price label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default}
+.tw-chart-radar .market-line-item strong{font-variant-numeric:tabular-nums}
+.twcr-status{pointer-events:none}.twcr-status:empty{display:none}
+.twcr-pool-info{flex:none;padding:5px 8px;color:var(--muted);font:10px/1.4 system-ui}
+.twcr-scanner{display:flex;flex-direction:column;min-height:0}
+.twcr-results{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.twcr-card{position:relative;cursor:pointer}
+.twcr-card-price{font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+.twcr-card-turnover{display:flex;gap:4px;align-items:baseline;font-variant-numeric:tabular-nums;white-space:nowrap}
+.twcr-card-rank{color:var(--muted);font:9px/1.4 system-ui}
+.twcr-card .coin-symbol-full,.twcr-card .coin-symbol-mobile{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.twcr-name{font-weight:400;color:var(--muted)}
+.twcr-star{display:inline-grid;place-items:center;width:32px;height:32px;padding:8px;border:0;background:none;color:var(--muted);cursor:pointer}
+.twcr-star svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;pointer-events:none}
+.twcr-star.saved{color:#ffd86a;filter:drop-shadow(0 0 4px #ffd86a55)}.twcr-star.saved svg{fill:currentColor}
+.twcr-empty{padding:24px 10px;color:var(--muted);font:12px/1.6 system-ui}
+.twcr-classification-note{padding:0 10px 10px;color:var(--muted);font:11px/1.5 system-ui}.twcr-classification-note[hidden]{display:none}
+.twcr-tier-menu{position:fixed;z-index:12001;min-width:88px;display:grid;padding:4px;border:0;border-radius:8px;background:#171b20;color:#eeece7;box-shadow:0 6px 22px #0008,inset 0 0 0 1px #ffffff2b,0 0 8px #ffffff1c;animation:radar-tier-menu-in .24s cubic-bezier(.22,.8,.24,1)}
+.twcr-tier-menu button{min-height:36px;padding:6px 12px;border:0;border-radius:4px;background:none;color:inherit;text-align:left;font:500 12px/1.3 system-ui;cursor:pointer}
+.twcr-tier-menu button[aria-checked=true]{background:#ffffff0a;text-shadow:0 0 6px #ffffff85}
+.twcr-exit{position:absolute;top:8px;right:10px;z-index:90;width:28px;height:28px;border:1px solid #ffffff78;border-radius:50%;background:#12161cdd;color:var(--ink)}
+.twcr-exit svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.65}
+.twcr-tools .chart-tools-save{margin-top:14px}
+.tw-chart-radar button:focus-visible,.tw-chart-radar input:focus-visible,.twcr-card:focus-visible{outline:1px solid #ffffffb3;outline-offset:2px}
+body.tw-chart-focus .app-dock{visibility:hidden}
+@media(max-width:720px){
+ .twcr-card .coin-symbol-mobile{display:flex;flex-direction:column;gap:1px}
+ .twcr-card .twcr-name{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+ .twcr-card-price{font-size:12px}.twcr-desktop-change{display:none}.twcr-card-turnover{font-size:9px}
+ .twcr-card-rank{grid-column:1/-1;font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.twcr-tier-menu{animation:none}}
+
+.twcr-history-retry{justify-self:start;border:1px solid var(--line,#ffffff36);border-radius:5px;padding:5px 8px;background:transparent;color:var(--ink,#eeece7);font:11px/1.4 system-ui;cursor:pointer}
+
+body.ox-terminal dialog.twcr-tools{box-sizing:border-box;width:100%;height:100dvh;max-width:none;max-height:none;margin:0;border:0;outline:0}
+body.ox-terminal dialog.twcr-tools::backdrop{background:transparent}
+.twcr-tools .chart-tools-panel{padding-bottom:34px}
+.twcr-tools .chart-tier-filter{padding-bottom:0}

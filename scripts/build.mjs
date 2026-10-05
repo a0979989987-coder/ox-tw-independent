@@ -1,0 +1,24 @@
+import {build} from 'esbuild';
+import {readFile,writeFile,mkdir,cp,rm} from 'node:fs/promises';
+import {resolve,relative,dirname} from 'node:path';
+const root=resolve(import.meta.dirname,'..');
+const resolveVersion={name:'versioned-imports',setup(b){b.onResolve({filter:/^\./},args=>({path:resolve(args.resolveDir,args.path.split('?')[0])}));}};
+const browserURLs={name:'original-browser-urls',setup(b){b.onLoad({filter:/\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('import.meta.url',`new URL(${JSON.stringify('/'+relative(root,args.path))},location.href).href`),loader:'js',resolveDir:dirname(args.path)}));}};
+await mkdir(resolve(root,'src/generated'),{recursive:true});
+const entries=['/src/components/patterns/view.js','/src/markets/tw/patterns/source.js','/src/markets/tw/patterns/index-cache.js','/src/markets/tw/bubbles/view.js','/src/markets/tw/etf/view.js','/src/markets/tw/etf/savings.js'];
+const contents="import './src/app/app.js';\n"+entries.map((p,i)=>`import * as m${i} from '.${p}';`).join('\n')+`\nexport const tools={${entries.map((p,i)=>JSON.stringify(p)+`:m${i}`).join(',')}};`;
+await build({stdin:{contents,resolveDir:root,loader:'js'},bundle:true,format:'iife',globalName:'OXTWBundle',platform:'browser',minify:true,outfile:resolve(root,'src/generated/runtime.js'),plugins:[resolveVersion,browserURLs]});
+const runtime=await readFile(resolve(root,'src/generated/runtime.js'),'utf8');
+await writeFile(resolve(root,'src/generated/runtime.js'),runtime+'\nglobalThis.OXToolModules=OXTWBundle.tools;\n');
+await build({entryPoints:[resolve(root,'src/components/patterns/worker.js')],bundle:true,format:'esm',platform:'browser',minify:true,outfile:resolve(root,'src/generated/pattern-worker.js'),plugins:[resolveVersion]});
+await rm(resolve(root,'dist'),{recursive:true,force:true});
+await mkdir(resolve(root,'dist/client'),{recursive:true});
+for(const name of ['index.html','favicon.svg','src','data'])await cp(resolve(root,name),resolve(root,'dist/client',name),{recursive:true});
+const fsShim={name:'worker-assets',setup(b){
+ b.onResolve({filter:/^node:fs\/promises$/},()=>({path:'asset-fs',namespace:'asset-fs'}));
+ b.onLoad({filter:/.*/,namespace:'asset-fs'},()=>({contents:`import {Buffer} from 'node:buffer';export async function readFile(url,encoding){const r=await globalThis.__twAssets.fetch(new Request(new URL(url).href));if(!r.ok)throw Error('Snapshot unavailable');const b=Buffer.from(await r.arrayBuffer());return encoding?b.toString(encoding):b;}`,loader:'js'}));
+ b.onLoad({filter:/\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('import.meta.url',JSON.stringify('https://assets.local/'+relative(root,args.path))),loader:'js',resolveDir:dirname(args.path)}));
+}};
+await build({entryPoints:[resolve(root,'worker/index.js')],bundle:true,format:'esm',platform:'node',target:'es2022',minify:true,external:['node:*'],define:{'process.env':'globalThis.__twEnv'},outfile:resolve(root,'dist/server/index.js'),plugins:[resolveVersion,fsShim]});
+await mkdir(resolve(root,'dist/.openai'),{recursive:true});await cp(resolve(root,'.openai/hosting.json'),resolve(root,'dist/.openai/hosting.json'));
+console.log('Built independent Taiwan client and Worker');

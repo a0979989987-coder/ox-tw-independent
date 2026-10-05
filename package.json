@@ -1,0 +1,1 @@
+{"name":"ox-tw-independent","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"node scripts/dev-server.mjs","build":"node scripts/build.mjs","test":"node --test tests/*.test.mjs"},"dependencies":{"fast-xml-parser":"^5.11.1"},"devDependencies":{"esbuild":"0.25.12"}}

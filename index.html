@@ -1,0 +1,182 @@
+<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark light"><title>OX 台股｜台灣市場篩選器</title><meta name="description" content="台股雷達、型態畫板、泡泡圖、板塊輪動、ETF 與存股計算。"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><script src="src/components/loading-state.js"></script><script src="src/vendor/lightweight-charts-4.2.3.js"></script><link rel="stylesheet" href="src/styles/core/foundation.css?v=20261005-touch1"><link rel="stylesheet" href="src/styles/components/benchmark-alert-detail.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/layout/three-view-shell.css?v=20261004-markets2"><link rel="stylesheet" href="src/styles/releases/v31-ui-refinement.css?v=20261004-markets2"><link rel="stylesheet" href="src/styles/layout/command-center.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/navigation/compact-dock.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/navigation/final-dock.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/themes/light-system.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/themes/light-complete.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/themes/light-readability.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/control-center.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/layout/compact-header.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/feature-pack.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/mobile/watchlist-chart.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/mobile/direction-chart.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/releases/v361-strength-liquidation.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/themes/premium-glass.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/themes/liquid-glass.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/strength-liquidation.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/motion.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/mobile/btc-hero.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/layout/current-uiux.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/layout/responsive.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/releases/v37-existing-fixes.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/themes/ios-liquid-glass.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/releases/v37-last-mile.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/releases/v38-fluid-refinement.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/radar-light-tune.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/fullscreen-lightglass.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/feature-search-provider.css?v=20261005-weeklist4"><link rel="stylesheet" href="src/styles/components/news-center.css?v=20261005-glow-size15"><link rel="stylesheet" href="src/styles/themes/editorial-terminal.css?v=20261005-dockmenu"><link rel="stylesheet" href="src/styles/themes/editorial-radar.css?v=20261004-markets2"><link rel="stylesheet" href="src/styles/components/radar-detail-neon.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/chart-toolbar.css?v=20261004-markets2"><link rel="stylesheet" href="src/styles/components/chart-drawings.css?v=20261004-markets2"><link rel="stylesheet" href="src/styles/components/home-preview.css?v=20261004-markets2"><link rel="stylesheet" href="src/styles/components/radar-turnover.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/radar-combined.css?v=20261004-markets2"><link rel="stylesheet" href="src/styles/components/live-visibility.css?v=20261001-tiercomb2"><link rel="stylesheet" href="src/styles/components/control-menu-compact.css?v=20261004-markets2"><link rel="stylesheet" id="ox-tw-research-css" href="src/markets/tw/research-ui.css?v=20261005-homeflow7"><link rel="stylesheet" id="ox-tw-radar-css" href="src/markets/tw/radar-ui.css?v=20261005-wide2"><link rel="stylesheet" data-tw-chart-style href="src/markets/tw/chart-radar.css?v=20261002-filterlast1"><link rel="stylesheet" href="src/styles/themes/light-compat.css?v=20261005-graytop5"><link rel="stylesheet" href="src/styles/themes/light-platinum.css?v=20261005-glow-size15"><link rel="stylesheet" href="src/styles/components/simple-close.css?v=20261005-weeklist4"><link rel="stylesheet" href="src/styles/layout/mobile-content-width.css?v=20261005-gutters1"><link rel="stylesheet" href="src/styles/components/radar-polish.css?v=20261005-clarity1"><link rel="stylesheet" href="src/styles/standalone.css"></head><body class="ox-terminal" data-market="tw" data-view="radar"><header class="ox-shell-header">
+  <div class="wrap nav">
+    <span class="ox-mobile-location" data-terminal-view>台股</span>
+    <nav class="ox-desktop-nav" aria-label="桌面主要功能">
+      <button type="button" data-view-target="home">總覽</button>
+      <button type="button" data-view-target="strength">市場指標</button>
+      <button type="button" data-view-target="radar" class="active">雷達</button>
+      <button type="button" data-view-target="data">資訊</button>
+      <button type="button" data-view-target="media">OX Journal</button>
+    </nav>
+    <div class="nav-stats">
+      <button class="ox-menu-btn" id="ox-control-open" type="button" aria-label="開啟 OX 控制中心" aria-controls="ox-control-panel" aria-expanded="false">
+        <span class="ox-menu-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+      </button>
+    </div>
+  </div>
+</header><div class="wrap ox-live-shell" aria-live="polite">
+  <div class="ox-live-strip">
+    <span class="ox-live-badge">OX LIVE</span>
+    <div class="ox-live-window"><span id="ox-live-text">正在整理市場即時資訊…</span></div>
+  </div>
+</div><main class="wrap app-main"><div id="market-unavailable-card" class="market-unavailable-card" role="region" aria-label="台股市場"></div><section id="view-home" class="app-view " data-app-view="home" hidden></section><section id="view-strength" class="app-view " data-app-view="strength" hidden></section><section id="view-radar" class="app-view active" data-app-view="radar" hidden></section><section id="view-data" class="app-view" data-app-view="data" hidden><div data-news-surface="market"></div></section><section id="view-news" class="app-view" data-app-view="news" hidden><div data-news-surface="all"></div></section><section id="view-media" class="app-view" data-app-view="media" hidden><div class="tw-media"><h1>OX 台股</h1><p>從量能、結構與市場資金，找出值得打開 K 線確認的台股。</p><h2>市場工具</h2><p>型態畫板、泡泡圖、板塊輪動與台股雷達，搭配 ETF 精選與存股計算。</p><h2>交易觀察</h2><p>有流動性、有結構，並且看得懂的行情。篩選结果是觀察候選，仍需配合自己的進出場與風險規劃。</p></div></section></main><nav class="app-dock glass-nav" aria-label="主要功能">
+  <button class="dock-btn" type="button" data-view-target="home" aria-label="首頁">
+    <span class="dock-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.2 12 4l9 7.2v8.3a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 0 1 3 19.5z"/></svg></span><span>首頁</span>
+  </button>
+  <button class="dock-btn" type="button" data-view-target="strength" aria-label="指標">
+    <span class="dock-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18v-5M10 18V8M16 18V4M22 18V11"/></svg></span><span>指標</span>
+  </button>
+  <button class="dock-btn dock-radar active" type="button" data-view-target="radar" aria-label="雷達">
+    <span class="dock-radar-orb glass-orb" aria-hidden="true">
+      <svg class="dock-radar-logo" viewBox="0 0 450 439" aria-label="OX Radar Logo" role="img" focusable="false">
+        <g fill="currentColor">
+          <rect x="0" y="0" width="202" height="43"/><rect x="247" y="0" width="203" height="43"/>
+          <rect x="0" y="80" width="202" height="42"/><rect x="247" y="80" width="202" height="42"/>
+          <rect x="0" y="159" width="202" height="42"/><rect x="247" y="159" width="202" height="42"/>
+          <rect x="0" y="238" width="449" height="42"/>
+          <rect x="0" y="317" width="202" height="42"/><rect x="248" y="317" width="202" height="42"/>
+          <rect x="0" y="396" width="202" height="43"/><rect x="247" y="396" width="203" height="43"/>
+        </g>
+      </svg>
+    </span><span class="dock-radar-label">雷達</span>
+  </button>
+  <button class="dock-btn" type="button" data-view-target="data" aria-label="資訊">
+    <span class="dock-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V11m5 8V5m5 14v-7m5 7V8M3 20h18"/></svg></span><span>資訊</span>
+  </button>
+  <button class="dock-btn" id="ox-dock-menu" type="button" aria-label="選單" aria-controls="ox-control-panel" aria-expanded="false">
+    <span class="dock-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span><span>選單</span>
+  </button>
+</nav><dialog id="tw-menu" aria-label="台股選單"><header><strong>OX 台股</strong><button type="button" data-menu-close aria-label="關閉選單">×</button></header><button type="button" data-view-target="media">媒體</button><div class="tw-theme-options" aria-label="主題"><button data-theme="dark">深色</button><button data-theme="light">白金</button><button data-theme="system">自動</button></div><label class="tw-live-choice">OX LIVE<input type="checkbox" id="tw-live-choice" checked></label></dialog><section class="app-view active" id="radar-template" hidden inert aria-hidden="true" data-app-view="radar">
+
+
+
+  <section class="top-summary compact-summary">
+    <div class="metric-card market-line-card">
+      <div class="market-line-item market-line-price">
+        <label id="ticker-pair">2330 · TWSE</label>
+        <strong id="price">—</strong>
+        <small id="ticker-meta">等待行情資料中…</small>
+      </div>
+      <div class="market-line-item">
+        <label>24H 漲跌幅</label>
+        <strong id="change">—</strong>
+        <small id="btc-rel">相對 台股：—</small>
+      </div>
+      <div class="market-line-item">
+        <label>24H 成交額</label>
+        <strong id="quote">—</strong>
+        <small id="quote-rank">全市場百分位：—</small>
+      </div>
+      <div class="market-line-item radar-analysis-cell">
+        <label>OX 綜合評分</label>
+        <strong id="ox-score">—</strong>
+        <small id="ox-tier-label">分級：待評定</small>
+      </div>
+      <div class="market-line-item radar-analysis-cell">
+        <label>主導 Setup 型態</label>
+        <strong id="ox-setup">—</strong>
+        <small id="ox-rs-desc">RS 狀態：—</small>
+      </div>
+    </div>
+  </section>
+
+  <div class="workspace">
+    <article class="panel chart-box">
+      <h2 class="panel-title ox-chart-ghost-title" id="chart-head-title"><span>2330 永續合約</span></h2>
+
+      <button class="btn-act" id="btn-chart-exit-overlay" type="button" aria-label="收合圖表" title="收合圖表"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v6H3m18 0h-6V3M3 15h6v6m6 0v-6h6"/></svg></button>
+
+      <div class="chart-controls">
+        <div class="ctrl-group chart-timeframe-group">
+          <div class="chart-timeframe-strip" id="chart-timeframe-strip" aria-label="圖表時間級別">
+          <button class="btn-tf" data-tf="1m">1m</button>
+          <button class="btn-tf" data-tf="5m">5m</button>
+          <button class="btn-tf" data-tf="15m">15m</button>
+          <button class="btn-tf" data-tf="1H">1H</button>
+          <button class="btn-tf" data-tf="4H">4H</button>
+          <button class="btn-tf active" data-tf="1D">1D</button>
+          <button class="btn-tf" data-tf="1W" title="再次點擊設定時間級別">1W<span class="tf-hint" aria-hidden="true">▾</span></button>
+          </div>
+        </div>
+        <div class="ctrl-group chart-tool-actions">
+          <button class="chart-tool-icon indicator-open-button" id="chart-indicator-open" type="button" aria-label="指標與篩選設定" aria-haspopup="dialog" title="指標與篩選設定"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h4m4 0h8M4 12h10m4 0h2M4 18h2m4 0h10"/><circle cx="10" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/></svg></button>
+          <button class="chart-tool-icon" id="radar-scanner-toggle" type="button" aria-label="收起右側雷達" title="收起右側雷達" aria-expanded="true" aria-controls="radar-scanner-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="btn-act ox-chart-expand-dot" id="btn-chart-fullscreen" type="button" aria-label="展開圖表" aria-pressed="false" title="展開圖表"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m6 0h6v-6"/></svg></button>
+        </div>
+      </div>
+
+      <div id="chart" class="chart-container">
+        <div id="chart-loading" class="chart-loading-overlay">載入歷史 K 線中…</div>
+        <div id="chart-key-labels" class="chart-key-labels" aria-hidden="true"></div>
+        <div id="price-timer" class="price-timer">—</div>
+      </div>
+      <div class="chart-quickbar" hidden>
+        <div class="chart-quickitem"><label>24H 漲跌</label><strong id="quick-change">—</strong></div>
+        <div class="chart-quickitem quick-volume-item"><label>24H TWD 成交量</label><strong id="quick-volume">—</strong></div>
+        <div class="chart-quickitem"><label>前高</label><strong id="quick-high">—</strong></div>
+        <div class="chart-quickitem"><label>前低</label><strong id="quick-low">—</strong></div>
+      </div>
+    </article>
+
+    <aside class="panel" id="radar-scanner-panel">
+      <div class="scanner-tabs" role="tablist" aria-label="雷達分級">
+        <button class="tab-btn radar-combined-tab active" data-tab="all" aria-haspopup="menu" aria-expanded="false" aria-controls="radar-tier-menu" type="button" aria-label="雷達：依序顯示 T1、T2、T3" title="T1 / T2 / T3 雷達">
+          <span class="radar-combined-mark">
+            <svg class="radar-combined-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="9"/>
+              <circle cx="12" cy="12" r="4.5"/>
+              <path d="M12 12 18.4 5.6"/>
+              <circle cx="7.5" cy="15.5" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+            <span class="radar-tier-current" aria-hidden="true"></span>
+            <span class="radar-combined-chevron" data-radar-tier-cycle aria-hidden="true">▼</span>
+          </span>
+        </button>
+        <button class="tab-btn" data-tab="surge" aria-label="合約 24H 成交額前 50 名" title="合約 24H 成交額前 50 名"><svg class="radar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3c1 5-4 6-3 10 2-1 3-3 3-3 4 3 5 5 4 8-1 3-7 4-10 0-3-5 2-8 6-15Z"/></svg> <span class="tab-badge" id="badge-surge">0</span></button>
+        <button class="tab-btn" data-tab="watch" aria-label="自選清單" title="自選清單"><span class="watch-tab-desktop">自選</span><span class="watch-tab-mobile"><svg class="radar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></span> <span class="tab-badge" id="badge-watch">0</span></button>
+        <button class="direction-toggle-btn is-long chart-tool-icon" id="direction-toggle" type="button" aria-label="目前多頭，點擊切換空頭" aria-pressed="false" title="目前：多頭模式；點擊切換空頭"><span class="direction-toggle-icon" aria-hidden="true">↑</span></button>
+      </div>
+      <span id="pool-count" hidden aria-live="polite">掃描中…</span>
+      <div id="radar-tier-menu" role="menu" aria-label="雷達分級" hidden>
+        <button type="button" role="menuitemradio" data-radar-tier="all" aria-checked="true">全部</button>
+        <button type="button" role="menuitemradio" data-radar-tier="t1" aria-checked="false">T1</button>
+        <button type="button" role="menuitemradio" data-radar-tier="t2" aria-checked="false">T2</button>
+        <button type="button" role="menuitemradio" data-radar-tier="t3" aria-checked="false">T3</button>
+      </div>
+      <div id="screener-list" class="scanner-body">
+        <div style="padding:24px;text-align:center;color:var(--muted)">正在初始化 TWSE 全市場資料…</div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="panel detail-panel" id="ox-detail-panel">
+    <div class="panel-head">
+      <h3 class="panel-title">OX 股票詳情 · <span id="detail-symbol">2330</span></h3>
+      <span class="pill" id="detail-tier">Benchmark</span>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-cell"><label>OX Score</label><strong id="detail-ox">—</strong></div>
+      <div class="detail-cell"><label>流動性</label><strong id="detail-liq">—</strong></div>
+      <div class="detail-cell"><label>資金活躍</label><strong id="detail-flow">—</strong></div>
+      <div class="detail-cell"><label>結構</label><strong id="detail-structure">—</strong></div>
+      <div class="detail-cell"><label>Relative Strength</label><strong id="detail-rs">—</strong></div>
+      <div class="detail-cell"><label>Setup</label><strong id="detail-setup">—</strong></div>
+      <div class="detail-cell"><label>方向</label><strong id="detail-side">—</strong></div>
+      <div class="detail-cell"><label>Setup Progress</label><strong id="detail-progress-text">—</strong><div class="detail-progress"><i id="detail-progress-bar"></i></div></div>
+      <div class="detail-cell"><label>入選狀態</label><strong id="detail-confidence">—</strong></div>
+      <div class="detail-cell"><label>Trigger</label><strong id="detail-trigger">—</strong></div>
+      <div class="detail-cell detail-volume-cell"><label>24H TWD 成交量</label><strong id="detail-volume">—</strong></div>
+      <div class="detail-cell"><label>前高 / 前低</label><strong id="detail-levels">—</strong></div>
+    </div>
+    <div class="detail-reasons">
+      <h4>為什麼 OX 選到這顆？</h4>
+      <div id="detail-reasons-list"><div class="detail-reason wait">等待分析資料…</div></div>
+    </div>
+    <div class="alert-state-row">
+      <span class="alert-chip" id="detail-high-alert">前高提醒：未設定</span>
+      <span class="alert-chip" id="detail-low-alert">前低提醒：未設定</span>
+      <span class="alert-chip">小級別看圖時，提醒自動使用 4H 結構關鍵位</span>
+    </div>
+  </section>
+
+  </section><div id="toast" class="toast" role="status"></div><script src="src/components/chart/gestures.js"></script><script src="src/components/chart/drawings.js"></script><script src="src/components/radar/timeframe-filters.js"></script><script src="src/components/news/center.js"></script><script src="src/app/module-boot.js"></script></body></html>
