@@ -54,7 +54,7 @@ function playReplay(s) {
   if (prefs.replayIndex === null) { s.replayMode = chartMode(); prefs.replayIndex = 0; s.replayData = { ...data, history: [...(data?.history || [])] }; paint(s); }
   s.player?.play();
 }
-function chartHeight() { if (session?.plotHeight && window.innerWidth < 900) return session.plotHeight; return typeof window !== 'undefined' && window.innerWidth < 900 ? Math.max(640, Math.min(1100, (window.innerHeight - 200) * 480 / Math.max(280, window.innerWidth - 24))) : 620; }
+function chartHeight() { if (session?.plotHeight && window.innerWidth < 900) return session.plotHeight; return typeof window !== 'undefined' && window.innerWidth < 900 ? Math.max(720, Math.min(1400, (window.innerHeight - 140) * 480 / Math.max(280, window.innerWidth - 24))) : 620; }
 function chartOptions() { return { ...prefs, height: chartHeight(), density: prefs.scope === 'watch' ? 'all' : prefs.density }; }
 function buildReplayFrames() {
   const mode = chartMode();
@@ -170,10 +170,9 @@ function indicatorContent() {
   for (const s of valid) counts[quadrant(s.x, s.y)]++;
   const labels = mode === 'momentum' ? ['流入加速', '流入放緩', '流出收斂', '流出加速'] : ['買超上漲', '買超下跌', '賣超上漲', '賣超下跌'];
   const hints = mode === 'momentum' ? ['淨買超且力道增強', '淨買超但力道放緩', '淨賣超但賣壓減弱', '淨賣超且賣壓增強'] : ['當日淨買超且上漲', '當日淨買超且下跌', '當日淨賣超且上漲', '當日淨賣超且下跌'];
-  const days = (data?.history || []).filter(h => h.sectors?.length).length;
   const replayDay = prefs.replayIndex === null ? null : historyDays()[Math.floor(prefs.replayIndex)];
-  const caption = replayDay ? `歷史回放 ${escape(replayDay.date)} · ${mode === 'momentum' ? '法人資金動向' : '當日價量'}` : mode === 'momentum' ? `主題板塊 · 資金資料完整 ${valid.length}／${all.length} 類` : `主題板塊 · 當日價量${days < 20 ? ` · 歷史 ${days}／20 日` : ''}`;
-  return `<div class="twx-visual"><section class="twx-glass twx-chart-panel">${chartToolbar(mode, replayDay)}<small class="twx-chart-method">${caption}</small>${prefs.tab === 'rank' ? segments('sort', [['buy', '買超'], ['sell', '賣超'], ['up', '漲幅'], ['down', '跌幅']], prefs.sort) : ''}<div class="twx-chart-content">${results()}</div>${prefs.replayIndex !== null ? replayControls() : ''}${prefs.tab === 'bubble' ? chartActions() : ''}</section><div class="twx-tools">${segments('tab', [['bubble', '泡泡圖'], ['rank', '排行']], prefs.tab)}</div></div><div class="twx-below-chart"><div class="twx-quadrants">${labels.map((label, i) => `<button type="button" data-quadrant="${i}" aria-label="${label}：${hints[i]}" title="${hints[i]}" aria-pressed="${prefs.quadrant === i}" class="q${i}"><small>${label}</small><strong>${data && valid.length ? counts[i] : '—'}</strong></button>`).join('')}</div><div class="twx-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="搜尋股票或板塊" placeholder="搜尋股票或板塊" value="${escape(prefs.query)}"></div></div><div class="twx-sector-list">${all.map(s => `<button type="button" data-sector="${escape(s.name)}"><span>${escape(s.name)}</span><b class="${direction(mode === 'momentum' ? s.flow5 : s.flow)}">${mode === 'momentum' && !Number.isFinite(s.momentum) ? '歷史不足' : money(mode === 'momentum' ? s.flow5 : s.flow)}</b></button>`).join('') || '<div class="twx-empty">尚無對應產業，請先在台股雷達收藏股票。</div>'}</div>`;
+  const caption = replayDay ? `歷史回放 ${escape(replayDay.date)} · ${mode === 'momentum' ? '法人資金動向' : '當日價量'}` : '';
+  return `<div class="twx-visual"><div class="twx-tools twx-view-tabs">${segments('tab', [['bubble', '泡泡圖'], ['rank', '排行']], prefs.tab)}</div><section class="twx-glass twx-chart-panel">${chartToolbar(mode, replayDay)}${caption ? `<small class="twx-chart-method">${caption}</small>` : ''}${prefs.tab === 'rank' ? segments('sort', [['buy', '買超'], ['sell', '賣超'], ['up', '漲幅'], ['down', '跌幅']], prefs.sort) : ''}<div class="twx-chart-content">${results()}</div>${prefs.replayIndex !== null ? replayControls() : ''}${prefs.tab === 'bubble' ? chartActions() : ''}</section></div><div class="twx-below-chart"><div class="twx-quadrants">${labels.map((label, i) => `<button type="button" data-quadrant="${i}" aria-label="${label}：${hints[i]}" title="${hints[i]}" aria-pressed="${prefs.quadrant === i}" class="q${i}"><small>${label}</small><strong>${data && valid.length ? counts[i] : '—'}</strong></button>`).join('')}</div><div class="twx-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="搜尋股票或板塊" placeholder="搜尋股票或板塊" value="${escape(prefs.query)}"></div></div><div class="twx-sector-list">${all.map(s => `<button type="button" data-sector="${escape(s.name)}"><span>${escape(s.name)}</span><b class="${direction(mode === 'momentum' ? s.flow5 : s.flow)}">${mode === 'momentum' && !Number.isFinite(s.momentum) ? '歷史不足' : money(mode === 'momentum' ? s.flow5 : s.flow)}</b></button>`).join('') || '<div class="twx-empty">尚無對應產業，請先在台股雷達收藏股票。</div>'}</div>`;
 }
 function paint(s) {
   if (session !== s) return;
@@ -193,8 +192,7 @@ function paint(s) {
     const svg = s.root.querySelector('.twx-bubbles'); if (!svg) return;
     const rect = svg.getBoundingClientRect(), dock = document.querySelector('.app-dock')?.getBoundingClientRect();
     const bottom = Math.min(window.innerHeight - 16, dock?.top > 0 ? dock.top - 12 : window.innerHeight - 100);
-    const footer = s.root.querySelector('.twx-chart-actions')?.offsetHeight || 32;
-    s.plotHeight = Math.max(640, Math.min(1100, (bottom - Math.max(0, rect.top) - footer - 18) * 480 / Math.max(280, rect.width)));
+    s.plotHeight = Math.max(720, Math.min(1400, (bottom - Math.max(0, rect.top) + 24) * 480 / Math.max(280, rect.width)));
     if (Math.abs(s.plotHeight - svg.viewBox.baseVal.height) > 4) paint(s);
   });
 }

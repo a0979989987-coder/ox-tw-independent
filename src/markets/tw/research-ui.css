@@ -286,3 +286,7 @@ body.theme-light .twx-chart-help{background:#f2f4f4;color:#525c58;border-color:#
  .twx-chart-actions .twx-segments button{padding:3px 4px;font-size:9px}
  .twx-chart-hint>span:last-child{display:none}
 }
+
+/* Keep the view switch above both layouts as ranking grows below it. */
+.twx-view-tabs{margin:0 0 8px;overflow-anchor:none}
+@media(max-width:899px){.twx[data-twx-view="strength"] .twx-view-tabs{margin:0 0 8px}}
