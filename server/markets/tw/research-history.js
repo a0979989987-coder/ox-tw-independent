@@ -1,6 +1,6 @@
 import { aggregateThemes } from '../../../src/markets/tw/sector-groups.js';
 import { SECTOR_TAXONOMY_VERSION } from '../../../src/markets/tw/sector-taxonomy.js';
-import { officialJSON, reportTables, numeric, loadInstitutional, joinResearchStocks, aggregateSectors } from './research.js';
+import { officialJSON, reportTables, numeric, loadInstitutional, joinResearchStocks, aggregateSectors, RESEARCH_COVERAGE_VERSION } from './research.js';
 export function normalizeHistoricalQuotes(payload, market, date, companies) {
   const returnedDate = String(payload.date || '').replace(/[^0-9]/g, '');
   if (returnedDate && returnedDate !== date.replaceAll('-', '')) throw new Error('Historical quote date mismatch');
@@ -29,6 +29,8 @@ export async function collectHistoryDay(date, companies) {
   ]);
   const quotes = [...normalizeHistoricalQuotes(twse,'TWSE',date,companies), ...normalizeHistoricalQuotes(tpex,'TPEX',date,companies)];
   if (!quotes.some(q=>q.market==='TWSE') || !quotes.some(q=>q.market==='TPEX')) throw new Error('No aligned official quotes');
+  if (!twseFlow.report.complete || !tpexFlow.report.complete) throw new Error('Incomplete institutional history report');
   const stocks = joinResearchStocks(quotes,[twseFlow,tpexFlow],date);
-  return { date, sectors: aggregateSectors(stocks), themes: aggregateThemes(stocks), themeVersion: SECTOR_TAXONOMY_VERSION };
+  return { date, sectors: aggregateSectors(stocks), themes: aggregateThemes(stocks), themeVersion: SECTOR_TAXONOMY_VERSION, coverageVersion: RESEARCH_COVERAGE_VERSION,
+    sourceHealth: { TWSE: twseFlow.report, TPEX: tpexFlow.report } };
 }

@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/tw-research.test.mjs tests/tw-radar-close-source.test.mjs
+      - run: node --test tests/tw-research.test.mjs tests/tw-research-coverage.test.mjs tests/tw-radar-close-source.test.mjs
       - name: Collect radar with bounded source retries
         run: |
           for attempt in 1 2 3; do

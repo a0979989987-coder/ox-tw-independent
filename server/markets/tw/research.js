@@ -2,6 +2,7 @@ import { aggregateThemes, enrichThemeSnapshot } from '../../../src/markets/tw/se
 import { SECTOR_TAXONOMY_VERSION } from '../../../src/markets/tw/sector-taxonomy.js';
 /** Official daily institutional research. Amounts are estimates, never turnover-as-flow. */
 export const numeric = value => value == null || String(value).trim() === '' || !Number.isFinite(Number(String(value).replace(/,/g, ''))) ? null : Number(String(value).replace(/,/g, ''));
+export const RESEARCH_COVERAGE_VERSION = 'complete-market-report-v2';
 const clean = value => String(value ?? '').replace(/<[^>]*>/g, '').replace(/[\s（）()]/g, '');
 export function reportTables(payload) {
   const tables = [...(payload?.tables || []), payload];
@@ -15,9 +16,10 @@ export function normalizeInstitutional(payload, market, date) {
   const index = names => table.fields.findIndex(f => names.includes(f));
   const symbol = index(['證券代號', '代號']);
   const total = table.fields.findIndex(f => /三大法人買賣超/.test(f));
-  const foreign = index(['外陸資買賣超股數不含外資自營商', '外資及陸資不含外資自營商買賣超股數', '外資及陸資買賣超股數']);
-  const trust = index(['投信買賣超股數']);
-  const dealer = index(['自營商買賣超股數']);
+  const groupedTPEx = market === 'TPEX' && table.fields.length === 24 && table.fields[0] === '代號' && table.fields[4] === '買賣超股數' && total === 23;
+  const foreign = groupedTPEx ? 4 : index(['外陸資買賣超股數不含外資自營商', '外資及陸資不含外資自營商買賣超股數', '外資及陸資買賣超股數']);
+  const trust = groupedTPEx ? 13 : index(['投信買賣超股數']);
+  const dealer = groupedTPEx ? 22 : index(['自營商買賣超股數']);
   if (symbol < 0 || total < 0) throw new Error(`${market}: unsupported institutional schema`);
   return table.data.map(row => ({ symbol: String(row[symbol]).trim(), market, date,
     netShares: numeric(row[total]), foreignShares: numeric(row[foreign]), trustShares: numeric(row[trust]), dealerShares: numeric(row[dealer])
@@ -40,16 +42,34 @@ export async function loadInstitutional(date, market, fetcher = fetch) {
   if (normalizedDate.length === 8 && normalizedDate !== compact) throw new Error('Institutional date mismatch');
   // TWSE returns the requested trading date. Reject silently substituted dates.
   if (market === 'TWSE' && payload.date && payload.date !== compact) throw new Error('Institutional date mismatch');
-  return normalizeInstitutional(payload, market, date);
+  const rows = normalizeInstitutional(payload, market, date);
+  const raw = [...(payload.tables || []), payload].find(t => Array.isArray(t?.fields) && t.fields.some(f => /三大法人買賣超/.test(String(f))) && Array.isArray(t.data));
+  // A whole-market daily report is sparse: securities without institutional
+  // activity are not listed. Only a dated, successful, unpaginated report may
+  // establish their zero net activity; failures and sample feeds stay unknown.
+  const reportedDate = raw?.date ? String(raw.date).replace(/[^0-9]/g, '') : returnedDate;
+  const fullDate = reportedDate.length === 7 ? String(Number(reportedDate.slice(0,3)) + 1911) + reportedDate.slice(3) : reportedDate;
+  const complete = String(payload.stat).toLowerCase() === 'ok' && fullDate === compact && rows.length >= 500 &&
+    new Set(rows.map(r => r.symbol)).size === rows.length &&
+    raw.data.filter(row => /^\d{4,6}$/.test(String(row[0]).trim())).length === rows.length &&
+    (!Number.isFinite(raw?.totalCount) || raw.totalCount === raw.data.length);
+  rows.report = { market, date, complete, rows: rows.length, version: RESEARCH_COVERAGE_VERSION };
+  return rows;
 }
 export function joinResearchStocks(quotes, feeds, date) {
   const map = new Map(feeds.flat().filter(row => row.date === date).map(row => [`${row.market}:${row.symbol}`, row]));
+  const complete = new Set(feeds.filter(feed => feed?.report?.complete && feed.report.date === date &&
+    feed.report.rows === feed.length && feed.filter(row => row.date === date && row.market === feed.report.market).length === feed.length &&
+    quotes.filter(q => q.market === feed.report.market && q.dataDate === date).filter(q => map.has(`${q.market}:${q.symbol}`)).length >=
+      quotes.filter(q => q.market === feed.report.market && q.dataDate === date).length * .85).map(feed => feed.report.market));
   return quotes.filter(q => q.dataDate === date).map(q => {
-    const flow = map.get(`${q.market}:${q.symbol}`);
+    const observed = map.get(`${q.market}:${q.symbol}`);
+    const flow = observed || (complete.has(q.market) ? { netShares: 0, foreignShares: 0, trustShares: 0, dealerShares: 0 } : null);
     const estimated = shares => numeric(shares) === null || !(q.price > 0) ? null : shares * q.price;
     return { symbol: q.symbol, name: q.name, market: q.market, industry: q.industry || '未分類', price: q.price,
       changePct: q.changePct, turnoverTwd: q.turnoverTwd,
-      netTwd: estimated(flow?.netShares), foreignTwd: estimated(flow?.foreignShares), trustTwd: estimated(flow?.trustShares), dealerTwd: estimated(flow?.dealerShares) };
+      netTwd: estimated(flow?.netShares), foreignTwd: estimated(flow?.foreignShares), trustTwd: estimated(flow?.trustShares), dealerTwd: estimated(flow?.dealerShares),
+      flowBasis: observed ? 'reported' : flow ? 'not-listed-in-complete-report' : 'unavailable' };
   });
 }
 export function aggregateSectors(stocks) {
@@ -95,6 +115,6 @@ export function enrichResearch(snapshot, history = []) {
     sector.flow20 = complete(20) ? window.reduce((n, s) => n + s.flow, 0) : null;
     sector.momentum = sector.flow5 !== null && sector.flow20 !== null ? sector.flow5 / 5 - sector.flow20 / 20 : null;
   }
-  return { ...snapshot, sectors, ...enrichThemeSnapshot(snapshot, dates), history: dates.slice(-40).map(d => ({ date: d.date, sectors: d.sectors || aggregateSectors(d.stocks || []), themes: d.stocks ? aggregateThemes(d.stocks) : d.themes || [], themeVersion: d.stocks ? SECTOR_TAXONOMY_VERSION : d.themeVersion })),
+  return { ...snapshot, sectors, ...enrichThemeSnapshot(snapshot, dates), history: dates.slice(-40).map(d => ({ date: d.date, sectors: d.sectors || aggregateSectors(d.stocks || []), themes: d.stocks ? aggregateThemes(d.stocks) : d.themes || [], themeVersion: d.stocks ? SECTOR_TAXONOMY_VERSION : d.themeVersion, coverageVersion: d.coverageVersion, sourceHealth: d.sourceHealth })),
     methodology: 'net-shares-times-daily-close-v1', realtime: false };
 }

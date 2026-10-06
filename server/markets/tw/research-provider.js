@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { getOfficialTWRadar } from '../../../api/v1/tw/providers/radar.js';
-import { loadInstitutional, joinResearchStocks, enrichResearch, retainResearchFlows } from './research.js';
+import { loadInstitutional, joinResearchStocks, enrichResearch, retainResearchFlows, RESEARCH_COVERAGE_VERSION } from './research.js';
 let cache, pending;
 export async function getOfficialTWResearch({refresh=false}={}) {
   if (!refresh && cache && Date.now() - cache.savedAt < 300000) return cache.data;
@@ -14,9 +14,9 @@ export async function getOfficialTWResearch({refresh=false}={}) {
     const results = await Promise.allSettled(['TWSE', 'TPEX'].map(market => loadInstitutional(date, market)));
     let history = [];
     try { history = JSON.parse(await readFile(new URL('../../../data/tw-research-history.json', import.meta.url), 'utf8')); } catch { /* First collection. */ }
-    const sourceHealth = Object.fromEntries(results.map((r, i) => [['TWSE', 'TPEX'][i], { ok: r.status === 'fulfilled', rows: r.value?.length || 0 }]));
+    const sourceHealth = Object.fromEntries(results.map((r, i) => [['TWSE', 'TPEX'][i], { ok: r.status === 'fulfilled', rows: r.value?.length || 0, complete: r.value?.report?.complete === true }]));
     const stocks = joinResearchStocks(universe.radar, results.map(r => r.status === 'fulfilled' ? r.value : []), date);
-    const data = enrichResearch(retainResearchFlows({ date, updatedAt: new Date().toISOString(), stocks, sourceHealth },previous), history);
+    const data = enrichResearch(retainResearchFlows({ date, updatedAt: new Date().toISOString(), stocks, sourceHealth, coverageVersion: RESEARCH_COVERAGE_VERSION },previous), history);
     cache = { savedAt: Date.now(), data };
     return data;
   })().finally(() => { pending = null; });
