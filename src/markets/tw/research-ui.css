@@ -287,6 +287,9 @@ body.theme-light .twx-chart-help{background:#f2f4f4;color:#525c58;border-color:#
  .twx-chart-hint>span:last-child{display:none}
 }
 
-/* Keep the view switch above both layouts as ranking grows below it. */
-.twx-view-tabs{margin:0 0 8px;overflow-anchor:none}
-@media(max-width:899px){.twx[data-twx-view="strength"] .twx-view-tabs{margin:0 0 8px}}
+
+
+.twx-sector-market{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;font-size:12px;color:var(--tx-muted)}
+.twx-sector-market select{height:32px;min-width:100px;padding:0 10px;border:1px solid #ffffff30;border-radius:12px;background:#ffffff08;color:var(--tx-ink)}
+body.theme-light .twx-sector-market select{border-color:#bcc4c4;background:#f2f4f4;color:#252b2c}
+@media(max-width:480px){.twx-chart-tools .twx-segments button{font-size:9px;padding:3px 4px}.twx-chart-tools [data-sector-picker]{font-size:9px;padding:0 4px}.twx-chart-tools>[data-replay]{font-size:9px;padding:0 5px}}
