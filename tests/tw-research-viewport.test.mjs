@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bubbleLayout, zoomBubbleLayout, drawBubbleAxes } from '../src/markets/tw/research-bubbles.js';
+import { bubbleChart, bubbleLayout, zoomBubbleLayout, drawBubbleAxes } from '../src/markets/tw/research-bubbles.js';
 import { drawReplayFrame, replayFrames, replayFrameAt, createReplayPlayer } from '../src/markets/tw/research-replay.js';
 
 const sectors = Array.from({ length: 110 }, (_, i) => ({ name: `板塊${i}`, flow: (i - 54) * 1e8,
@@ -71,4 +71,29 @@ test('zooming a paused replay retains its fractional position and resumes using 
   assert.ok(player.position > .4);
   assert.equal(displayed.length, 110);
   player.destroy();
+});
+
+
+test('landscape desktop uses the full width and keeps true axes through zoom and replay', () => {
+  const layout = bubbleLayout(sectors, 'day', { width: 1280, height: 640 });
+  assert.equal(layout.cx, 640);
+  assert.equal(layout.points.length, 110);
+  assert.ok(Math.max(...layout.points.map(p => p.ax)) - Math.min(...layout.points.map(p => p.ax)) > 850);
+  for (const p of layout.points) {
+    closeTo(layout.xScale.value((p.ax - layout.cx) / (152 * layout.horizontalStretch)) / 1e8, p.x / 1e8);
+    closeTo(layout.yScale.value((layout.cy - p.ay) / (152 * layout.stretch)), p.y);
+  }
+  const html = bubbleChart(sectors, 'day', '', { layout });
+  assert.match(html, /viewBox="0 0 1280 640"/);
+  assert.match(html, /width="1197"/);
+  assert.equal((html.match(/data-x-tick=/g) || []).length, 5);
+  const moved = zoomBubbleLayout(layout, { zoom: 2, panX: 100 });
+  assert.equal(moved.cx, 740);
+  for (let i = 0; i < layout.points.length; i++) {
+    closeTo(moved.points[i].ax, 740 + (layout.points[i].ax - 640) * 2);
+    assert.equal(moved.points[i].radius, layout.points[i].radius);
+  }
+  const frames = replayFrames([{ date: '2026-10-01', sectors }, { date: '2026-10-02', sectors }], 'day', { width: 1280, height: 640 });
+  assert.equal(frames[0].width, 1280);
+  assert.equal(replayFrameAt(frames, .5).length, 110);
 });

@@ -54,8 +54,8 @@ function playReplay(s) {
   if (prefs.replayIndex === null) { s.replayMode = chartMode(); prefs.replayIndex = 0; s.replayData = { ...data, history: [...(data?.history || [])] }; paint(s); }
   s.player?.play();
 }
-function chartHeight() { if (session?.plotHeight && window.innerWidth < 900) return session.plotHeight; return typeof window !== 'undefined' && window.innerWidth < 900 ? Math.max(720, Math.min(1400, (window.innerHeight - 140) * 480 / Math.max(280, window.innerWidth - 24))) : 620; }
-function chartOptions() { return { ...prefs, height: chartHeight(), density: prefs.scope === 'watch' ? 'all' : prefs.density }; }
+function chartHeight() { if (session?.plotHeight && window.innerWidth < 900) return session.plotHeight; return typeof window !== 'undefined' && window.innerWidth < 900 ? Math.max(720, Math.min(1400, (window.innerHeight - 140) * 480 / Math.max(280, window.innerWidth - 24))) : Math.max(460, Math.min(850, window.innerHeight - 280)); }
+function chartOptions() { const width = window.innerWidth >= 900 ? Math.max(480, Math.round(session?.root.querySelector('.twx-chart-content')?.getBoundingClientRect().width || (session?.root.clientWidth || window.innerWidth) - 350)) : 480; return { ...prefs, width, height: chartHeight(), density: prefs.scope === 'watch' ? 'all' : prefs.density }; }
 function buildReplayFrames() {
   const mode = chartMode();
   return replayFrames(historyDays().map(day => ({ ...day, sectors: replaySectors(day).filter(sector => {
@@ -294,9 +294,9 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
     const chart = root.querySelector('.twx-bubbles'); if (!a || !b || !chart) return;
     const rect = chart.getBoundingClientRect();
     const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    const point = { x: (center.x - rect.left) * 480 / rect.width, y: (center.y - rect.top) * chart.viewBox.baseVal.height / rect.height };
+    const point = { x: (center.x - rect.left) * chart.viewBox.baseVal.width / rect.width, y: (center.y - rect.top) * chart.viewBox.baseVal.height / rect.height };
     pinch = { distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), zoom: prefs.zoom,
-      x: (point.x - 240 - prefs.panX) / prefs.zoom, y: (point.y - (chart.viewBox.baseVal.height - 6) / 2 - prefs.panY) / prefs.zoom };
+      x: (point.x - chart.viewBox.baseVal.width / 2 - prefs.panX) / prefs.zoom, y: (point.y - (chart.viewBox.baseVal.height - 6) / 2 - prefs.panY) / prefs.zoom };
     drag = null;
     s.interacting = true; pauseReplay(s);
     for (const id of touches.keys()) if (!root.hasPointerCapture(id)) root.setPointerCapture(id);
@@ -309,7 +309,7 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
     }
     if (prefs.zoom <= 1) return;
     const rect = chart.getBoundingClientRect();
-    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: prefs.panX, panY: prefs.panY, scale: 480 / rect.width, moved: false };
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: prefs.panX, panY: prefs.panY, scale: chart.viewBox.baseVal.width / rect.width, moved: false };
   }, { signal: s.controller.signal });
   root.addEventListener('pointermove', event => {
     if (touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -318,11 +318,11 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
       const chart = root.querySelector('.twx-bubbles'); if (!chart) return;
       const rect = chart.getBoundingClientRect();
       const distance = Math.hypot(a.x - b.x, a.y - b.y);
-      const x = ((a.x + b.x) / 2 - rect.left) * 480 / rect.width;
+      const x = ((a.x + b.x) / 2 - rect.left) * chart.viewBox.baseVal.width / rect.width;
       const y = ((a.y + b.y) / 2 - rect.top) * chart.viewBox.baseVal.height / rect.height;
       prefs.zoom = Math.max(minChartZoom(), Math.min(8, pinch.zoom * distance / pinch.distance));
       const bound = prefs.zoom * 170;
-      prefs.panX = Math.max(-bound, Math.min(bound, x - 240 - pinch.x * prefs.zoom));
+      prefs.panX = Math.max(-bound, Math.min(bound, x - chart.viewBox.baseVal.width / 2 - pinch.x * prefs.zoom));
       prefs.panY = Math.max(-bound, Math.min(bound, y - (chart.viewBox.baseVal.height - 6) / 2 - pinch.y * prefs.zoom));
       event.preventDefault(); draw(); return;
     }

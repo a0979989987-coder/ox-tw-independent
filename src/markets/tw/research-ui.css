@@ -293,3 +293,6 @@ body.theme-light .twx-chart-help{background:#f2f4f4;color:#525c58;border-color:#
 .twx-sector-market select{height:32px;min-width:100px;padding:0 10px;border:1px solid #ffffff30;border-radius:12px;background:#ffffff08;color:var(--tx-ink)}
 body.theme-light .twx-sector-market select{border-color:#bcc4c4;background:#f2f4f4;color:#252b2c}
 @media(max-width:480px){.twx-chart-tools .twx-segments button{font-size:9px;padding:3px 4px}.twx-chart-tools [data-sector-picker]{font-size:9px;padding:0 4px}.twx-chart-tools>[data-replay]{font-size:9px;padding:0 5px}}
+
+/* Desktop charts use the entire panel width with a landscape viewport. */
+@media(min-width:900px){.twx[data-twx-view="strength"] .twx-bubbles{height:auto;max-height:none}.twx[data-twx-view="strength"] .twx-chart-panel.expanded .twx-bubbles{height:auto;max-height:none}}
