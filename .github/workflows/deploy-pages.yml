@@ -7,6 +7,7 @@ on:
     workflows:
       - Update TW home close and market briefing
       - Update TW research
+      - Repair TW research history
       - Update TW screener and ETF holdings
       - Update official macro results
       - Update verified TW ETF data
