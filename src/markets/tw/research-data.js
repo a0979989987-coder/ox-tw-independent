@@ -1,3 +1,5 @@
+import { themeGroups, enrichThemeSnapshot } from './sector-groups.js';
+import { SECTOR_TAXONOMY_VERSION } from './sector-taxonomy.js';
 import { getTWApiBase } from './api.js?v=20261005-recovery20';
 const KEY = 'ox-tw-independent:ox-tw-research-v1';
 let value, pending, lastSuccess = 0;
@@ -8,8 +10,24 @@ export function savedResearch() {
   try { const saved = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(saved?.stocks)) value = saved; } catch {}
   return value || null;
 }
+// Preserve the longer static replay window when an older API returns only its
+// recent dates. Merge by date, never relabel old observations as a newer date.
+export function mergeResearchHistory(previous = [], incoming = [], date) {
+  const merged = new Map(previous.filter(day => day.date <= date).map(day => [day.date, day]));
+  for (const day of incoming.filter(day => day.date <= date)) {
+    const old = merged.get(day.date);
+    merged.set(day.date, day.themeVersion === SECTOR_TAXONOMY_VERSION || old?.themeVersion !== SECTOR_TAXONOMY_VERSION
+      ? day : { ...day, themes: old.themes, themeVersion: old.themeVersion });
+  }
+  return [...merged.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-60);
+}
 function accept(data) {
   if (!Array.isArray(data?.stocks) || !data.date) throw new Error('台股資料格式異常');
+  data.history = mergeResearchHistory(value?.history, data.history, data.date);
+  if (value && data.date <= value.date) {
+    value.history = mergeResearchHistory(data.history, value.history, value.date);
+    try { localStorage.setItem(KEY, JSON.stringify(value)); } catch {}
+  }
   if (!value || data.date > value.date || data.date === value.date && Date.parse(data.updatedAt||0)>=Date.parse(value.updatedAt||0)) {
     value = data;
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
@@ -48,18 +66,20 @@ export function toggleWatch(symbol) {
   try { localStorage.setItem('ox-tw-independent:ox-tw-radar-watchlist-v1', JSON.stringify([...list])); } catch { return null; }
   return list.has(symbol);
 }
-export function selectSectors(data, { scope = 'all', market = 'ALL', query = '' } = {}) {
+export function selectSectors(data, { scope = 'all', market = 'ALL', query = '', classification = 'industry' } = {}) {
   const watches = readWatchlist();
   const stocks = (data?.stocks || []).filter(s => market === 'ALL' || s.market === market);
   const groups = new Map();
-  stocks.forEach(s => { if (!groups.has(s.industry)) groups.set(s.industry, []); groups.get(s.industry).push(s); });
+  const themes = classification === 'theme' ? enrichThemeSnapshot(data || {}, data?.history || []).themes : null;
+  if (themes) for (const theme of themeGroups(stocks)) groups.set(theme.name, theme.rows);
+  else stocks.forEach(s => { if (!groups.has(s.industry)) groups.set(s.industry, []); groups.get(s.industry).push(s); });
   const q = query.trim().toLowerCase();
   return [...groups].filter(([, rows]) => scope !== 'watch' || rows.some(s => watches.has(s.symbol))).map(([name, rows]) => {
     const flows = rows.filter(r => Number.isFinite(r.netTwd));
     const prices = rows.filter(r => Number.isFinite(r.changePct));
     const whole = market === 'ALL';
-    const source = whole ? data?.sectors?.find(s => s.name === name) : null;
-    return { name, rows, count: rows.length, covered: flows.length,
+    const source = whole ? (themes || data?.sectors)?.find(s => s.name === name) : null;
+    return { name, rows, group: themes?.find(s => s.name === name)?.group, count: rows.length, covered: flows.length,
       flow: flows.length ? flows.reduce((n, r) => n + r.netTwd, 0) : null,
       changePct: prices.length ? prices.reduce((n, r) => n + r.changePct, 0) / prices.length : null,
       turnoverTwd: rows.reduce((n, r) => n + (r.turnoverTwd || 0), 0), buyCount: flows.filter(r => r.netTwd > 0).length,

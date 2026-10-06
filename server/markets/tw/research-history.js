@@ -1,3 +1,5 @@
+import { aggregateThemes } from '../../../src/markets/tw/sector-groups.js';
+import { SECTOR_TAXONOMY_VERSION } from '../../../src/markets/tw/sector-taxonomy.js';
 import { officialJSON, reportTables, numeric, loadInstitutional, joinResearchStocks, aggregateSectors } from './research.js';
 export function normalizeHistoricalQuotes(payload, market, date, companies) {
   const returnedDate = String(payload.date || '').replace(/[^0-9]/g, '');
@@ -28,5 +30,5 @@ export async function collectHistoryDay(date, companies) {
   const quotes = [...normalizeHistoricalQuotes(twse,'TWSE',date,companies), ...normalizeHistoricalQuotes(tpex,'TPEX',date,companies)];
   if (!quotes.some(q=>q.market==='TWSE') || !quotes.some(q=>q.market==='TPEX')) throw new Error('No aligned official quotes');
   const stocks = joinResearchStocks(quotes,[twseFlow,tpexFlow],date);
-  return { date, sectors: aggregateSectors(stocks) };
+  return { date, sectors: aggregateSectors(stocks), themes: aggregateThemes(stocks), themeVersion: SECTOR_TAXONOMY_VERSION };
 }

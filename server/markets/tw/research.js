@@ -1,3 +1,5 @@
+import { aggregateThemes, enrichThemeSnapshot } from '../../../src/markets/tw/sector-groups.js';
+import { SECTOR_TAXONOMY_VERSION } from '../../../src/markets/tw/sector-taxonomy.js';
 /** Official daily institutional research. Amounts are estimates, never turnover-as-flow. */
 export const numeric = value => value == null || String(value).trim() === '' || !Number.isFinite(Number(String(value).replace(/,/g, ''))) ? null : Number(String(value).replace(/,/g, ''));
 const clean = value => String(value ?? '').replace(/<[^>]*>/g, '').replace(/[\s（）()]/g, '');
@@ -93,6 +95,6 @@ export function enrichResearch(snapshot, history = []) {
     sector.flow20 = complete(20) ? window.reduce((n, s) => n + s.flow, 0) : null;
     sector.momentum = sector.flow5 !== null && sector.flow20 !== null ? sector.flow5 / 5 - sector.flow20 / 20 : null;
   }
-  return { ...snapshot, sectors, history: dates.slice(-40).map(d => ({ date: d.date, sectors: d.sectors || aggregateSectors(d.stocks || []) })),
+  return { ...snapshot, sectors, ...enrichThemeSnapshot(snapshot, dates), history: dates.slice(-40).map(d => ({ date: d.date, sectors: d.sectors || aggregateSectors(d.stocks || []), themes: d.stocks ? aggregateThemes(d.stocks) : d.themes || [], themeVersion: d.stocks ? SECTOR_TAXONOMY_VERSION : d.themeVersion })),
     methodology: 'net-shares-times-daily-close-v1', realtime: false };
 }
