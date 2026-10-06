@@ -2,7 +2,7 @@ import { guardStyledContent } from '../../../components/style-ready.js?v=2026100
 import { GROUPS, FIELDS, FIELD_MAP, PRESETS, QUICK, CATEGORIES } from './catalog.js';
 import { normalizeConditions, screenStocks, coverage, conditionLabel } from './model.js';
 import { escape as e, number } from '../research-ui.js';
-const KEY='ox.tw.screener.v1';
+const KEY='ox-tw-independent:ox.tw.screener.v1';
 let memory=null;
 function read(){try{return JSON.parse(localStorage.getItem(KEY))||{};}catch{return {};}}
 function write(value){try{localStorage.setItem(KEY,JSON.stringify(value));return true;}catch{return false;}}

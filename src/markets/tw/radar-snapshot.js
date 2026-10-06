@@ -1,11 +1,14 @@
 // Only verified official membership is eligible for an immediate cached view.
-const KEY='ox-tw-official-radar-v3',MAX_AGE=7*86400000;
-export function validRadarSnapshot(saved,now=Date.now()) {
- const data=saved?.data,meta=data?.modesMeta;
- return !!(Number.isFinite(saved?.savedAt)&&saved.savedAt<=now+60000&&now-saved.savedAt<MAX_AGE
-  &&Array.isArray(data?.radar)&&/^\d{4}-\d{2}-\d{2}$/.test(data.dataDate)
+const KEY='ox-tw-independent:ox-tw-official-radar-v3',MAX_AGE=7*86400000;
+export function completeRadarMembership(data){
+ const meta=data?.modesMeta;
+ return !!(Array.isArray(data?.radar)&&/^\d{4}-\d{2}-\d{2}$/.test(data.dataDate)
   &&meta?.asOf===data.dataDate&&meta?.calendarReady===true
   &&['risk','disposal','release'].every(mode=>meta[mode]?.status==='ready'&&Array.isArray(data.modes?.[mode])));
+}
+export function validRadarSnapshot(saved,now=Date.now()) {
+ return !!(Number.isFinite(saved?.savedAt)&&saved.savedAt<=now+60000&&now-saved.savedAt<MAX_AGE
+  &&completeRadarMembership(saved?.data));
 }
 export function savedRadarSnapshot(storage=globalThis.localStorage) {
  try {const saved=JSON.parse(storage?.getItem(KEY)||'null');return validRadarSnapshot(saved)?saved:null;}catch{return null;}

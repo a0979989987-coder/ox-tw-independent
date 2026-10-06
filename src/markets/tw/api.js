@@ -89,7 +89,7 @@ const DEFAULT_API_BASE = typeof location !== "undefined" ? `${location.origin}/a
  */
 
 const STORAGE_KEY =
-  "ox-tw-data-api-base";
+  "ox-tw-independent:data-api-base";
 
 
 const META_NAME =

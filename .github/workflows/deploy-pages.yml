@@ -3,18 +3,18 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
   pages: write
   id-token: write
-concurrency:
-  group: github-pages
-  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -27,6 +27,9 @@ jobs:
         with:
           path: dist/client
   deploy:
+    concurrency:
+      group: github-pages-deploy
+      cancel-in-progress: false
     needs: build
     runs-on: ubuntu-latest
     environment:

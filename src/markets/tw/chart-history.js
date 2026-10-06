@@ -24,7 +24,7 @@ export function preserveHistoryViewport(previous,next,range){
 let database;
 function openDatabase(){
  if(typeof indexedDB==='undefined')return Promise.resolve(null);
- return database??=(new Promise(resolve=>{const request=indexedDB.open('ox-tw-chart-history',1);
+ return database??=(new Promise(resolve=>{const request=indexedDB.open('ox-tw-independent:ox-tw-chart-history',1);
   request.onupgradeneeded=()=>request.result.createObjectStore('history',{keyPath:'key'});
   request.onsuccess=()=>resolve(request.result);request.onerror=()=>resolve(null);request.onblocked=()=>resolve(null);
  }));

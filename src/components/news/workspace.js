@@ -7,11 +7,11 @@ const fmt = value => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeForma
 const label = item => item.titleZh || item.title || '標題資料未提供';
 const calendarTone = category => ({ macro: 'red', regulation: 'red', unlock: 'yellow', 'dividend-preview': 'yellow', payment: 'yellow', dividend: 'green', earnings: 'blue', exchange: 'blue', listing: 'blue', network: 'blue', governance: 'green', airdrop: 'green', burn: 'gray', holiday: 'gray' }[category] || 'gray');
 const statusLabel = item => item.announcementStatus === 'cancelled' ? '已取消' : item.announcementStatus === 'estimated' || item.kind === 'token-unlock' && item.date ? '預估排程' : item.announcementStatus === 'preview' ? '預告' : item.status === 'confirmed' || item.announcementStatus === 'confirmed' ? '已公告' : '狀態待確認';
-const sourceState = source => source.access === 'authorization-required' ? '需取得授權' : source.status === 'not-connected' ? '尚未接入' : source.status === 'error' ? '更新失敗' : source.lastSuccessAt && Date.now() - Date.parse(source.lastSuccessAt) > 18 * 3600000 ? '資料過期' : source.status === 'ready' && source.count === 0 ? '成功・零篇' : source.status === 'ready' ? source.access==='public-aggregated-rss'?'聚合接入':'已接入' : '尚未載入';
+const sourceState = source => source.access === 'authorization-required' ? '需取得授權' : source.status === 'not-connected' ? '尚未接入' : source.status === 'error' ? '更新失敗' : source.lastSuccessAt && Date.now() - Date.parse(source.lastSuccessAt) > 18 * 3600000 ? '資料過期' : source.status === 'ready' && source.count === 0 ? '成功・零篇' : source.status === 'ready' ? source.access==='public-aggregated-rss'?`聚合來源・本次 ${source.count ?? '—'} 篇`:`已更新・本次 ${source.count ?? '—'} 筆` : '尚未載入';
 function link(text, url) { const safe = safeLink(url); if (!safe) return null; const a = node('a', '', text); a.href = safe; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; }
 function fieldList(fields) { const list = node('dl', 'oxn-fields'); for (const [name, value] of fields) { list.append(node('dt', '', name), node('dd', '', value === null || value === undefined || value === '' ? '資料未提供' : plain(value))); } return list; }
 export function mountNewsWorkspace(host, api) {
-  const key = `ox-news-v2-${api.scope}`;
+  const key = `ox-tw-independent:news-v2-${api.scope}`;
   let saved; try { saved = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch {}
   const state = { ...defaultState(), ...saved }, life = new AbortController();
   if(window.OXFeatures)state.tab=window.OXFeatures.newsTab;
@@ -203,7 +203,8 @@ export function mountNewsWorkspace(host, api) {
     const icon = flag || ({macro:'◷',unlock:'🔓',network:'⚙',listing:'⇄',governance:'🗳',airdrop:'🎁',burn:'🔥',regulation:'⚖',dividend:'💰',payment:'💵',earnings:'📊',holiday:'🗓'}[eventCategory(item)] || '🗓');
     const identity=node('span','oxn-event-icon',icon);
     if(flag==='🇺🇸'){const img=node('img');img.src=new URL('../../assets/flags/us.svg',import.meta.url).href;img.alt='美國國旗';img.width=28;img.height=20;identity.replaceChildren(img);}
-    if(!flag&&symbol&&typeof OX_COIN_LOGOS!=='undefined'){ const path=OX_COIN_LOGOS[String(symbol).toLowerCase()];if(path){const img=node('img');img.src=new URL(path,document.baseURI).href;img.alt=symbol;img.width=28;img.height=28;img.addEventListener('error',()=>identity.replaceChildren(document.createTextNode(icon)),{once:true});identity.replaceChildren(img);} }
+    if(!flag&&symbol){identity.textContent=symbol;identity.classList.add('oxn-stock-symbol');identity.setAttribute('aria-label',`台股 ${symbol}`);}
+    if(!flag&&!symbol){const icons={macro:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',earnings:'<path d="M4 19V11m5 8V5m5 14v-7m5 7V8M3 20h18"/>',holiday:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 10h16"/>',exchange:'<path d="M4 8h16m-4-4 4 4-4 4M20 16H4l4-4m-4 4 4 4"/>'};identity.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+(icons[eventCategory(item)]||icons.holiday)+'</svg>';identity.setAttribute('aria-label',CATEGORY_NAMES[eventCategory(item)]||'事件');}
     const meta=node('div','oxn-event-meta');meta.append(identity,node('time','',item.date?item.originalTimezone==='America/New_York'?'美東交易日':item.allDay?'全天':'時間待公布':fmt(item.occursAt)),node('span','oxn-event-type',CATEGORY_NAMES[eventCategory(item)]||'事件'),rating);
     b.append(meta,title);
     const facts=[];

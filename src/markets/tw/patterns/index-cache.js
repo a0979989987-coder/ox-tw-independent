@@ -8,7 +8,7 @@ export function entryCurrent(entry) {
 function database() {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
   return opening ??= new Promise(resolve => {
-    let request; try { request = indexedDB.open('ox-tw-pattern-index', 1); } catch { return resolve(null); }
+    let request; try { request = indexedDB.open('ox-tw-independent:ox-tw-pattern-index', 1); } catch { return resolve(null); }
     request.onupgradeneeded = () => request.result.createObjectStore('series', { keyPath: 'key' });
     request.onsuccess = () => resolve(request.result); request.onerror = request.onblocked = () => resolve(null);
   });

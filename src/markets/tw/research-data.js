@@ -1,5 +1,5 @@
 import { getTWApiBase } from './api.js?v=20261005-recovery20';
-const KEY = 'ox-tw-research-v1';
+const KEY = 'ox-tw-independent:ox-tw-research-v1';
 let value, pending, lastSuccess = 0;
 const listeners=new Set();
 export function subscribeResearch(listener){listeners.add(listener);return()=>listeners.delete(listener);}
@@ -40,12 +40,12 @@ export async function loadResearch({ force = false, onCached } = {}) {
   return pending;
 }
 export function readWatchlist() {
-  try { return new Set(JSON.parse(localStorage.getItem('ox-tw-radar-watchlist-v1') || '[]')); } catch { return new Set(); }
+  try { return new Set(JSON.parse(localStorage.getItem('ox-tw-independent:ox-tw-radar-watchlist-v1') || '[]')); } catch { return new Set(); }
 }
 export function toggleWatch(symbol) {
   const list = readWatchlist();
   list.has(symbol) ? list.delete(symbol) : list.add(symbol);
-  try { localStorage.setItem('ox-tw-radar-watchlist-v1', JSON.stringify([...list])); } catch { return null; }
+  try { localStorage.setItem('ox-tw-independent:ox-tw-radar-watchlist-v1', JSON.stringify([...list])); } catch { return null; }
   return list.has(symbol);
 }
 export function selectSectors(data, { scope = 'all', market = 'ALL', query = '' } = {}) {

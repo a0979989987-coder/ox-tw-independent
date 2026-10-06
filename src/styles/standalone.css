@@ -3,17 +3,7 @@ body[data-market="tw"]{min-height:100dvh}
 .app-main{padding-bottom:110px}
 #market-unavailable-card{min-height:160px}
 .ox-live-shell[hidden]{display:none!important}
-#tw-menu{position:fixed;inset:0 0 auto auto;margin:0;width:min(360px,calc(100vw - 24px));max-height:85dvh;padding:22px;color:var(--ink,#f3f1e9);background:#14171bea;border:1px solid #ffffff35;border-radius:0 0 0 22px;box-shadow:0 0 28px #ffffff12;backdrop-filter:blur(24px)}
-#tw-menu::backdrop{background:#0008;backdrop-filter:blur(3px)}
-#tw-menu header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;font-size:18px}
-#tw-menu button{color:inherit;min-height:44px;padding:10px 16px;border:1px solid #ffffff26;border-radius:12px;background:transparent;font:inherit;cursor:pointer}
-#tw-menu header button{border:0;font-size:24px}
-.tw-theme-options{display:flex;gap:8px;margin:24px 0}
-.tw-theme-options [aria-pressed="true"]{border-color:currentColor!important;box-shadow:0 0 12px #ffffff30}
-.tw-live-choice{display:flex;align-items:center;justify-content:space-between;min-height:44px}
-.tw-live-choice input{width:22px;height:22px;accent-color:#b6ab8b}
-.theme-light #tw-menu{background:#fffffff2;border-color:#d5d0c5;color:#33373f}
-.theme-light #tw-menu button{border-color:#d5d0c5}
 .tw-media{max-width:800px;padding:30px 10px;font-size:16px;line-height:1.9}
 .tw-media h1{font-size:22px}.tw-media h2{font-size:18px;margin-top:24px}
 @media(max-width:700px){.ox-shell-header{display:none!important}.app-main{padding-top:8px}.tw-media{padding:18px 8px}}
+#ox-control-panel a.ox-control-row{text-decoration:none;color:inherit;box-sizing:border-box} #ox-control-data-status{max-width:180px;line-height:1.6} .ox-feature-results:empty{display:none} .ox-control-overlay .ox-feature-search-wrap{margin-top:10px} .ox-control-panel [aria-pressed="true"]{font-weight:700} .oxn-stock-symbol{font-size:11px;font-weight:750;letter-spacing:-.2px} .oxn-event-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6} body.ox-control-open{overflow:hidden}

@@ -1,8 +1,8 @@
 /* Shared chart drawings. Each market supplies its own chart state and storage scope. */
 window.OXChartDrawings = function mountChartDrawings({box,chartEl,state,market='crypto',isExpanded}={}) {
   if (!box || !chartEl) return;
-  const drawingKey = market==='crypto'?'ox-chart-drawings-v1':`ox-${market}-chart-drawings-v1`;
-  const prefsKey = market==='crypto'?'ox-chart-drawing-preferences-v1':`ox-${market}-chart-drawing-preferences-v1`;
+  const drawingKey = market==='crypto'?'ox-chart-drawings-v1':`ox-tw-independent:${market}-chart-drawings-v1`;
+  const prefsKey = market==='crypto'?'ox-chart-drawing-preferences-v1':`ox-tw-independent:${market}-chart-drawing-preferences-v1`;
   const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; } };
   const drawings = read(drawingKey, {});
   const prefs = Object.assign({ color: '#f3f1e9', width: 2, fill: 12, magnet: false, fib: [0, .236, .382, .5, .618, .786, 1], x: null, y: null, collapsed: false }, read(prefsKey, {}));

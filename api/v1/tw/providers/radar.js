@@ -89,8 +89,7 @@ const CACHE_TTL_MS =
  * time instead of assuming data
  * exists immediately after 13:30.
  */
-const COMPLETED_SESSION_HOUR =
-  15;
+const COMPLETED_SESSION_MINUTES = 13 * 60 + 35;
 
 
 /*
@@ -590,6 +589,8 @@ function taipeiNowParts() {
         hour:
           "2-digit",
 
+        minute: "2-digit",
+
         hourCycle:
           "h23"
       }
@@ -636,7 +637,8 @@ function taipeiNowParts() {
     hour:
       Number(
         parts.hour
-      )
+      ),
+    minute: Number(parts.minute)
 
   };
 }
@@ -765,8 +767,8 @@ function candidateTradingDates() {
    * start from yesterday.
    */
   if (
-    now.hour <
-      COMPLETED_SESSION_HOUR
+    now.hour * 60 + now.minute <
+      COMPLETED_SESSION_MINUTES
   ) {
 
     date =

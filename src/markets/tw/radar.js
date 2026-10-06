@@ -74,7 +74,7 @@ const ROOT_ID =
 
 
 const WATCHLIST_KEY =
-  "ox-tw-radar-watchlist-v1";
+  "ox-tw-independent:ox-tw-radar-watchlist-v1";
 
 
 /* ========================================================================== */

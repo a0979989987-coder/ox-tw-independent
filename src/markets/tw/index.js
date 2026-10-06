@@ -391,9 +391,10 @@ const ensureMarketData = createPreloader(async ({silent=false}={}) => {
 }, { usable: state => ["ready", "partial"].includes(state?.status)
   && Array.isArray(state?.data?.radar) && !radarNeedsRecovery(state) });
 
-function loadMarketData(options = {}) {
+async function loadMarketData(options = {}) {
   showSavedRadar(savedRadarSnapshot());
-  bundledRadarSnapshot().then(showSavedRadar).catch(()=>{});
+  // Seed complete membership before the live request can return a partial list.
+  try{showSavedRadar(await bundledRadarSnapshot());}catch{}
   const pending = ensureMarketData(options);
   if (isActive) render(createTWMarketState());
   return pending;

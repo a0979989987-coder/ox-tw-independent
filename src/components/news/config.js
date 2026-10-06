@@ -18,6 +18,7 @@ export const SOURCE_CATALOG = [
   source('168', '168 財經', ['tw']), source('investing', 'Investing', ['tw']),
   source('forexfactory', 'Forex Factory', ['tw']), source('moneydj', 'MoneyDJ 理財網', ['tw']),
   source('pchome', 'PChome 股市', ['tw']), source('ebc', '東森財經新聞網', ['tw']), source('msn', 'MSN 財經', ['tw'], { aggregator: true }),
+  source('sec', '美國證管會', ['tw']), source('cftc', '美國商品期貨交易委員會', ['tw']),
   source('fed', '美國聯準會', ['tw']), source('bls-cpi', '美國勞工統計局・物價', ['tw']), source('bls-jobs', '美國勞工統計局・就業', ['tw']),
   source('nyse-calendar', 'NYSE・美股休市／提早收盤', ['tw']),
   source('bls-calendar', '美國勞工統計局・行事曆', ['tw']), source('ecb', '歐洲央行', ['tw']),

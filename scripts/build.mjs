@@ -24,7 +24,7 @@ await writeFile(resolve(root,'dist/client/index.html'),html);
 await writeFile(resolve(root,'dist/client/.nojekyll'),'');
 const fsShim={name:'worker-assets',setup(b){
  b.onResolve({filter:/^node:fs\/promises$/},()=>({path:'asset-fs',namespace:'asset-fs'}));
- b.onLoad({filter:/.*/,namespace:'asset-fs'},()=>({contents:`import {Buffer} from 'node:buffer';export async function readFile(url,encoding){const r=await globalThis.__twAssets.fetch(new Request(new URL(url).href));if(!r.ok)throw Error('Snapshot unavailable');const b=Buffer.from(await r.arrayBuffer());return encoding?b.toString(encoding):b;}`,loader:'js'}));
+ b.onLoad({filter:/.*/,namespace:'asset-fs'},()=>({contents:`import {Buffer} from 'node:buffer';export async function readFile(url,encoding){const path=new URL(url).pathname.slice(1);const b=Buffer.from(await globalThis.__twReadAsset(path));return encoding?b.toString(encoding):b;}`,loader:'js'}));
  b.onLoad({filter:/\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('import.meta.url',JSON.stringify('https://assets.local/'+relative(root,args.path))),loader:'js',resolveDir:dirname(args.path)}));
 }};
 await build({entryPoints:[resolve(root,'worker/index.js')],bundle:true,format:'esm',platform:'node',target:'es2022',minify:true,external:['node:*'],define:{'process.env':'globalThis.__twEnv'},outfile:resolve(root,'dist/server/index.js'),plugins:[resolveVersion,fsShim]});

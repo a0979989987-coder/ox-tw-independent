@@ -1,16 +1,25 @@
 import handler from '../api/v1/tw/[endpoint].js';
+import {readSnapshotAsset,snapshotEndpoint} from './snapshots.js';
 const cache=new Map();
 export default {
  async fetch(request,env,ctx){
   const allowedOrigins=new Set([new URL(request.url).origin,'https://a0979989987-coder.github.io']);
   globalThis.__twEnv={...env,OX_ALLOWED_ORIGINS:[...allowedOrigins].join(',')};
   globalThis.__twAssets=env.ASSETS;
+  globalThis.__twReadAsset=path=>readSnapshotAsset(path,env.ASSETS);
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/')){
     const origin=request.headers.get('Origin');
     if(origin&&!allowedOrigins.has(origin))return Response.json({ok:false,error:{code:'ORIGIN_NOT_ALLOWED'}},{status:403});
     if(!/^\/api\/v1\/tw\/[a-z-]+$/.test(url.pathname))return Response.json({ok:false,error:{code:'ENDPOINT_NOT_FOUND'}},{status:404});
     const endpoint=url.pathname.split('/').at(-1),key=url.pathname+url.search+'|'+(origin||'');
+    if(request.method==='GET'&&['radar','home','research'].includes(endpoint)){
+      try{
+        const data=await snapshotEndpoint(endpoint,url.searchParams,async path=>JSON.parse(new TextDecoder().decode(await readSnapshotAsset(path,env.ASSETS))));
+        if(data){const h={'Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Methods':'GET, OPTIONS','Content-Type':'application/json; charset=utf-8'};if(origin)h['Access-Control-Allow-Origin']=origin;
+          return Response.json({ok:true,data,meta:{provider:'independent-verified-snapshot',realtime:false}},{headers:h});}
+      }catch(error){console.warn('Snapshot fallback',endpoint,error.message);}
+    }
     const saved=cache.get(key);if(request.method==='GET'&&endpoint!=='outlook'&&!url.searchParams.has('refresh')&&saved&&Date.now()-saved.time<60000)return new Response(saved.body,{status:saved.status,headers:saved.headers});
     const headers=Object.fromEntries(request.headers);headers.host=url.host;headers['x-forwarded-host']=url.host;
     let body;if(request.method==='POST')try{body=await request.json();}catch{return Response.json({error:'INVALID_JSON'},{status:400});}

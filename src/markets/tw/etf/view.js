@@ -5,7 +5,7 @@ import { fundCards, labelMobileTables } from './mobile.js?v=20261005-weeklist4';
 const mainTabs=[['rank','排行榜'],['hot','熱門資訊'],['stock','股票型'],['bond','債券型']];
 const groups={rank:[['volume','今日熱門'],['aum','資產規模'],['holders','持股人數'],['yield','殖利率'],['return1y','一年報酬']],hot:[['new','新上市'],['active','主動式'],['offering','新募集'],['radar','熱股雷達']],stock:[['all','全部'],['cap','市值'],['dividend','高股息'],['theme','主題']],bond:[['all','全部'],['treasury','長期公債'],['investment','投資級'],['emerging','新興市場'],['highyield','非投資級']]};
 const columns=[['price','收盤價'],['changePct','漲跌幅'],['volume','成交量（股）'],['turnover','成交金額'],['yield','殖利率'],['return3m','3 個月報酬'],['return1y','1 年報酬'],['returnTotal','上市以來報酬'],['aum','規模（億元）'],['holders','持股人數'],['years','成立年數'],['expense','年度費用率'],['region','投資區域']];
-let saved=new Set();try{saved=new Set(JSON.parse(localStorage.getItem('ox-tw-etf-watchlist')||'[]'));}catch{}
+let saved=new Set();try{saved=new Set(JSON.parse(localStorage.getItem('ox-tw-independent:ox-tw-etf-watchlist')||'[]'));}catch{}
 const state={main:'rank',sub:'volume',sort:'volume',direction:-1,q:'',page:0,onlySaved:false};
 export function mountETF(host,{onSavings}={}) {
   const ui=shell(host,'ETF 精選'),{main,shadow,life}=ui;
@@ -55,7 +55,7 @@ export function mountETF(host,{onSavings}={}) {
     else if(b.hasAttribute('data-sub')){state.sub=b.dataset.sub;state.page=0;if(state.main==='rank'){state.sort=state.sub;state.direction=-1;}render();enrich();}
     else if(b.dataset.sort){state.direction=state.sort===b.dataset.sort?-state.direction:-1;state.sort=b.dataset.sort;state.page=0;render();enrich();}
     else if(b.dataset.page){state.page+=Number(b.dataset.page);render();enrich();}
-    else if(b.dataset.star){saved.has(b.dataset.star)?saved.delete(b.dataset.star):saved.add(b.dataset.star);try{localStorage.setItem('ox-tw-etf-watchlist',JSON.stringify([...saved]));}catch{}render();}
+    else if(b.dataset.star){saved.has(b.dataset.star)?saved.delete(b.dataset.star):saved.add(b.dataset.star);try{localStorage.setItem('ox-tw-independent:ox-tw-etf-watchlist',JSON.stringify([...saved]));}catch{}render();}
     else if(b.hasAttribute('data-watch')){state.onlySaved=!state.onlySaved;state.page=0;render();enrich();}
     else if(b.hasAttribute('data-refresh'))load(true);
     else if(b.dataset.detail)detail(b.dataset.detail);

@@ -3,7 +3,7 @@ import { bundleClassification, subscribeBundle } from './patterns/bundle.js?v=20
 import {
   twProvider
 } from "./api.js?v=20261005-recovery20";
-import {validRadarSnapshot} from './radar-snapshot.js?v=20261005-recovery20';
+import {validRadarSnapshot,completeRadarMembership} from './radar-snapshot.js?v=20261005-recovery20';
 
 
 /*
@@ -1423,7 +1423,7 @@ function buildMyOXState() {
 
       const raw =
         localStorage.getItem(
-          "ox-tw-radar-watchlist-v1"
+          "ox-tw-independent:ox-tw-radar-watchlist-v1"
         );
 
 
@@ -1588,7 +1588,7 @@ export function createTWMarketState() {
 
 export function seedTWRadar(saved) {
   if(!validRadarSnapshot(saved))return currentState;
-  const existing=Date.parse(currentState.data?.radarUpdatedAt)||0;
+  const existing=Math.max(Date.parse(currentState.data?.radarUpdatedAt)||0,currentState.data?.radarReceivedAt||0);
   if(currentState.data?.radarDataDate>saved.data.dataDate||existing>=saved.savedAt)return currentState;
   const payload=saved.data;
   const state=setState({...currentState,status:currentState.status==='loading'?'loading':'partial',data:{
@@ -1714,6 +1714,9 @@ export async function refreshTWMarketState(
     signal
   }).then(payload => {
     if(payload?.dataDate<currentState.data?.radarDataDate)throw Object.assign(Error("較舊交易日資料已忽略"),{code:"TW_RADAR_OLDER_DATE"});
+    const previous=currentState.data;
+    const priorComplete=completeRadarMembership({radar:previous?.radar,dataDate:previous?.radarDataDate,modes:previous?.radarModes,modesMeta:previous?.radarModesMeta});
+    if(priorComplete&&!completeRadarMembership(payload))throw Object.assign(Error('部分官方名單更新失敗，保留上次完整名單'),{code:'TW_RADAR_INCOMPLETE_SOURCES'});
     if (!signal?.aborted) {
       const partialState = setState({
         ...currentState,
@@ -1723,7 +1726,8 @@ export async function refreshTWMarketState(
           radar: normalizeTWRadar(payload),
           radarModes: payload?.modes || {},
           radarModesMeta: payload?.modesMeta || {},
-          radarUpdatedAt: new Date().toISOString(),
+          radarUpdatedAt: payload.snapshotUpdatedAt || payload.updatedAt || new Date().toISOString(),
+          radarReceivedAt: Date.now(),
           radarDataDate: payload?.dataDate,
           usingCachedRadar: false,
           meta: { ...(currentState.data?.meta || {}), sourceErrors: { ...(currentState.data?.meta?.sourceErrors || {}), radar: null } }
@@ -1991,6 +1995,7 @@ export async function refreshTWMarketState(
                 resultValue(radarResult, { modes: currentState.data?.radarModes })?.modes || {},
               radarModesMeta: resultValue(radarResult, { modesMeta: currentState.data?.radarModesMeta })?.modesMeta || {},
               radarUpdatedAt: currentState.data?.radarUpdatedAt || null,
+              radarReceivedAt: currentState.data?.radarReceivedAt || 0,
               radarDataDate: currentState.data?.radarDataDate || null,
               usingCachedRadar: radarResult.status === 'rejected' && !!currentState.data?.radarUpdatedAt,
 

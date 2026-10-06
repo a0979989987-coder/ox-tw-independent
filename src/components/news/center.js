@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const SAVED_KEY = 'ox-news-preferences-v1';
+  const SAVED_KEY = 'ox-tw-independent:ox-news-preferences-v1';
   const initialNewsHash = /^#news(?:\/[^?]*)?(?:\?|$)/.test(location.hash || '') ? location.hash : '';
   let restoringInitialRoute = Boolean(initialNewsHash);
   const state = { snapshot: null, candidate: null, pending: null, lastError: null, request: 0, previous: null, route: {}, navigating: false, workspace: null, scope: null };
