@@ -88,3 +88,22 @@ test('crowded thematic labels remain readable in their own quadrant with exact a
    for (const o of points.slice(i+1)) assert.ok(Math.abs(p.px-o.px)>=(p.labelWidth+o.labelWidth)/2 || Math.abs(p.py-o.py)>=(p.labelHeight+o.labelHeight)/2,`${p.name} overlaps ${o.name}`);
  }
 });
+
+test('all 110 thematic bubbles retain real data in a taller mobile viewport', async () => {
+ const {readFile}=await import('node:fs/promises');
+ const {selectSectors}=await import('../src/markets/tw/research-data.js');
+ const {bubbleLayout,bubbleChart}=await import('../src/markets/tw/research-bubbles.js');
+ const data=JSON.parse(await readFile(new URL('../data/tw-research.json',import.meta.url)));
+ const sectors=selectSectors(data,{classification:'theme'});
+ const layout=bubbleLayout(sectors,'day',{density:'all',height:780});
+ assert.equal(layout.points.length,110);
+ assert.equal(new Set(layout.points.map(p=>p.name)).size,110);
+ assert.equal((bubbleChart(sectors,'day','',{layout}).match(/class="twx-bubble /g)||[]).length,110);
+ assert.equal(layout.cy,387);
+ for(const p of layout.points){
+  assert.ok(Number.isFinite(p.ax)&&Number.isFinite(p.ay));
+  assert.equal(p.x,sectors.find(s=>s.name===p.name).flow);
+  assert.ok(p.ay>45&&p.ay<728);
+ }
+ assert.equal(bubbleLayout(sectors,'day',{density:'top',height:780}).points.length,10);
+});

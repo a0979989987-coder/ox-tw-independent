@@ -7,7 +7,7 @@ import { SECTOR_DEFINITIONS, SECTOR_TAXONOMY_VERSION } from './sector-taxonomy.j
 import { sectorPicker, sectorPickerList } from './sector-picker.js';
 import { replayHistory, replayFrames, replayFrameAt, drawReplayFrame, createReplayPlayer } from './research-replay.js?v=20261006-replay';
 import { closeResearchDetails, showSector, showStock, watchClick, showHomeHighlights, updateHomeHighlights } from './research-detail.js?v=20261005-briefingdate';
-const prefs = { tab: 'bubble', scope: 'all', market: 'ALL', mode: 'auto', density: 'all', zoom: 1, panX: 0, panY: 0, sort: 'buy', query: '', quadrant: null, help: false, replayIndex: null, replaySpeed: 1, classification: 'theme', selectedSectors: [], pickerOpen: false, pickerQuery: '', openGroups: [] };
+const prefs = { tab: 'bubble', scope: 'all', market: 'ALL', mode: 'day', density: 'all', zoom: 1, panX: 0, panY: 0, sort: 'buy', query: '', quadrant: null, help: false, replayIndex: null, replaySpeed: 1, classification: 'theme', selectedSectors: SECTOR_DEFINITIONS.map(sector => sector.name), pickerOpen: false, pickerQuery: '', openGroups: [] };
 let session, data = savedResearch(), loading = false, error = null, lastFetch = 0;
 let home=savedHome(),homeLoading=false,homeFetched=0,homeSession='after';
 async function refreshHome(s,force=false){
@@ -54,7 +54,8 @@ function playReplay(s) {
   if (prefs.replayIndex === null) { s.replayMode = chartMode(); prefs.replayIndex = 0; s.replayData = { ...data, history: [...(data?.history || [])] }; paint(s); }
   s.player?.play();
 }
-function chartOptions() { return { ...prefs, density: prefs.scope === 'watch' || prefs.selectedSectors.length ? 'all' : prefs.density }; }
+function chartHeight() { if (session?.plotHeight && window.innerWidth < 900) return session.plotHeight; return typeof window !== 'undefined' && window.innerWidth < 900 ? Math.max(494, Math.min(900, (window.innerHeight - 280) * 480 / Math.max(280, window.innerWidth - 40))) : 494; }
+function chartOptions() { return { ...prefs, height: chartHeight(), density: prefs.scope === 'watch' ? 'all' : prefs.density }; }
 function buildReplayFrames() {
   const mode = chartMode();
   return replayFrames(historyDays().map(day => ({ ...day, sectors: replaySectors(day).filter(sector => {
@@ -145,7 +146,7 @@ function indicatorContent() {
   const days = (data?.history || []).filter(h => h.sectors?.length).length;
   const replayDay = prefs.replayIndex === null ? null : historyDays()[Math.floor(prefs.replayIndex)];
   const caption = replayDay ? `歷史回放 ${escape(replayDay.date)} · ${mode === 'momentum' ? '法人資金動向' : '當日價量'}` : mode === 'momentum' ? `主題板塊 · 資金資料完整 ${valid.length}／${all.length} 類` : `主題板塊 · 當日價量${days < 20 ? ` · 歷史 ${days}／20 日` : ''}`;
-  return `<div class="twx-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="搜尋股票或板塊" placeholder="搜尋股票或板塊" value="${escape(prefs.query)}"></div><div class="twx-quadrants">${labels.map((label, i) => `<button type="button" data-quadrant="${i}" aria-label="${label}：${hints[i]}" title="${hints[i]}" aria-pressed="${prefs.quadrant === i}" class="q${i}"><small>${label}</small><strong>${data && valid.length ? counts[i] : '—'}</strong></button>`).join('')}</div><div class="twx-visual"><section class="twx-glass twx-chart-panel"><div class="twx-chart-tools"><div class="twx-chart-main">${segments('scope', [['all', '板塊'], ['watch', '自選']], prefs.scope)}${sectorPicker(prefs)}<select data-market aria-label="市場範圍" ${replayDay ? 'disabled title="歷史回放僅提供全市場產業資料"' : ''}><option value="ALL" ${prefs.market === 'ALL' ? 'selected' : ''}>全部</option><option value="TWSE" ${prefs.market === 'TWSE' ? 'selected' : ''}>上市</option><option value="TPEX" ${prefs.market === 'TPEX' ? 'selected' : ''}>上櫃</option></select></div><div class="twx-chart-utility"><button type="button" data-help aria-label="圖表說明" aria-expanded="${prefs.help}">?</button><button type="button" data-replay aria-pressed="${prefs.replayIndex !== null}" ${historyDays().length < 2 ? 'disabled title="此模式尚無完整歷史資料"' : ''}>${prefs.replayIndex !== null ? '結束回放' : '回放'}</button></div></div>${prefs.help ? `<div class="twx-chart-help" role="note">這是題材分類，一檔股票可能屬於多個板塊，因此不同板塊金額不可相加當作全市場總額。越右代表近 5 日資金流入越多，越左代表流出越多；越上代表買入力道增強，越下代表買入力道減弱。速度以近 5 日平均淨買超減去近 20 日平均淨買超計算，正值表示更偏向買入，負值表示更偏向賣出。當日價量圖則顯示當日淨買賣超與產業漲跌幅。資金動向的圈大小代表近 20 日淨買賣超絕對值；圈內金額代表近五日估算，當日價量模式則顯示當日估算。細點是實際座標。雙指縮放、放大後可拖曳；回放使用歷史交易日資料，字的位置、圓圈大小與顏色會隨數據連續過渡；過渡位置不是盤中數據，金額維持所標示交易日的值。</div>` : ''}<div class="twx-chart-mode">${segments('mode', [['momentum', '資金動向'], ['day', '當日價量']], mode)}</div><small class="twx-chart-method">${caption}</small>${prefs.tab === 'rank' ? segments('sort', [['buy', '買超'], ['sell', '賣超'], ['up', '漲幅'], ['down', '跌幅']], prefs.sort) : ''}<div class="twx-chart-content">${results()}</div>${prefs.replayIndex !== null ? replayControls() : ''}${prefs.tab === 'bubble' ? chartActions() : ''}<button type="button" class="twx-expand" data-expand aria-label="展開圖表">⛶</button></section><div class="twx-tools">${segments('tab', [['bubble', '泡泡圖'], ['rank', '排行']], prefs.tab)}</div></div><div class="twx-sector-list">${all.map(s => `<button type="button" data-sector="${escape(s.name)}"><span>${escape(s.name)}</span><b class="${direction(mode === 'momentum' ? s.flow5 : s.flow)}">${mode === 'momentum' && !Number.isFinite(s.momentum) ? '歷史不足' : money(mode === 'momentum' ? s.flow5 : s.flow)}</b></button>`).join('') || '<div class="twx-empty">尚無對應產業，請先在台股雷達收藏股票。</div>'}</div>`;
+  return `<div class="twx-visual"><section class="twx-glass twx-chart-panel"><div class="twx-chart-tools"><div class="twx-chart-main">${segments('scope', [['all', '板塊'], ['watch', '自選']], prefs.scope)}${sectorPicker(prefs)}<select data-market aria-label="市場範圍" ${replayDay ? 'disabled title="歷史回放僅提供全市場產業資料"' : ''}><option value="ALL" ${prefs.market === 'ALL' ? 'selected' : ''}>全部</option><option value="TWSE" ${prefs.market === 'TWSE' ? 'selected' : ''}>上市</option><option value="TPEX" ${prefs.market === 'TPEX' ? 'selected' : ''}>上櫃</option></select></div><div class="twx-chart-utility"><button type="button" data-help aria-label="圖表說明" aria-expanded="${prefs.help}">?</button><button type="button" data-replay aria-pressed="${prefs.replayIndex !== null}" ${historyDays().length < 2 ? 'disabled title="此模式尚無完整歷史資料"' : ''}>${prefs.replayIndex !== null ? '結束回放' : '回放'}</button></div></div>${prefs.help ? `<div class="twx-chart-help" role="note">這是題材分類，一檔股票可能屬於多個板塊，因此不同板塊金額不可相加當作全市場總額。越右代表近 5 日資金流入越多，越左代表流出越多；越上代表買入力道增強，越下代表買入力道減弱。速度以近 5 日平均淨買超減去近 20 日平均淨買超計算，正值表示更偏向買入，負值表示更偏向賣出。當日價量圖則顯示當日淨買賣超與產業漲跌幅。資金動向的圈大小代表近 20 日淨買賣超絕對值；圈內金額代表近五日估算，當日價量模式則顯示當日估算。細點是實際座標。雙指縮放、放大後可拖曳；回放使用歷史交易日資料，字的位置、圓圈大小與顏色會隨數據連續過渡；過渡位置不是盤中數據，金額維持所標示交易日的值。</div>` : ''}<div class="twx-chart-mode">${segments('mode', [['momentum', '資金動向'], ['day', '當日價量']], mode)}</div><small class="twx-chart-method">${caption}</small>${prefs.tab === 'rank' ? segments('sort', [['buy', '買超'], ['sell', '賣超'], ['up', '漲幅'], ['down', '跌幅']], prefs.sort) : ''}<div class="twx-chart-content">${results()}</div>${prefs.replayIndex !== null ? replayControls() : ''}${prefs.tab === 'bubble' ? chartActions() : ''}<button type="button" class="twx-expand" data-expand aria-label="展開圖表">⛶</button></section><div class="twx-tools">${segments('tab', [['bubble', '泡泡圖'], ['rank', '排行']], prefs.tab)}</div></div><div class="twx-below-chart"><div class="twx-quadrants">${labels.map((label, i) => `<button type="button" data-quadrant="${i}" aria-label="${label}：${hints[i]}" title="${hints[i]}" aria-pressed="${prefs.quadrant === i}" class="q${i}"><small>${label}</small><strong>${data && valid.length ? counts[i] : '—'}</strong></button>`).join('')}</div><div class="twx-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="搜尋股票或板塊" placeholder="搜尋股票或板塊" value="${escape(prefs.query)}"></div></div><div class="twx-sector-list">${all.map(s => `<button type="button" data-sector="${escape(s.name)}"><span>${escape(s.name)}</span><b class="${direction(mode === 'momentum' ? s.flow5 : s.flow)}">${mode === 'momentum' && !Number.isFinite(s.momentum) ? '歷史不足' : money(mode === 'momentum' ? s.flow5 : s.flow)}</b></button>`).join('') || '<div class="twx-empty">尚無對應產業，請先在台股雷達收藏股票。</div>'}</div>`;
 }
 function paint(s) {
   if (session !== s) return;
@@ -159,6 +160,14 @@ function paint(s) {
   if (expanded) s.root.querySelector('.twx-chart-panel')?.classList.add('expanded');
   s.root.querySelectorAll('[data-mixed]').forEach(input => { input.indeterminate = true; });
   if (s.view !== 'home') mountReplay(s, resume);
+  if (s.view !== 'home' && window.innerWidth < 900 && !expanded && !s.plotHeight) requestAnimationFrame(() => {
+    if (!current(s)) return;
+    const svg = s.root.querySelector('.twx-bubbles'); if (!svg) return;
+    const rect = svg.getBoundingClientRect(), dock = document.querySelector('.app-dock')?.getBoundingClientRect();
+    const bottom = Math.min(window.innerHeight - 16, dock?.top > 0 ? dock.top - 12 : window.innerHeight - 100);
+    s.plotHeight = Math.max(400, Math.min(1000, (bottom - Math.max(0, rect.top)) * 480 / Math.max(280, rect.width)));
+    if (Math.abs(s.plotHeight - svg.viewBox.baseVal.height) > 4) paint(s);
+  });
 }
 async function refresh(s, force) {
   if (loading) return;
@@ -223,7 +232,7 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
       setTimeout(() => { if (current(s)) paint(s); }, 175); return;
     }
   }, { signal: s.controller.signal });
-  root.addEventListener('input', event => { if (event.target.matches('[data-sector-search]')) { prefs.pickerQuery = event.target.value; root.querySelector('.twx-sector-picker-list').innerHTML = sectorPickerList(prefs); root.querySelectorAll('[data-mixed]').forEach(input => { input.indeterminate = true; }); return; } if (event.target.matches('[data-replay-seek]')) { s.player?.seek(Number(event.target.value)); return; } if (event.target.matches('input[type="search"]')) { prefs.query = event.target.value; resetChart(); const cursor = event.target.selectionStart; paint(s); const input = root.querySelector('input[type=search]'); input.focus({ preventScroll: true }); input.setSelectionRange(cursor, cursor); } }, { signal: s.controller.signal });
+  root.addEventListener('input', event => { if (event.target.matches('[data-sector-search]')) { prefs.pickerQuery = event.target.value; root.querySelector('.twx-sector-picker-list').innerHTML = sectorPickerList(prefs); root.querySelectorAll('[data-mixed]').forEach(input => { input.indeterminate = true; }); return; } if (event.target.matches('[data-replay-seek]')) { s.player?.seek(Number(event.target.value)); return; } if (event.target.matches('input[type="search"]')) { prefs.query = event.target.value; resetChart(); const cursor = event.target.selectionStart; paint(s); const input = root.querySelector('.twx-search input'); input.focus({ preventScroll: true }); try { input.setSelectionRange(cursor, cursor); } catch {} } }, { signal: s.controller.signal });
   root.addEventListener('change', event => { if (event.target.matches('[data-market]')) { prefs.market = event.target.value; prefs.mode = 'auto'; prefs.quadrant = null; resetChart(); paint(s); } }, { signal: s.controller.signal });
   root.addEventListener('change', event => {
     const input = event.target;
@@ -235,6 +244,7 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
     root.querySelectorAll('[data-sector-choice], [data-sector-group]').forEach(el => { if (el.dataset.sectorChoice === input.dataset.sectorChoice && el.dataset.sectorGroup === input.dataset.sectorGroup) el.focus({ preventScroll: true }); });
   }, { signal: s.controller.signal });
   root.addEventListener('toggle', event => { if (!event.target.matches('[data-sector-disclosure]')) return; const groups = new Set(prefs.openGroups); if (event.target.open) groups.add(event.target.dataset.sectorDisclosure); else groups.delete(event.target.dataset.sectorDisclosure); prefs.openGroups = [...groups]; }, { signal: s.controller.signal, capture: true });
+  window.addEventListener('resize', () => { s.plotHeight = null; if (current(s)) paint(s); }, { signal: s.controller.signal });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pauseReplay(s); }, { signal: s.controller.signal });
   root.addEventListener('keydown', event => { if (event.target.matches('[data-sector]') && ['Enter', ' '].includes(event.key)) { event.preventDefault(); event.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }, { signal: s.controller.signal });
   let drag = null, pinch = null, frame = 0;
@@ -254,9 +264,9 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
     const chart = root.querySelector('.twx-bubbles'); if (!a || !b || !chart) return;
     const rect = chart.getBoundingClientRect();
     const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    const point = { x: (center.x - rect.left) * 480 / rect.width, y: (center.y - rect.top) * 494 / rect.height };
+    const point = { x: (center.x - rect.left) * 480 / rect.width, y: (center.y - rect.top) * chart.viewBox.baseVal.height / rect.height };
     pinch = { distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), zoom: prefs.zoom,
-      x: (point.x - 240 - prefs.panX) / prefs.zoom, y: (point.y - 244 - prefs.panY) / prefs.zoom };
+      x: (point.x - 240 - prefs.panX) / prefs.zoom, y: (point.y - (chart.viewBox.baseVal.height - 6) / 2 - prefs.panY) / prefs.zoom };
     drag = null;
     for (const id of touches.keys()) if (!root.hasPointerCapture(id)) root.setPointerCapture(id);
   };
@@ -278,11 +288,11 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
       const rect = chart.getBoundingClientRect();
       const distance = Math.hypot(a.x - b.x, a.y - b.y);
       const x = ((a.x + b.x) / 2 - rect.left) * 480 / rect.width;
-      const y = ((a.y + b.y) / 2 - rect.top) * 494 / rect.height;
+      const y = ((a.y + b.y) / 2 - rect.top) * chart.viewBox.baseVal.height / rect.height;
       prefs.zoom = Math.max(minChartZoom(), Math.min(8, pinch.zoom * distance / pinch.distance));
       const bound = prefs.zoom * 170;
       prefs.panX = Math.max(-bound, Math.min(bound, x - 240 - pinch.x * prefs.zoom));
-      prefs.panY = Math.max(-bound, Math.min(bound, y - 244 - pinch.y * prefs.zoom));
+      prefs.panY = Math.max(-bound, Math.min(bound, y - (chart.viewBox.baseVal.height - 6) / 2 - pinch.y * prefs.zoom));
       event.preventDefault(); draw(); return;
     }
     if (!drag || drag.id !== event.pointerId) return;

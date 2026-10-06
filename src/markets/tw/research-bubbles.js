@@ -20,14 +20,14 @@ export function bubblePoints(sectors, mode = 'day') {
 }
 // Bubble labels are annotations: small anchor dots retain the exact plotted
 // coordinates, while deterministic placement avoids covering nearby labels.
-export function placeBubbleLabels(points, cx, cy, zoom) {
+export function placeBubbleLabels(points, cx, cy, zoom, stretch = 1) {
   const placed = [];
   for (const point of points) {
     const rx = point.labelWidth / 2, ry = point.labelHeight / 2;
     const left = point.x < 0 ? cx - 195 * zoom + rx : cx + rx + 5;
     const right = point.x < 0 ? cx - rx - 5 : cx + 195 * zoom - rx;
-    const top = point.y >= 0 ? cy - 195 * zoom + ry : cy + ry + 5;
-    const bottom = point.y >= 0 ? cy - ry - 5 : cy + 195 * zoom - ry;
+    const top = point.y >= 0 ? cy - 195 * zoom * stretch + ry : cy + ry + 5;
+    const bottom = point.y >= 0 ? cy - ry - 5 : cy + 195 * zoom * stretch - ry;
     const baseX = clamp(point.ax, left, right), baseY = clamp(point.ay, top, bottom);
     let found;
     for (let distance = 0; distance <= 390 * zoom && !found; distance += 7) {
@@ -49,7 +49,7 @@ export function placeBubbleLabels(points, cx, cy, zoom) {
       Math.abs(p.px - other.px) < (p.labelWidth + other.labelWidth) / 2 + 3 &&
       Math.abs(p.py - other.py) < (p.labelHeight + other.labelHeight) / 2 + 3));
     if (!overlaps) continue;
-    const width = 190 * zoom, height = 190 * zoom, columns = Math.max(1, Math.floor(width / 63));
+    const width = 190 * zoom, height = 190 * zoom * stretch, columns = Math.max(1, Math.floor(width / 63));
     const sorted = [...cluster].sort((a, b) => b.labelHeight - a.labelHeight || a.name.localeCompare(b.name));
     const rows = [];
     for (let i = 0; i < sorted.length; i += columns) rows.push(sorted.slice(i, i + columns));
@@ -58,7 +58,7 @@ export function placeBubbleLabels(points, cx, cy, zoom) {
     if (used + (rows.length - 1) * 3 > height) continue;
     const gap = (height - used) / (rows.length + 1);
     const left = q < 2 ? cx + 5 : cx - 195 * zoom;
-    let top = (q % 2 === 0 ? cy - 195 * zoom : cy + 5) + gap;
+    let top = (q % 2 === 0 ? cy - 195 * zoom * stretch : cy + 5) + gap;
     rows.forEach((row, index) => {
       row.forEach((point, column) => { point.px = left + width * (column + .5) / columns; point.py = top + heights[index] / 2; });
       top += heights[index] + gap;
@@ -67,14 +67,14 @@ export function placeBubbleLabels(points, cx, cy, zoom) {
   return placed;
 }
 export function bubbleLayout(sectors, mode = 'day', { density = 'all', zoom = 1, panX = 0, panY = 0,
-  xScale, yScale, maxSize, names } = {}) {
+  xScale, yScale, maxSize, names, height = 494 } = {}) {
   const all = bubblePoints(sectors, mode);
   const ranked = [...all].sort((a, b) => Math.abs(b.x) - Math.abs(a.x) || a.name.localeCompare(b.name));
   const selected = names ? names.map(name => all.find(s => s.name === name)).filter(Boolean) : density === 'top' ? ranked.slice(0, 10) : ranked;
   xScale ||= flowScale(all.map(s => s.x));
   yScale ||= flowScale(all.map(s => s.y));
   maxSize ||= Math.max(...all.map(s => s.size), 1);
-  const z = clamp(zoom, 1, 8), cx = 240 + panX, cy = 244 + panY;
+  const z = clamp(zoom, 1, 8), cx = 240 + panX, cy = (height - 6) / 2 + panY, stretch = (height - 97) / 397;
   const points = placeBubbleLabels(selected.map(s => {
     const lines = []; let line = '', width = 0;
     for (const letter of Array.from(s.name)) {
@@ -84,14 +84,14 @@ export function bubbleLayout(sectors, mode = 'day', { density = 'all', zoom = 1,
     }
     if (line.trim()) lines.push(line.trim());
     return { ...s, lines, labelWidth: 57, labelHeight: lines.length * 14 + 11, opacity: 1, ax: cx + xScale.position(s.x) * 152 * z,
-      ay: cy - yScale.position(s.y) * 152 * z,
+      ay: cy - yScale.position(s.y) * 152 * z * stretch,
       radius: Math.max(31, lines.length * 8 + 12, 46 * Math.sqrt(Math.max(0, s.size) / maxSize)) };
-  }), cx, cy, z);
-  return { points, xScale, yScale, maxSize, cx, cy, z };
+  }), cx, cy, z, stretch);
+  return { points, xScale, yScale, maxSize, cx, cy, z, height, stretch };
 }
 export function bubbleChart(sectors, mode = 'day', selected = '', options = {}) {
   const layout = options.layout || bubbleLayout(sectors, mode, options);
-  const { points, xScale, yScale, cx, cy, z } = layout;
+  const { points, xScale, yScale, cx, cy, z, height = 494, stretch = 1 } = layout;
   if (!points.length) return `<div class="twx-empty">${mode === 'momentum' ? '此範圍尚無完整 20 個交易日資料。可切換「當日價量」查看。' : '沒有符合條件且具備完整當日資料的產業。'}</div>`;
   const formatX = value => (value / 1e8).toLocaleString('zh-TW', { maximumFractionDigits: 1 });
   const formatY = value => (value / (mode === 'momentum' ? 1e8 : 1)).toLocaleString('zh-TW', { maximumFractionDigits: 1 });
@@ -106,7 +106,8 @@ export function bubbleChart(sectors, mode = 'day', selected = '', options = {}) 
     const amount = money(s.x).replace(' 億', '億');
     return `<g class="twx-bubble ${s.name === selected ? 'chosen' : ''}" role="button" tabindex="0" data-sector="${escape(s.name)}" aria-label="${escape(s.name)}，${mode === 'momentum' ? '5 日' : '當日'}${money(s.x)}，${mode === 'momentum' ? '動能' + money(s.y) + '／日' : pct(s.y)}" style="--bubble:${color};opacity:${s.opacity ?? 1}"><title>${escape(s.name)} · ${mode === 'momentum' ? '5 日' : '當日'} ${money(s.x)} · ${mode === 'momentum' ? '動能 ' + money(s.y) + '／日' : pct(s.y)}</title><circle cx="${x}" cy="${y}" r="${radius}"/><text class="twx-bubble-label" x="${x}" y="${firstLineY}" text-anchor="middle">${lines.map((name, i) => `<tspan x="${x}" dy="${i ? 14 : 0}">${escape(name)}</tspan>`).join('')}</text><text class="twx-bubble-value" x="${x}" y="${firstLineY + lines.length * 14}" text-anchor="middle">${amount}</text></g>`;
   }).join('');
-  const yTicks = [85, 165, 325, 405];
+  const sy = y => 45 + (y - 45) * stretch;
+  const yTicks = [85, 165, 325, 405].map(sy);
   const xTicks = [70, 240, 410];
-  return `<svg class="twx-bubbles ${z > 1 ? 'is-zoomed' : ''}" viewBox="0 0 480 494" role="group" aria-label="${mode === 'momentum' ? '資金動向圖' : '當日價量圖'}；兩軸為對稱壓縮刻度；${points.length} 個產業，泡泡內金額為${mode === 'momentum' ? '近五日' : '當日'}估算"><defs><clipPath id="twx-plot-clip"><rect x="45" y="45" width="397" height="397" rx="8"/></clipPath></defs><g class="twx-chart-grid" clip-path="url(#twx-plot-clip)">${yTicks.map(y => line(45, y, 442, y)).join('')}${line(cx, 45, cx, 442, 'axis')}${line(45, cy, 442, cy, 'axis')}</g><g class="twx-axis-label"><text x="14" y="27">${mode === 'momentum' ? '↑ 更偏買入 · ↓ 更偏賣出（億／日）' : '當日產業漲跌幅（%）'}</text><text x="240" y="483" text-anchor="middle">${mode === 'momentum' ? '近五日' : '當日'}淨買賣超（億） · ← 流出｜流入 →</text>${xTicks.map(x => `<text x="${x}" y="461" text-anchor="middle">${formatX(xScale.value((x - cx) / (152 * z)))}</text>`).join('')}${yTicks.map(y => `<text x="5" y="${y + 4}">${formatY(yScale.value((cy - y) / (152 * z)))}</text>`).join('')}</g>${mode === 'momentum' ? `<g class="twx-quadrant-label" aria-hidden="true"><text x="55" y="62">流出收斂</text><text x="430" y="62" text-anchor="end">流入加速</text><text x="55" y="430">流出加速</text><text x="430" y="430" text-anchor="end">流入放緩</text></g>` : ''}<g class="twx-bubble-anchors" clip-path="url(#twx-plot-clip)">${anchors}</g><g clip-path="url(#twx-plot-clip)">${dots}</g></svg>`;
+  return `<svg class="twx-bubbles ${z > 1 ? 'is-zoomed' : ''}" viewBox="0 0 480 ${height}" role="group" aria-label="${mode === 'momentum' ? '資金動向圖' : '當日價量圖'}；兩軸為對稱壓縮刻度；${points.length} 個產業，泡泡內金額為${mode === 'momentum' ? '近五日' : '當日'}估算"><defs><clipPath id="twx-plot-clip"><rect x="45" y="45" width="397" height="${height - 97}" rx="8"/></clipPath></defs><g class="twx-chart-grid" clip-path="url(#twx-plot-clip)">${yTicks.map(y => line(45, y, 442, y)).join('')}${line(cx, 45, cx, height - 52, 'axis')}${line(45, cy, 442, cy, 'axis')}</g><g class="twx-axis-label"><text x="14" y="27">${mode === 'momentum' ? '↑ 更偏買入 · ↓ 更偏賣出（億／日）' : '當日產業漲跌幅（%）'}</text><text x="240" y="${height - 11}" text-anchor="middle">${mode === 'momentum' ? '近五日' : '當日'}淨買賣超（億） · ← 流出｜流入 →</text>${xTicks.map(x => `<text x="${x}" y="${height - 33}" text-anchor="middle">${formatX(xScale.value((x - cx) / (152 * z)))}</text>`).join('')}${yTicks.map(y => `<text x="5" y="${y + 4}">${formatY(yScale.value((cy - y) / (152 * z * stretch)))}</text>`).join('')}</g>${mode === 'momentum' ? `<g class="twx-quadrant-label" aria-hidden="true"><text x="55" y="62">流出收斂</text><text x="430" y="62" text-anchor="end">流入加速</text><text x="55" y="${height - 64}">流出加速</text><text x="430" y="${height - 64}" text-anchor="end">流入放緩</text></g>` : ''}<g class="twx-bubble-anchors" clip-path="url(#twx-plot-clip)">${anchors}</g><g clip-path="url(#twx-plot-clip)">${dots}</g></svg>`;
 }
