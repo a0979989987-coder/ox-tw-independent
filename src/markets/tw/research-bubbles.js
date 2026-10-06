@@ -23,11 +23,11 @@ export function bubblePoints(sectors, mode = 'day') {
 export function placeBubbleLabels(points, cx, cy, zoom) {
   const placed = [];
   for (const point of points) {
-    const { radius: r } = point;
-    const left = point.x < 0 ? cx - 195 * zoom + r : cx + r + 5;
-    const right = point.x < 0 ? cx - r - 5 : cx + 195 * zoom - r;
-    const top = point.y >= 0 ? cy - 195 * zoom + r : cy + r + 5;
-    const bottom = point.y >= 0 ? cy - r - 5 : cy + 195 * zoom - r;
+    const rx = point.labelWidth / 2, ry = point.labelHeight / 2;
+    const left = point.x < 0 ? cx - 195 * zoom + rx : cx + rx + 5;
+    const right = point.x < 0 ? cx - rx - 5 : cx + 195 * zoom - rx;
+    const top = point.y >= 0 ? cy - 195 * zoom + ry : cy + ry + 5;
+    const bottom = point.y >= 0 ? cy - ry - 5 : cy + 195 * zoom - ry;
     const baseX = clamp(point.ax, left, right), baseY = clamp(point.ay, top, bottom);
     let found;
     for (let distance = 0; distance <= 390 * zoom && !found; distance += 7) {
@@ -36,10 +36,33 @@ export function placeBubbleLabels(points, cx, cy, zoom) {
         const angle = i * Math.PI * 2 / steps;
         const x = baseX + Math.cos(angle) * distance, y = baseY + Math.sin(angle) * distance;
         if (x < left || x > right || y < top || y > bottom) continue;
-        if (placed.every(other => Math.hypot(x - other.px, y - other.py) >= r + other.radius + 5)) { found = { px: x, py: y }; break; }
+        if (placed.every(other => Math.abs(x - other.px) >= (point.labelWidth + other.labelWidth) / 2 + 6 || Math.abs(y - other.py) >= (point.labelHeight + other.labelHeight) / 2 + 6)) { found = { px: x, py: y }; break; }
       }
     }
     placed.push({ ...point, ...(found || { px: baseX, py: baseY }) });
+  }
+  // Crowded quadrants need a compact annotation grid instead of falling back
+  // to overlapping labels. Anchor dots retain the actual data coordinates.
+  for (let q = 0; q < 4; q++) {
+    const cluster = placed.filter(p => quadrant(p.x, p.y) === q);
+    const overlaps = cluster.some((p, i) => cluster.slice(i + 1).some(other =>
+      Math.abs(p.px - other.px) < (p.labelWidth + other.labelWidth) / 2 + 3 &&
+      Math.abs(p.py - other.py) < (p.labelHeight + other.labelHeight) / 2 + 3));
+    if (!overlaps) continue;
+    const width = 190 * zoom, height = 190 * zoom, columns = Math.max(1, Math.floor(width / 63));
+    const sorted = [...cluster].sort((a, b) => b.labelHeight - a.labelHeight || a.name.localeCompare(b.name));
+    const rows = [];
+    for (let i = 0; i < sorted.length; i += columns) rows.push(sorted.slice(i, i + columns));
+    const heights = rows.map(row => Math.max(...row.map(p => p.labelHeight)));
+    const used = heights.reduce((sum, h) => sum + h, 0);
+    if (used + (rows.length - 1) * 3 > height) continue;
+    const gap = (height - used) / (rows.length + 1);
+    const left = q < 2 ? cx + 5 : cx - 195 * zoom;
+    let top = (q % 2 === 0 ? cy - 195 * zoom : cy + 5) + gap;
+    rows.forEach((row, index) => {
+      row.forEach((point, column) => { point.px = left + width * (column + .5) / columns; point.py = top + heights[index] / 2; });
+      top += heights[index] + gap;
+    });
   }
   return placed;
 }
@@ -53,9 +76,14 @@ export function bubbleLayout(sectors, mode = 'day', { density = 'all', zoom = 1,
   maxSize ||= Math.max(...all.map(s => s.size), 1);
   const z = clamp(zoom, 1, 8), cx = 240 + panX, cy = 244 + panY;
   const points = placeBubbleLabels(selected.map(s => {
-    const letters = Array.from(s.name), lines = [];
-    for (let i = 0; i < letters.length; i += 4) lines.push(letters.slice(i, i + 4).join(''));
-    return { ...s, lines, opacity: 1, ax: cx + xScale.position(s.x) * 152 * z,
+    const lines = []; let line = '', width = 0;
+    for (const letter of Array.from(s.name)) {
+      const size = /[\x00-\x7F]/.test(letter) ? .55 : 1;
+      if (width + size > 4.4 && line) { lines.push(line.trim()); line = ''; width = 0; }
+      line += letter; width += size;
+    }
+    if (line.trim()) lines.push(line.trim());
+    return { ...s, lines, labelWidth: 57, labelHeight: lines.length * 14 + 11, opacity: 1, ax: cx + xScale.position(s.x) * 152 * z,
       ay: cy - yScale.position(s.y) * 152 * z,
       radius: Math.max(31, lines.length * 8 + 12, 46 * Math.sqrt(Math.max(0, s.size) / maxSize)) };
   }), cx, cy, z);

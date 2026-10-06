@@ -78,3 +78,13 @@ test('TPEx table fields normalize full institutional names',()=>{
  const rows=normalizeInstitutional({tables:[{fields:['代號','外資及陸資(不含外資自營商)買賣超股數','投信買賣超股數','自營商買賣超股數','三大法人買賣超股數合計'],data:[['6488','-1,000','200','100','-700']]}]},'TPEX','2026-09-24');
  assert.equal(rows[0].foreignShares,-1000);assert.equal(rows[0].netShares,-700);
 });
+
+test('crowded thematic labels remain readable in their own quadrant with exact anchors', async () => {
+ const {bubbleLayout}=await import('../src/markets/tw/research-bubbles.js');
+ const names=['CPU 與 Agentic AI','HBM 高頻寬記憶體','晶圓代工','HPC 與網通 IC','封測代工','AI PC 筆電與平板','客製 ASIC 矽智財','CXL 技術','矽光子與 CPO','PCB 載板'];
+ const {points,cx,cy}=bubbleLayout(names.map((name,i)=>({name,flow:-100-i,changePct:-1,turnoverTwd:1000})),'day',{density:'top'});
+ for (const [i,p] of points.entries()) {
+   assert.ok(p.px<cx && p.py>cy); assert.ok(p.ax<cx && p.ay>cy);
+   for (const o of points.slice(i+1)) assert.ok(Math.abs(p.px-o.px)>=(p.labelWidth+o.labelWidth)/2 || Math.abs(p.py-o.py)>=(p.labelHeight+o.labelHeight)/2,`${p.name} overlaps ${o.name}`);
+ }
+});
