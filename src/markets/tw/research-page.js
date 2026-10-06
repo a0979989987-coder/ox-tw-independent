@@ -7,7 +7,7 @@ import { SECTOR_DEFINITIONS, SECTOR_TAXONOMY_VERSION } from './sector-taxonomy.j
 import { sectorPicker, sectorPickerList } from './sector-picker.js';
 import { replayHistory, replayFrames, replayFrameAt, drawReplayFrame, createReplayPlayer } from './research-replay.js?v=20261006-replay';
 import { closeResearchDetails, showSector, showStock, watchClick, showHomeHighlights, updateHomeHighlights } from './research-detail.js?v=20261005-briefingdate';
-const prefs = { tab: 'bubble', scope: 'all', market: 'ALL', mode: 'auto', density: 'top', zoom: 1, panX: 0, panY: 0, sort: 'buy', query: '', quadrant: null, help: false, replayIndex: null, replaySpeed: 1, classification: 'theme', selectedSectors: [], pickerOpen: false, pickerQuery: '', openGroups: [] };
+const prefs = { tab: 'bubble', scope: 'all', market: 'ALL', mode: 'auto', density: 'all', zoom: 1, panX: 0, panY: 0, sort: 'buy', query: '', quadrant: null, help: false, replayIndex: null, replaySpeed: 1, classification: 'theme', selectedSectors: [], pickerOpen: false, pickerQuery: '', openGroups: [] };
 let session, data = savedResearch(), loading = false, error = null, lastFetch = 0;
 let home=savedHome(),homeLoading=false,homeFetched=0,homeSession='after';
 async function refreshHome(s,force=false){
@@ -91,6 +91,7 @@ function mountReplay(s, resume) {
       const next = s.root.querySelector('[data-replay-step="1"]'); if (next) next.disabled = position >= frames.length - 1;
       if (day && s.visibleReplayIndex !== index) {
         s.visibleReplayIndex = index;
+        const bubbleCount = s.root.querySelector('[data-bubble-count]'); if (bubbleCount) bubbleCount.textContent = bubbleCountText();
         const values = bubblePoints(day.sectors, mode).sort((a, b) => b.x - a.x), counts = [0, 0, 0, 0];
         for (const point of values) counts[quadrant(point.x, point.y)]++;
         s.root.querySelectorAll('[data-quadrant] strong').forEach((el, i) => { el.textContent = counts[i]; });
@@ -107,7 +108,7 @@ function mountReplay(s, resume) {
   s.player.seek(prefs.replayIndex);
   if (resume) s.player.play();
 }
-function minChartZoom() { return prefs.quadrant !== null ? 2 : prefs.density === 'all' && prefs.scope === 'all' ? 1.5 : 1; }
+function minChartZoom() { return prefs.quadrant !== null ? 2 : 1; }
 function resetChart() { prefs.zoom = minChartZoom(); prefs.panX = prefs.quadrant === null ? 0 : prefs.quadrant < 2 ? -195 : 195; prefs.panY = prefs.quadrant === null ? 0 : prefs.quadrant % 2 === 0 ? 195 : -195; }
 function filtered() {
   const mode = chartMode();
@@ -124,8 +125,16 @@ function results() {
   const sorted = [...sectors].filter(s => Number.isFinite(s[sortKey])).sort((a, b) => sign * (a[sortKey] - b[sortKey]));
   return `<div class="twx-ranking">${sorted.map((s, index) => `<button type="button" class="twx-rank" data-sector="${escape(s.name)}"><span class="twx-rank-number">${index + 1}</span><span><b>${escape(s.name)}</b><small>${s.buyCount} / ${s.covered} 檔買超</small></span><span class="${direction(s.changePct)}">${pct(s.changePct)}</span><strong class="${direction(s[sortKey])}">${['up', 'down'].includes(prefs.sort) ? money(s.flow) : money(s[sortKey])}</strong></button>`).join('') || '<div class="twx-empty">沒有符合條件的產業</div>'}</div>`;
 }
+function bubbleCountText() {
+  const mode = chartMode(), sectors = filtered(), valid = bubblePoints(sectors, mode);
+  const frame = session?.replayFrames?.[Math.floor(prefs.replayIndex)];
+  const count = prefs.replayIndex !== null && frame ? frame.points.filter(p => p.opacity > 0).length
+    : chartOptions().density === 'top' ? Math.min(10, valid.length) : valid.length;
+  const missing = sectors.length - valid.length;
+  return `本日繪出 ${count} 顆泡泡${missing > 0 ? ` · ${missing} 個板塊${mode === 'momentum' ? '歷史不足' : '資料不足'}` : ''}`;
+}
 function chartActions() {
-  return `<div class="twx-chart-actions">${prefs.scope === 'all' ? segments('density', [['top', '金額前 10'], ['all', '全部板塊']], prefs.density) : '<small>自選股票相關板塊</small>'}<div class="twx-zoom" role="group" aria-label="圖表縮放"><button type="button" data-zoom="out" aria-label="縮小圖表" ${prefs.zoom <= minChartZoom() ? 'disabled' : ''}>−</button><button type="button" data-zoom="reset" aria-label="重設圖表">${Math.round(prefs.zoom * 100)}%</button><button type="button" data-zoom="in" aria-label="放大圖表" ${prefs.zoom >= 8 ? 'disabled' : ''}>＋</button></div></div><small class="twx-chart-hint">細點為實際座標 · 泡泡內為${chartMode() === 'momentum' ? '近五日' : '當日'}金額 · 雙指可縮放 · 放大可拖曳</small>`;
+  return `<div class="twx-chart-actions">${prefs.scope === 'all' ? segments('density', [['all', '全部板塊'], ['top', '金額前 10']], prefs.density) : '<small>自選股票相關板塊</small>'}<div class="twx-zoom" role="group" aria-label="圖表縮放"><button type="button" data-zoom="out" aria-label="縮小圖表" ${prefs.zoom <= minChartZoom() ? 'disabled' : ''}>−</button><button type="button" data-zoom="reset" aria-label="重設圖表">${Math.round(prefs.zoom * 100)}%</button><button type="button" data-zoom="in" aria-label="放大圖表" ${prefs.zoom >= 8 ? 'disabled' : ''}>＋</button></div></div><small class="twx-chart-hint"><span data-bubble-count>${bubbleCountText()}</span> · 細點為實際座標 · 泡泡內為${chartMode() === 'momentum' ? '近五日' : '當日'}金額 · 雙指可縮放 · 放大可拖曳</small>`;
 }
 function indicatorContent() {
   const all = chartSectors(), mode = chartMode();
