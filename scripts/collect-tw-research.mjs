@@ -39,8 +39,10 @@ if (process.argv.includes('--backfill')) {
     sessions++;
     if (history.some(d=>d.date===date && d.sectors?.length && d.themeVersion===SECTOR_TAXONOMY_VERSION && d.coverageVersion===RESEARCH_COVERAGE_VERSION && d.sourceHealth?.TWSE?.complete && d.sourceHealth?.TPEX?.complete && d.themes?.length===110)) continue;
     let day = history.find(day => day.date === date) || { date, sectors: [], unavailable: true };
-    try { day=await collectHistoryDay(date,companies);console.log(`History ${date}: ${day.sectors.length} sectors`); }
-    catch(e){console.log(`History ${date}: unavailable (${e.message})`);}
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try { day=await collectHistoryDay(date,companies);console.log(`History ${date}: ${day.sectors.length} sectors`); break; }
+      catch(e){console.log(`History ${date}: ${attempt < 3 ? 'retry' : 'unavailable'} (${e.message})`);}
+    }
     history = history.filter(d=>d.date!==date); history.push(day);
     await writeFile(historyFile,JSON.stringify(history));
   }

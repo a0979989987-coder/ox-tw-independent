@@ -20,12 +20,12 @@ export function normalizeHistoricalQuotes(payload, market, date, companies) {
       changePct: diff !== null && close - diff > 0 ? diff / (close - diff) * 100 : null, turnoverTwd: numeric(row[amount]) };
   }).filter(Boolean);
 }
-export async function collectHistoryDay(date, companies) {
+export async function collectHistoryDay(date, companies, { timeoutMs = 30000 } = {}) {
   const compact = date.replaceAll('-', ''), roc = `${Number(date.slice(0,4))-1911}/${date.slice(5,7)}/${date.slice(8)}`;
   const [twse, tpex, twseFlow, tpexFlow] = await Promise.all([
-    officialJSON(`https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?response=json&date=${compact}&type=ALLBUT0999`),
-    officialJSON(`https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&d=${encodeURIComponent(roc)}&se=EW&o=json`),
-    loadInstitutional(date,'TWSE'), loadInstitutional(date,'TPEX')
+    officialJSON(`https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?response=json&date=${compact}&type=ALLBUT0999`, fetch, { timeoutMs }),
+    officialJSON(`https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&d=${encodeURIComponent(roc)}&se=EW&o=json`, fetch, { timeoutMs }),
+    loadInstitutional(date,'TWSE',fetch,{ timeoutMs }), loadInstitutional(date,'TPEX',fetch,{ timeoutMs })
   ]);
   const quotes = [...normalizeHistoricalQuotes(twse,'TWSE',date,companies), ...normalizeHistoricalQuotes(tpex,'TPEX',date,companies)];
   if (!quotes.some(q=>q.market==='TWSE') || !quotes.some(q=>q.market==='TPEX')) throw new Error('No aligned official quotes');

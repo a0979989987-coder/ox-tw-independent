@@ -2,6 +2,7 @@ import { themeGroups, enrichThemeSnapshot } from './sector-groups.js';
 import { SECTOR_TAXONOMY_VERSION } from './sector-taxonomy.js';
 import { getTWApiBase } from './api.js?v=20261005-recovery20';
 const KEY = 'ox-tw-independent:ox-tw-research-v1';
+const completeCoverage = data => data?.coverageVersion === 'complete-market-report-v2' && data.sourceHealth?.TWSE?.complete && data.sourceHealth?.TPEX?.complete;
 let value, pending, lastSuccess = 0;
 const listeners=new Set();
 export function subscribeResearch(listener){listeners.add(listener);return()=>listeners.delete(listener);}
@@ -16,6 +17,10 @@ export function mergeResearchHistory(previous = [], incoming = [], date) {
   const merged = new Map(previous.filter(day => day.date <= date).map(day => [day.date, day]));
   for (const day of incoming.filter(day => day.date <= date)) {
     const old = merged.get(day.date);
+    if (completeCoverage(old) && !completeCoverage(day) && old.themeVersion === SECTOR_TAXONOMY_VERSION) {
+      merged.set(day.date, old);
+      continue;
+    }
     merged.set(day.date, day.themeVersion === SECTOR_TAXONOMY_VERSION || old?.themeVersion !== SECTOR_TAXONOMY_VERSION
       ? day : { ...day, themes: old.themes, themeVersion: old.themeVersion });
   }
@@ -24,11 +29,19 @@ export function mergeResearchHistory(previous = [], incoming = [], date) {
 function accept(data) {
   if (!Array.isArray(data?.stocks) || !data.date) throw new Error('台股資料格式異常');
   data.history = mergeResearchHistory(value?.history, data.history, data.date);
-  if (value && data.date <= value.date) {
+  // An older deployed API must not replace the repaired same-day report with
+  // its sparse rows, even when its request timestamp is newer.
+  if (value?.date === data.date && completeCoverage(value) && !completeCoverage(data)) {
+    value.history = mergeResearchHistory(value.history, data.history, value.date);
+    try { localStorage.setItem(KEY, JSON.stringify(value)); } catch {}
+    return value;
+  }
+  const upgraded = value?.date === data.date && completeCoverage(data) && !completeCoverage(value);
+  if (value && data.date <= value.date && !upgraded) {
     value.history = mergeResearchHistory(data.history, value.history, value.date);
     try { localStorage.setItem(KEY, JSON.stringify(value)); } catch {}
   }
-  if (!value || data.date > value.date || data.date === value.date && Date.parse(data.updatedAt||0)>=Date.parse(value.updatedAt||0)) {
+  if (!value || upgraded || data.date > value.date || data.date === value.date && Date.parse(data.updatedAt||0)>=Date.parse(value.updatedAt||0)) {
     value = data;
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
     for(const listener of listeners)listener(value);

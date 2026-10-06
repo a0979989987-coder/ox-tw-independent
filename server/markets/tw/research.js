@@ -25,18 +25,18 @@ export function normalizeInstitutional(payload, market, date) {
     netShares: numeric(row[total]), foreignShares: numeric(row[foreign]), trustShares: numeric(row[trust]), dealerShares: numeric(row[dealer])
   })).filter(row => /^\d{4,6}$/.test(row.symbol) && row.netShares !== null);
 }
-export async function officialJSON(url, fetcher = fetch) {
-  const response = await fetcher(url, { headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 OX TW Research' }, signal: AbortSignal.timeout(14000) });
+export async function officialJSON(url, fetcher = fetch, { timeoutMs = 14000 } = {}) {
+  const response = await fetcher(url, { headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 OX TW Research' }, signal: AbortSignal.timeout(timeoutMs) });
   if (!response.ok) throw new Error(`Official source HTTP ${response.status}`);
   return response.json();
 }
-export async function loadInstitutional(date, market, fetcher = fetch) {
+export async function loadInstitutional(date, market, fetcher = fetch, options) {
   const compact = date.replaceAll('-', '');
   const roc = `${Number(date.slice(0, 4)) - 1911}/${date.slice(5, 7)}/${date.slice(8)}`;
   const url = market === 'TWSE'
     ? `https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date=${compact}&selectType=ALL`
     : `https://www.tpex.org.tw/web/stock/3insti/DAILY_TradE/3itrade_hedge_result.php?l=zh-tw&o=json&se=EW&t=D&d=${encodeURIComponent(roc)}`;
-  const payload = await officialJSON(url, fetcher);
+  const payload = await officialJSON(url, fetcher, options);
   const returnedDate = String(payload.date || payload.reportDate || '').replace(/[^0-9]/g, '');
   const normalizedDate = returnedDate.length === 7 ? String(Number(returnedDate.slice(0, 3)) + 1911) + returnedDate.slice(3) : returnedDate;
   if (normalizedDate.length === 8 && normalizedDate !== compact) throw new Error('Institutional date mismatch');

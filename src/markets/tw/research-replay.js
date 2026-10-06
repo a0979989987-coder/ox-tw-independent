@@ -93,7 +93,7 @@ export function drawReplayFrame(svg, points, mode) {
     value.textContent = p.opacity > .99 ? money(p.x).replace(' 億', '億') : '—';
     const description = `${p.name}，${mode === 'momentum' ? '近五日' : '當日'} ${money(p.x)}，${mode === 'momentum' ? '買入力道 ' + money(p.y) + '／日' : pct(p.y)}`;
     group.setAttribute('aria-label', description); if (title) title.textContent = description;
-    group.style.setProperty('--bubble', p.color);
+    group.style.setProperty('--bubble', p.color || colors[quadrant(p.x, p.y)]);
     group.style.opacity = p.opacity;
     group.style.pointerEvents = p.opacity > .99 ? '' : 'none';
     group.setAttribute('tabindex', p.opacity > .99 ? '0' : '-1');

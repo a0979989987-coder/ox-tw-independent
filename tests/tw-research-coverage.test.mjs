@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadInstitutional, joinResearchStocks } from '../server/markets/tw/research.js';
+import { SECTOR_TAXONOMY_VERSION } from '../src/markets/tw/sector-taxonomy.js';
+import { mergeResearchHistory } from '../src/markets/tw/research-data.js';
 
 const date = '2026-10-05';
 const fields = ['證券代號', '三大法人買賣超股數'];
@@ -39,4 +41,22 @@ test('TPEx grouped headers follow the official 24-column template and unpaginate
   const feed = await loadInstitutional(date, 'TPEX', fetcher({stat:'ok',date:'20261005',tables:[{date:'115/10/05',fields:grouped,data:rows,totalCount:600}]}));
   assert.equal(feed.report.complete, true);
   assert.deepEqual([feed[0].foreignShares, feed[0].trustShares, feed[0].dealerShares, feed[0].netShares], [2,3,4,9]);
+});
+
+test('legacy refreshes cannot erase repaired history, even when their timestamp is newer', async () => {
+  const complete = { date, updatedAt: '2026-10-06T01:00:00Z', stocks: [{ symbol:'2330', netTwd:0 }],
+    coverageVersion:'complete-market-report-v2', sourceHealth:{TWSE:{complete:true},TPEX:{complete:true}} };
+  const repaired = { ...complete, themeVersion:SECTOR_TAXONOMY_VERSION, sectors:[{name:'A',flow:0}], themes:[{name:'A',flow:0}] };
+  const legacy = { date, updatedAt: '2026-10-06T02:00:00Z', stocks:[{symbol:'2330',netTwd:null}], history:[{date,sectors:[],themes:[],themeVersion:SECTOR_TAXONOMY_VERSION}] };
+  assert.deepEqual(mergeResearchHistory([repaired],legacy.history,date),[repaired]);
+  const originalFetch = globalThis.fetch, originalStorage = globalThis.localStorage;
+  globalThis.localStorage = { getItem:()=>JSON.stringify(legacy),setItem(){} };
+  globalThis.fetch = async url => ({ok:true,json:async()=>String(url).includes('data/tw-research.json')
+    ? structuredClone({...complete,history:[repaired]}) : {data:structuredClone(legacy)}});
+  try {
+    const module = await import('../src/markets/tw/research-data.js?complete-coverage-test');
+    await module.loadResearch({force:true});
+    assert.equal(module.savedResearch().stocks[0].netTwd,0);
+    assert.deepEqual(module.savedResearch().history,[repaired]);
+  } finally { globalThis.fetch = originalFetch; globalThis.localStorage = originalStorage; }
 });
