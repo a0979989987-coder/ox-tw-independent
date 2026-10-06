@@ -11,7 +11,10 @@ const mix = (a, b, t) => a + (b - a) * t;
 export function replayHistory(history, mode = 'momentum') {
   const days = [...new Map((history || []).filter(d => d?.date).map(d => [d.date, d])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
-  if (mode === 'day') return days;
+  if (mode === 'day') {
+    const first = days.findIndex(day => bubblePoints(day.sectors || [], mode).length);
+    return first < 0 ? [] : days.slice(first);
+  }
   const enriched = days.map((day, index) => ({ ...day, sectors: (day.sectors || []).map(sector => {
     const window = days.slice(Math.max(0, index - 19), index + 1)
       .map(d => d.sectors?.find(s => s.name === sector.name));

@@ -101,3 +101,9 @@ test('SVG updates retain the exact same label and circle objects across animatio
   }
   assert.ok(positions.size >= 19);
 });
+
+test('daily replay skips empty leading history but retains an internal unavailable session', () => {
+ const sector={name:'A',flow:1,changePct:2,turnoverTwd:100};
+ const days=[{date:'2026-09-01',sectors:[]},{date:'2026-09-02',sectors:[sector]},{date:'2026-09-03',sectors:[]},{date:'2026-09-04',sectors:[sector]}];
+ assert.deepEqual(replayHistory(days,'day').map(day=>day.date),['2026-09-02','2026-09-03','2026-09-04']);
+});
