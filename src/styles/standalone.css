@@ -7,3 +7,18 @@ body[data-market="tw"]{min-height:100dvh}
 .tw-media h1{font-size:22px}.tw-media h2{font-size:18px;margin-top:24px}
 @media(max-width:700px){.ox-shell-header{display:none!important}.app-main{padding-top:8px}.tw-media{padding:18px 8px}}
 #ox-control-panel a.ox-control-row{text-decoration:none;color:inherit;box-sizing:border-box} #ox-control-data-status{max-width:180px;line-height:1.6} .ox-feature-results:empty{display:none} .ox-control-overlay .ox-feature-search-wrap{margin-top:10px} .ox-control-panel [aria-pressed="true"]{font-weight:700} .oxn-stock-symbol{font-size:11px;font-weight:750;letter-spacing:-.2px} .oxn-event-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6} body.ox-control-open{overflow:hidden}
+
+/* Category identities remain visible beside symbols in both calendar layouts. */
+.oxn-event-icon{display:inline-flex;align-items:center;justify-content:center;flex:none}
+.oxn-calendar-event{display:flex!important;align-items:center;gap:4px}
+.oxn-calendar-event .oxn-event-icon-compact{width:14px;min-width:14px;height:14px;font-size:13px;line-height:1}
+.oxn-calendar-event .oxn-event-icon-compact svg{width:14px;height:14px}
+.oxn-calendar-event .oxn-event-icon-compact img{width:14px;height:11px}
+.oxn-calendar-event-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tw-google-icon svg{width:24px;height:24px;stroke:none!important}
+.twr-release-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0 12px;font-size:12px}
+.twr-release-controls nav{display:flex;gap:5px}
+.twr-release-controls button{font:inherit;color:inherit;background:transparent;border:1px solid #8886;border-radius:99px;padding:6px 9px;min-height:34px}
+.twr-release-controls button[aria-pressed="true"]{border-color:currentColor;box-shadow:0 0 7px #ffffff40}
+.twr-release-controls small{opacity:.65;font-size:11px}
+@media(max-width:600px){.twr-release-controls>small{flex-basis:100%}.twr-release-controls>span{font-size:11px}}

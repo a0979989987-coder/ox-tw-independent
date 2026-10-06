@@ -1,3 +1,4 @@
+import {releaseRangeRows} from './release-range.js';
 import { mountTWChartRadar } from './chart-radar.js?v=20261005-load16';
 import { radarAvailability } from './recovery.js?v=20261005-recovery20';
 import { TW_RADAR_MODES, normalizeTWStockCard, rowsForTWMode, renderTWStockCard } from "./radar-card.js";
@@ -114,6 +115,11 @@ let sortKey =
   "oxScore";
 
 let activeMode = "risk";
+let releaseRange = '3';
+function activeModeRows(state, rows, watchlist) {
+  if(activeMode==='release')return releaseRangeRows(rowsForTWMode(state,'disposal',rows,watchlist),releaseRange);
+  return rowsForTWMode(state,activeMode,rows,watchlist);
+}
 let chartRadar=null,latestRadarState=null,pendingChartSymbol=null;
 const RADAR_MODES = [...TW_RADAR_MODES.filter(mode => mode.id !== 'watchlist'), { id: "screener", label: "篩選器" }, ...TW_RADAR_MODES.filter(mode => mode.id === 'watchlist')];
 let screener=null, screenerHost=null, screenerGeneration=0;
@@ -2876,7 +2882,7 @@ function refreshRadarDataUI(
       state
     );
 
-  const modeRows = rowsForTWMode(state, activeMode, rows, watchlist);
+  const modeRows = activeModeRows(state, rows, watchlist);
 
 
   const filtered =
@@ -2993,6 +2999,11 @@ function refreshRadarDataUI(
       availability.count;
   }
 
+  const releaseControls=root.querySelector('#twr-release-controls');
+  if(releaseControls){
+    releaseControls.hidden=activeMode!=='release';
+    releaseControls.querySelectorAll('[data-twr-release-range]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.twrReleaseRange===releaseRange)));
+  }
   const modeRail = root.querySelector(".twr-mode-rail");
   modeRail?.querySelectorAll("[data-twr-mode]").forEach(button => {
     const selected = button.dataset.twrMode === activeMode;
@@ -3134,7 +3145,7 @@ function refreshRadarDataUI(
           : availability.unavailable || meta?.status === "error" ? "台股資料暫時無法取得，請確認網路後重新載入。"
           : meta?.status === "partial" ? "目前尚無可確認的股票，部分官方名單仍在更新。"
           : activeMode === "risk" ? "目前官方名單沒有公布注意或接近處置門檻的股票。"
-          : activeMode === "release" ? "目前沒有 3 個交易日內處置結束的股票。"
+          : activeMode === "release" ? "目前沒有符合所選範圍的處置結束股票。"
           : "目前官方名單沒有處置中的股票。";
         list.innerHTML = `<div class="twr-empty" role="status">${message}</div>`;
       }
@@ -3911,6 +3922,7 @@ export function renderTWRadar(
 
         </div>
 
+        <div id="twr-release-controls" class="twr-release-controls" hidden><span>處置結束範圍</span><nav aria-label="即將出關日期範圍"><button type="button" data-twr-release-range="3" aria-pressed="true">3 交易日內</button><button type="button" data-twr-release-range="5" aria-pressed="false">5 交易日內</button><button type="button" data-twr-release-range="all" aria-pressed="false">全部日期</button></nav><small>依官方處置迄日；恢復一般交易為下一交易日</small></div>
         <p id="twr-source-notice" class="twr-source-notice" role="status" hidden></p>
 
 
@@ -4261,6 +4273,8 @@ export function renderTWRadar(
       "click",
       event => {
 
+        const rangeButton=event.target.closest('[data-twr-release-range]');
+        if(rangeButton){releaseRange=rangeButton.dataset.twrReleaseRange;refreshRadarDataUI(root,latestRadarState||state,watchlist);return;}
         const modeButton = event.target.closest("[data-twr-mode]");
         if (modeButton) {
           activeMode = modeButton.dataset.twrMode;
@@ -4426,7 +4440,7 @@ export function renderTWRadar(
 
         const stock = event.target.closest("[data-twr-symbol]");
         if (stock) {
-          const row = [...rowsForTWMode(state, activeMode, getRadarRows(state), watchlist), ...getRadarRows(state)]
+          const row = [...activeModeRows(state, getRadarRows(state), watchlist), ...getRadarRows(state)]
             .find(item => item.symbol === stock.dataset.twrSymbol);
           openTWStockDetail(root, row);
           return;
@@ -4527,7 +4541,7 @@ export function renderTWRadar(
   shell?.addEventListener("keydown", event => {
     if ((event.key === "Enter" || event.key === " ") && event.target.matches(".tw-stock-card")) {
       event.preventDefault();
-      const row = [...rowsForTWMode(state, activeMode, getRadarRows(state), watchlist), ...getRadarRows(state)].find(item => item.symbol === event.target.dataset.twrSymbol);
+      const row = [...activeModeRows(state, getRadarRows(state), watchlist), ...getRadarRows(state)].find(item => item.symbol === event.target.dataset.twrSymbol);
       openTWStockDetail(root, row);
     }
   });

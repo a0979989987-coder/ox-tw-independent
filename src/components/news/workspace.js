@@ -1,3 +1,4 @@
+import {createEventIdentity,eventIdentityInfo} from './event-identity.js';
 import { createToolsRail } from '../strength/tools-rail.js?v=20261005-stable18';
 import { MARKET_NAMES, CATEGORY_NAMES, MARKET_CATEGORIES, TIME_CHOICES, sourceName } from './config.js?v=20261005-calendar11';
 import { defaultState, taipeiDay, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays } from './model.js?v=20261005-load16';
@@ -180,7 +181,7 @@ export function mountNewsWorkspace(host, api) {
       if(scope()==='tw'&&closures.length){b.classList.add('is-market-closed');b.title=closures.map(label).join('／');b.append(node('span','oxn-market-closed-label','休'));}
       b.append(button(String(cell.day), `${cell.date}，${entries.length} 個已收錄事件`, e => { e.stopPropagation(); selectDay(); if(!mobile || entries.length)api.navigate({day:cell.date}); }, 'oxn-day-number'));
       if(entries.length)b.append(button(`${entries.length} 件`,`${cell.date}，開啟當日 ${entries.length} 個事件`,e=>{e.stopPropagation();state.selectedDay=cell.date;persist();api.navigate({day:cell.date});},'oxn-day-count'));
-      for (const item of entries.slice(0, 2)) { const short = button(item.shortTitle || label(item).replace(/美國 \d{4} 年 \d+ 月/, ''), `${CATEGORY_NAMES[eventCategory(item)] || '事件'}：${label(item)}`, e => { e.stopPropagation(); api.navigate({ day: cell.date, event: item.id }); }, 'oxn-calendar-event'); short.title = label(item); short.dataset.category = eventCategory(item) || ''; short.dataset.tone = calendarTone(eventCategory(item)); b.append(short); }
+      for (const item of entries.slice(0, 2)) { const short = button('', `${CATEGORY_NAMES[eventCategory(item)] || '事件'}：${label(item)}`, e => { e.stopPropagation(); api.navigate({ day: cell.date, event: item.id }); }, 'oxn-calendar-event'); short.title = label(item); short.dataset.category = eventCategory(item) || ''; short.dataset.tone = calendarTone(eventCategory(item)); short.append(createEventIdentity(item,true),node('span','oxn-calendar-event-label',item.shortTitle || label(item).replace(/美國 \d{4} 年 \d+ 月/, ''))); b.append(short); }
       if (entries.length>2) b.append(button(`＋${entries.length-2}`,`${cell.date}，查看全部 ${entries.length} 個事件`,e=>{e.stopPropagation();api.navigate({day:cell.date});},'oxn-day-more')); grid.append(b);
     }
     const cover = coverage(data.snapshot, scope(), state.month);
@@ -197,15 +198,9 @@ export function mountNewsWorkspace(host, api) {
     const stars = importance(item).value, rating = node('span', 'oxn-stars', stars ? '★'.repeat(stars) : ''); rating.setAttribute('aria-label', stars ? `重要性 ${stars}／5 星` : '沒有星級');
     const title = node('strong', '', label(item));
     if (eventCategory(item) === 'macro' && item.releasedAt && Date.parse(item.releasedAt) <= Date.now()) { const result = macroResult(item); const badge = node('span', 'oxn-result-badge', result.label); badge.dataset.score = result.score ?? ''; title.append(badge); }
-    const country = item.country || (['bls-calendar','fed','sec','cftc'].includes(item.sourceId) ? '美國' : '');
-    const flag = {美國:'🇺🇸',美国:'🇺🇸',US:'🇺🇸',USA:'🇺🇸',台灣:'🇹🇼',臺灣:'🇹🇼',日本:'🇯🇵',法國:'🇫🇷',德國:'🇩🇪',英國:'🇬🇧',歐元區:'🇪🇺'}[country];
-    const symbol = item.assets?.[0]?.symbol || item.symbols?.[0];
-    const icon = flag || ({macro:'◷',unlock:'🔓',network:'⚙',listing:'⇄',governance:'🗳',airdrop:'🎁',burn:'🔥',regulation:'⚖',dividend:'💰',payment:'💵',earnings:'📊',holiday:'🗓'}[eventCategory(item)] || '🗓');
-    const identity=node('span','oxn-event-icon',icon);
-    if(flag==='🇺🇸'){const img=node('img');img.src=new URL('../../assets/flags/us.svg',import.meta.url).href;img.alt='美國國旗';img.width=28;img.height=20;identity.replaceChildren(img);}
-    if(!flag&&symbol){identity.textContent=symbol;identity.classList.add('oxn-stock-symbol');identity.setAttribute('aria-label',`台股 ${symbol}`);}
-    if(!flag&&!symbol){const icons={macro:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',earnings:'<path d="M4 19V11m5 8V5m5 14v-7m5 7V8M3 20h18"/>',holiday:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 10h16"/>',exchange:'<path d="M4 8h16m-4-4 4 4-4 4M20 16H4l4-4m-4 4 4 4"/>'};identity.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+(icons[eventCategory(item)]||icons.holiday)+'</svg>';identity.setAttribute('aria-label',CATEGORY_NAMES[eventCategory(item)]||'事件');}
+    const identity=createEventIdentity(item), symbol=eventIdentityInfo(item).symbol;
     const meta=node('div','oxn-event-meta');meta.append(identity,node('time','',item.date?item.originalTimezone==='America/New_York'?'美東交易日':item.allDay?'全天':'時間待公布':fmt(item.occursAt)),node('span','oxn-event-type',CATEGORY_NAMES[eventCategory(item)]||'事件'),rating);
+    if(symbol)meta.insertBefore(node('span','oxn-stock-symbol',String(symbol)),meta.querySelector('time'));
     b.append(meta,title);
     const facts=[];
     if(['dividend','dividend-preview','payment'].includes(eventCategory(item))) { if(item.cashDividend!=null)facts.push(`現金股利 ${item.cashDividend} 元／股`);if(item.stockDividend!=null)facts.push(`股票股利 ${item.stockDividend} 元／股`);if(item.paymentDate)facts.push(`發放 ${item.paymentDate}`); }

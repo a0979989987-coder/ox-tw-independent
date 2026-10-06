@@ -4,6 +4,7 @@ import {stopTWRadar} from '../markets/tw/radar.js';
 import {stopResearch,refreshTWResearch} from '../markets/tw/research-page.js';
 import {preloadBundle} from '../markets/tw/patterns/bundle.js';
 import {initShell} from './shell.js';
+import {LIVE_PREFERENCE_KEY,readLivePreference} from './live-preference.js';
 
 const views=new Set(['home','strength','radar','data','news','media']);
 let shell;
@@ -60,13 +61,13 @@ shell=initShell({navigate(view){if(view==='data')window.OXNews?.openMarket({mark
 }});
 systemTheme.addEventListener('change',()=>setTheme(theme));setTheme(theme);
 const liveChoice=document.getElementById('tw-live-choice');
-try{liveChoice.checked=localStorage.getItem('ox-tw-independent-live')!=='0';}catch{}
-function updateLive(){
+liveChoice.checked=readLivePreference();
+function updateLive(persist=false){
   document.getElementById('tw-live-before-paint')?.remove();
   document.querySelector('.ox-live-shell').hidden=!liveChoice.checked;
-  try{localStorage.setItem('ox-tw-independent-live',liveChoice.checked?'1':'0');}catch{}
+  if(persist)try{localStorage.setItem(LIVE_PREFERENCE_KEY,liveChoice.checked?'1':'0');}catch{}
 }
-liveChoice.addEventListener('change',updateLive);updateLive();
+liveChoice.addEventListener('change',()=>updateLive(true));updateLive();
 async function updateHeadline(){
   try{const r=await fetch(new URL('../../data/news.json',import.meta.url),{signal:AbortSignal.timeout(8000)});const d=await r.json();
     const item=d.news.find(n=>n.markets?.includes('tw'));document.getElementById('ox-live-text').textContent=item?.titleZh||item?.title||'台灣市場 · 官方日行情';
