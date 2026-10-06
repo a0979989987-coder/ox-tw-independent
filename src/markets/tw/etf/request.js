@@ -8,7 +8,7 @@ export function createETFRequester({ fetcher = fetch, rootUrl, getApiBase, timeo
   const cache = new Map(), pending = new Map(), generations = new Map();
   const incomplete = (action, data) => action === 'history' ? data.rows?.some(row => row.unavailable) :
     action === 'holdings' ? !data.holdings?.length : false;
-  async function load(action, params, refresh) {
+  async function load(action, params, refresh, previous) {
     let published;
     if (!refresh) {
       try {
@@ -29,8 +29,15 @@ export function createETFRequester({ fetcher = fetch, rootUrl, getApiBase, timeo
       }, timeoutMs, 'ETF 來源回應逾時，請重試');
     } catch (error) {
       if (published) return published;
-      try { return await snapshot(action, params, undefined, refresh); }
-      catch { throw error; }
+      try {
+        const saved = await snapshot(action, params, undefined, refresh);
+        return refresh ? { ...saved, stale: true, status: '更新未完成，保留已發布資料', refreshError: error.message } : saved;
+      }
+      catch {
+        if (refresh && previous) return { ...previous, stale: true,
+          status: '更新未完成，保留上次有效資料', refreshError: error.message };
+        throw error;
+      }
     }
   }
   return function request(action = 'catalog', params = {}, signal) {
@@ -44,7 +51,7 @@ export function createETFRequester({ fetcher = fetch, rootUrl, getApiBase, timeo
     let task = pending.get(pendingKey);
     if (!task) {
       const generation = (generations.get(key) || 0) + 1; generations.set(key, generation);
-      task = load(action, clean, refresh).then(data => {
+      task = load(action, clean, refresh, saved?.data).then(data => {
         if (generations.get(key) === generation) cache.set(key, { data, at: Date.now() });
         return data;
       }).finally(() => pending.delete(pendingKey));
