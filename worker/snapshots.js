@@ -1,5 +1,5 @@
 import {completeRadarMembership} from '../src/markets/tw/radar-snapshot.js';
-import {acceptHomeSection} from '../src/markets/tw/home-model.js';
+import {acceptHomeSection,withOfficialTaiwanClose} from '../src/markets/tw/home-model.js';
 const repository='https://raw.githubusercontent.com/a0979989987-coder/ox-tw-independent/main/';
 const memo=new Map(),pending=new Map();
 // Only this independent repository's public data can be read. No caller-supplied URL.
@@ -38,7 +38,7 @@ export async function snapshotEndpoint(endpoint,params,read){
   if(!snapshot.date||!Array.isArray(snapshot.stocks)||!snapshot.stocks.length)throw Error('Research snapshot incomplete');return snapshot;
  }
  const section=params.get('section')||'core';if(!['core','briefing','night'].includes(section))return null;
- const data=acceptHomeSection(section,snapshot[section]),status=snapshot[section+'Status'];
+ const data=acceptHomeSection(section,section==='briefing'?withOfficialTaiwanClose(snapshot.briefing,snapshot.core):snapshot[section]),status=snapshot[section+'Status'];
  if(!data||!status?.checkedAt)throw Error('Home section unavailable');
  return {...status,section,data,refreshed:false};
 }

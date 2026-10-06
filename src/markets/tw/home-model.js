@@ -17,6 +17,17 @@ export function validBriefing(r){
  const expected=r?.rows?.some(row=>row.id==='TSM')?22:21;
  return !!r&&validDate(r.date)&&Array.isArray(r.rows)&&r.rows.length===expected&&new Set(r.rows.map(row=>row.id)).size===expected&&r.rows.every(row=>HOME_GROUPS.some(([group])=>group===row.group)&&(!finite(row.value)||validDate(row.marketDate))&&(row.group!=='asia'||!finite(row.value)||row.marketDate<r.date&&row.quoteKind==='previous-close'));
 }
+// The official, validated cash close also supplies the morning Taiwan row.
+// Never substitute the report day's close or replace a newer source date.
+export function withOfficialTaiwanClose(briefing,core){
+ if(!validBriefing(briefing)||!validCloseReport(core)||core.date>=briefing.date)return briefing;
+ const row=briefing.rows.find(r=>r.id==='^TWII');
+ if(!row||row.marketDate>core.date)return briefing;
+ const official={...row,value:core.index.close,change:core.index.change,changePct:core.index.changePct,previousClose:core.index.previousClose,marketDate:core.date,comparisonDate:core.previousDate,source:'臺灣證券交易所',sourceUrl:core.sources?.current,quoteKind:'previous-close',quotedAt:null,collectedAt:core.savedAt,status:'ok'};
+ delete official.error;
+ const rows=briefing.rows.map(r=>r.id==='^TWII'?official:r);
+ return {...briefing,rows,complete:rows.every(r=>r.status==='ok')};
+}
 export function acceptHomeSection(section,value){
  if(value==null)return null;
  if(section==='core'&&!validCloseReport(value)||section==='night'&&value.status!=='unavailable'&&!validNight(value)||section==='briefing'&&!validBriefing(value))throw Error('資料日期或完整性驗證失敗，保留上次有效資料');

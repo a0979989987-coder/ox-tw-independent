@@ -5,11 +5,21 @@ import {calculate,parseReport,parseWeights,taipeiClock,tradingDates} from '../se
 import {parseMarket,parseTreasury,retainMarket,collectBriefing,MARKETS} from '../server/markets/tw/home-markets.js';
 import {parseNight,collectNight} from '../server/markets/tw/home-night.js';
 import {collectCore,refreshHomeSection,getHomeSection} from '../server/markets/tw/home-provider.js';
-import {validCloseReport,validBriefing,validNight,acceptHomeSection} from '../src/markets/tw/home-model.js';
+import {validCloseReport,validBriefing,validNight,acceptHomeSection,withOfficialTaiwanClose} from '../src/markets/tw/home-model.js';
 import {coreContent,briefingContent} from '../src/markets/tw/home-content.js';
 const seed=JSON.parse(await readFile(new URL('../data/tw-home.json',import.meta.url),'utf8'));
 const weights={date:'2026-09-18',rows:Array.from({length:12},(_,i)=>({rank:i+1,code:String(2000+i),name:'Stock '+i,weight:i===0?.3:.01}))};
 const report=(date,indexClose,indexChange,price)=>({date,indexClose,indexChange,stocks:new Map(weights.rows.map(w=>[w.code,{name:w.name,close:price}]))});
+test('morning Taiwan index uses the verified prior cash close without admitting report-day or invalid data',()=>{
+ const next=new Date(seed.core.date+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);
+ const briefing={...seed.briefing,date:next.toISOString().slice(0,10),rows:seed.briefing.rows.map(r=>r.group==='asia'?{...r,marketDate:seed.core.previousDate,quoteKind:'previous-close'}:r)};
+ const aligned=withOfficialTaiwanClose(briefing,seed.core),tw=aligned.rows.find(r=>r.id==='^TWII');
+ assert.equal(tw.marketDate,seed.core.date);assert.equal(tw.value,seed.core.index.close);assert.equal(tw.changePct,seed.core.index.changePct);assert.equal(tw.source,'臺灣證券交易所');assert(validBriefing(aligned));
+ const sameDay={...briefing,date:seed.core.date};assert.equal(withOfficialTaiwanClose(sameDay,seed.core),sameDay);
+ assert.equal(withOfficialTaiwanClose(briefing,{...seed.core,stocks:[]}),briefing);
+ assert.equal(withOfficialTaiwanClose(briefing,null),briefing);
+ const html=briefingContent({...seed,briefing:aligned},false);assert(html.includes('收盤 '+seed.core.date));assert(html.includes('盤前報告 '+briefing.date));assert(html.includes('最近可得完整收盤'));
+});
 test('contribution preserves the source formula, completeness, weight vintage and exact sums',()=>{
  const prior=report('2026-09-18',23000,0,100),current=report('2026-09-21',23126.35,126.35,100);
  current.stocks.get('2000').close=101;current.stocks.get('2001').close=98;

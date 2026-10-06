@@ -1,10 +1,10 @@
 import {getTWApiBase} from './api.js?v=20261005-recovery20';
-import {acceptHomeSection} from './home-model.js?v=20261005-adr';
+import {acceptHomeSection,withOfficialTaiwanClose} from './home-model.js?v=20261005-adr';
 const KEY='ox-tw-independent:ox-tw-home-v1',sections=['core','briefing','night'];let value,job;
 export function savedHome(){
  if(value)return value;
  try{const raw=JSON.parse(localStorage.getItem(KEY));value={};for(const section of sections){try{value[section]=acceptHomeSection(section,raw?.[section]);value[section+'Status']=raw?.[section+'Status'];}catch{value[section]=null;}}}catch{value={};}
- return value;
+ value.briefing=withOfficialTaiwanClose(value.briefing,value.core);return value;
 }
 function accept(section,data){
  const fresh=acceptHomeSection(section,data);if(!fresh)return;
@@ -16,6 +16,7 @@ function accept(section,data){
   const latest=!previous?next:!next?previous:Date.parse(next.collectedAt)>=Date.parse(previous.collectedAt)?next:previous;
   if(latest)value.core={...value.core,institutional:latest};
  }
+ value.briefing=withOfficialTaiwanClose(value.briefing,value.core);
 }
 export async function loadHome({force=false,onChange}={}){
  savedHome();if(job)return job;
