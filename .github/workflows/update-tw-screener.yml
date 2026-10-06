@@ -14,8 +14,6 @@ on:
     - cron: '50 6,9,13 * * 1-5'
 permissions:
   contents: write
-  pages: write
-  id-token: write
 concurrency:
   group: tw-screener-${{ github.ref }}
   cancel-in-progress: false
@@ -39,8 +37,3 @@ jobs:
           git commit -m 'data(tw): refresh stock screening and ETF holdings'
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
-
-  publish:
-    needs: collect
-    if: ${{ always() && needs.collect.result != 'cancelled' }}
-    uses: ./.github/workflows/deploy-pages.yml

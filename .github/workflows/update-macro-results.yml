@@ -8,8 +8,6 @@ on:
     - cron: '7,22,37,52 12-21 * * 1-5'
 permissions:
   contents: write
-  pages: write
-  id-token: write
 concurrency:
   group: update-official-macro
   cancel-in-progress: false
@@ -33,8 +31,3 @@ jobs:
           git commit -m "data(news): refresh official macro results"
           git pull --rebase origin main
           git push origin HEAD:main
-
-  publish:
-    needs: collect
-    if: ${{ always() && needs.collect.result != 'cancelled' }}
-    uses: ./.github/workflows/deploy-pages.yml

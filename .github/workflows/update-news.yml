@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: update-verified-news
@@ -44,8 +42,3 @@ jobs:
           git commit -m "data(news): refresh verified source snapshot"
           git pull --rebase origin main
           git push origin HEAD:main
-
-  publish:
-    needs: collect
-    if: ${{ always() && needs.collect.result != 'cancelled' }}
-    uses: ./.github/workflows/deploy-pages.yml

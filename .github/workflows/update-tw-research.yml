@@ -14,8 +14,6 @@ on:
     - cron: '35 12 * * 1-5'
 permissions:
   contents: write
-  pages: write
-  id-token: write
 concurrency:
   group: tw-research-${{ github.ref }}
   cancel-in-progress: false
@@ -72,8 +70,3 @@ jobs:
       - name: Report incomplete sources after preserving successful data
         if: steps.radar.outcome == 'failure' || steps.research.outcome == 'failure' || steps.patterns.outcome == 'failure'
         run: exit 1
-
-  publish:
-    needs: collect
-    if: ${{ always() && needs.collect.result != 'cancelled' }}
-    uses: ./.github/workflows/deploy-pages.yml

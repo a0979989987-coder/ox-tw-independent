@@ -6,8 +6,6 @@ on:
     - cron: '20 6,9 * * 1-5'
 permissions:
   contents: write
-  pages: write
-  id-token: write
 concurrency:
   group: tw-etf-${{ github.ref }}
   cancel-in-progress: false
@@ -31,8 +29,3 @@ jobs:
           git commit -m "data(tw): refresh verified ETF data"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
-
-  publish:
-    needs: collect
-    if: ${{ always() && needs.collect.result != 'cancelled' }}
-    uses: ./.github/workflows/deploy-pages.yml
