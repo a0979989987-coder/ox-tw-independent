@@ -1,11 +1,11 @@
 {
   "sourceProject": "https://github.com/a0979989987-coder/taiwan-stock-weight-contribution",
-  "collectedAt": "2026-10-07T10:52:32.382Z",
+  "collectedAt": "2026-10-07T12:59:08.187Z",
   "core": {
     "date": "2026-10-07",
     "previousDate": "2026-10-06",
     "weightDate": "2026-09-30",
-    "savedAt": "2026-10-07T10:52:32.382Z",
+    "savedAt": "2026-10-07T12:59:08.035Z",
     "index": {
       "close": 49806.37,
       "previousClose": 49822.55,
@@ -159,36 +159,36 @@
     },
     "institutional": {
       "date": "2026-10-07",
-      "collectedAt": "2026-10-07T10:52:31.312Z",
+      "collectedAt": "2026-10-07T12:59:06.719Z",
       "method": "official-all-securities",
       "markets": {
-        "TWSE": {
-          "market": "TWSE",
-          "date": "2026-10-07",
-          "total": -21257186002,
-          "foreign": -13043886365,
-          "trust": -416843019,
-          "dealer": -7796456618,
-          "sourceUrl": "https://www.twse.com.tw/rwd/zh/fund/BFI82U?response=json&type=day&dayDate=20261007",
-          "status": "ok"
-        },
         "TPEX": {
           "market": "TPEX",
           "date": "2026-10-07",
-          "total": 6911378052,
+          "total": 3129349135,
           "foreign": 9642226573,
-          "trust": -2132437766,
+          "trust": -5914466683,
           "dealer": -598410755,
           "sourceUrl": "https://www.tpex.org.tw/www/zh-tw/insti/summary?type=Daily&prod=0&response=json&date=2026%2F10%2F07",
           "status": "ok"
+        },
+        "TWSE": {
+          "market": "TWSE",
+          "date": "2026-10-07",
+          "total": -24163727068,
+          "foreign": -13043886365,
+          "trust": -3323384085,
+          "dealer": -7796456618,
+          "sourceUrl": "https://www.twse.com.tw/rwd/zh/fund/BFI82U?response=json&type=day&dayDate=20261007",
+          "status": "ok"
         }
       },
-      "total": -14345807950
+      "total": -21034377933
     }
   },
   "coreStatus": {
     "section": "core",
-    "checkedAt": "2026-10-07T10:52:30.493Z",
+    "checkedAt": "2026-10-07T12:59:04.939Z",
     "reportDate": "2026-10-07",
     "status": "ok",
     "error": null,
@@ -198,8 +198,8 @@
   },
   "briefing": {
     "date": "2026-10-07",
-    "startedAt": "2026-10-07T10:52:30.493Z",
-    "collectedAt": "2026-10-07T10:52:31.036Z",
+    "startedAt": "2026-10-07T12:59:04.939Z",
+    "collectedAt": "2026-10-07T12:59:05.696Z",
     "scheduledTime": "05:30 Asia/Taipei",
     "rows": [
       {
@@ -210,7 +210,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5EDJI/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 51521.28,
         "change": 253.38300000000163,
         "changePct": 0.49423326258146716,
@@ -219,7 +219,7 @@
         "quotedAt": "2026-10-06T20:42:37.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.636Z"
+        "collectedAt": "2026-10-07T12:59:05.421Z"
       },
       {
         "group": "us",
@@ -229,7 +229,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5EGSPC/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 7818.93,
         "change": 44.97999999999956,
         "changePct": 0.5785990390985152,
@@ -238,7 +238,7 @@
         "quotedAt": "2026-10-06T20:40:07.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.634Z"
+        "collectedAt": "2026-10-07T12:59:05.098Z"
       },
       {
         "group": "us",
@@ -248,7 +248,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5EIXIC/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 27599.887,
         "change": 122.57600000000093,
         "changePct": 0.4460989650697744,
@@ -257,7 +257,7 @@
         "quotedAt": "2026-10-06T22:31:33.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.638Z"
+        "collectedAt": "2026-10-07T12:59:05.115Z"
       },
       {
         "group": "us",
@@ -267,7 +267,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5ESOX/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 13217.823,
         "change": 45.086999999999534,
         "changePct": 0.3422751355526943,
@@ -276,7 +276,7 @@
         "quotedAt": "2026-10-06T21:15:59.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.631Z"
+        "collectedAt": "2026-10-07T12:59:05.092Z"
       },
       {
         "group": "us",
@@ -286,7 +286,7 @@
         "unit": "USD",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/TSM/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 482.3,
         "change": -3.4999877929687386,
         "changePct": -0.7204586004354363,
@@ -295,7 +295,7 @@
         "quotedAt": "2026-10-06T20:00:03.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.693Z"
+        "collectedAt": "2026-10-07T12:59:05.167Z"
       },
       {
         "group": "asia",
@@ -305,7 +305,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5ETWII/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 49822.55078125,
         "change": 110.51171875,
         "changePct": 0.22230373332918774,
@@ -315,7 +315,7 @@
         "quotedAt": null,
         "quoteKind": "previous-close",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.679Z"
+        "collectedAt": "2026-10-07T12:59:05.164Z"
       },
       {
         "group": "asia",
@@ -325,7 +325,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5EN225/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 70683.9765625,
         "change": 737.1171875,
         "changePct": 1.0538245663728185,
@@ -335,7 +335,7 @@
         "quotedAt": null,
         "quoteKind": "previous-close",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.683Z"
+        "collectedAt": "2026-10-07T12:59:05.208Z"
       },
       {
         "group": "asia",
@@ -345,7 +345,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5EKS11/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 6941.39013671875,
         "change": -62.35009765625,
         "changePct": -0.8902400084776163,
@@ -355,7 +355,7 @@
         "quotedAt": null,
         "quoteKind": "previous-close",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.682Z"
+        "collectedAt": "2026-10-07T12:59:05.220Z"
       },
       {
         "group": "asia",
@@ -365,7 +365,7 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/000001.SS/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 3842.195068359375,
         "change": 11.744140625,
         "changePct": 0.30659942775839166,
@@ -375,7 +375,7 @@
         "quotedAt": null,
         "quoteKind": "previous-close",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.725Z"
+        "collectedAt": "2026-10-07T12:59:05.224Z"
       },
       {
         "group": "indicators",
@@ -385,16 +385,16 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5EVIX/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 15.6,
-        "change": 0.5899999999999999,
-        "changePct": 3.9307128580946094,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 15.74,
+        "change": 0.7300000000000004,
+        "changePct": 4.863424383744164,
         "previousClose": 15.01,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:37:16.000Z",
+        "quotedAt": "2026-10-07T12:44:01.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.728Z"
+        "collectedAt": "2026-10-07T12:59:05.261Z"
       },
       {
         "group": "indicators",
@@ -404,16 +404,16 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/%5ESTOXX50E/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 6179.58,
-        "change": -92.64999999999964,
-        "changePct": -1.4771460867984643,
-        "previousClose": 6272.23,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 6172.21,
+        "change": -100.02000000000044,
+        "changePct": -1.5946481554407366,
+        "previousClose": 6272.2300000000005,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:37:15.000Z",
+        "quotedAt": "2026-10-07T12:44:00.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.729Z"
+        "collectedAt": "2026-10-07T12:59:05.335Z"
       },
       {
         "group": "commodities",
@@ -423,16 +423,16 @@
         "unit": "USD/盎司",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/GC%3DF/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 4140,
-        "change": -47.100000000000364,
-        "changePct": -1.1248835709679827,
-        "previousClose": 4187.1,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 4100.7,
+        "change": -86.39999999999964,
+        "changePct": -2.0634806906928316,
+        "previousClose": 4187.099999999999,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:42:26.000Z",
+        "quotedAt": "2026-10-07T12:49:02.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.735Z"
+        "collectedAt": "2026-10-07T12:59:05.282Z"
       },
       {
         "group": "commodities",
@@ -442,16 +442,16 @@
         "unit": "USD/盎司",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/SI%3DF/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 60.36,
-        "change": -1.2289999999999992,
-        "changePct": -1.9954862069525348,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 59.62,
+        "change": -1.9690000000000012,
+        "changePct": -3.1969994641900312,
         "previousClose": 61.589,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:42:00.000Z",
+        "quotedAt": "2026-10-07T12:49:01.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.769Z"
+        "collectedAt": "2026-10-07T12:59:05.343Z"
       },
       {
         "group": "commodities",
@@ -461,16 +461,16 @@
         "unit": "USD/桶",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/CL%3DF/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 89.84,
-        "change": 0.4000000000000057,
-        "changePct": 0.4472271914132353,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 89.94,
+        "change": 0.5,
+        "changePct": 0.5590339892665552,
         "previousClose": 89.44,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:42:17.000Z",
+        "quotedAt": "2026-10-07T12:49:03.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.775Z"
+        "collectedAt": "2026-10-07T12:59:05.340Z"
       },
       {
         "group": "commodities",
@@ -480,16 +480,16 @@
         "unit": "USD/桶",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/BZ%3DF/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 101.82,
-        "change": 1.2399999999999949,
-        "changePct": 1.2328494730562634,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 101.52,
+        "change": 0.9399999999999977,
+        "changePct": 0.9345794392523255,
         "previousClose": 100.58,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:42:04.000Z",
+        "quotedAt": "2026-10-07T12:49:01.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.777Z"
+        "collectedAt": "2026-10-07T12:59:05.430Z"
       },
       {
         "group": "fx",
@@ -499,16 +499,16 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/EURUSD%3DX/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 1.1194,
-        "change": -0.006799999999999917,
-        "changePct": -0.6038003906943645,
-        "previousClose": 1.1261999999999999,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 1.1177,
+        "change": -0.008599999999999941,
+        "changePct": -0.7635621060108289,
+        "previousClose": 1.1262999999999999,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:51:49.000Z",
+        "quotedAt": "2026-10-07T12:58:47.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.803Z"
+        "collectedAt": "2026-10-07T12:59:05.391Z"
       },
       {
         "group": "fx",
@@ -518,16 +518,16 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/JPY%3DX/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 158.324,
-        "change": 0.23799999999999955,
-        "changePct": 0.15055096592992978,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 158.215,
+        "change": 0.12899999999999068,
+        "changePct": 0.08160115380235755,
         "previousClose": 158.086,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:52:29.000Z",
+        "quotedAt": "2026-10-07T12:59:04.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.818Z"
+        "collectedAt": "2026-10-07T12:59:05.401Z"
       },
       {
         "group": "fx",
@@ -537,16 +537,16 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/CNY%3DX/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 6.6933,
         "change": 0.0015000000000000568,
         "changePct": 0.02241549358916739,
         "previousClose": 6.6918,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:48:46.000Z",
+        "quotedAt": "2026-10-07T12:56:11.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.825Z"
+        "collectedAt": "2026-10-07T12:59:05.491Z"
       },
       {
         "group": "fx",
@@ -556,16 +556,16 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/TWD%3DX/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "value": 31.846,
         "change": 0.06599999999999895,
         "changePct": 0.2076777847702882,
         "previousClose": 31.78,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:52:29.000Z",
+        "quotedAt": "2026-10-07T12:58:51.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.822Z"
+        "collectedAt": "2026-10-07T12:59:05.455Z"
       },
       {
         "group": "fx",
@@ -575,16 +575,16 @@
         "unit": "",
         "source": "Yahoo Finance",
         "sourceUrl": "https://finance.yahoo.com/quote/DX-Y.NYB/",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
-        "value": 102.285,
-        "change": 0.4519999999999982,
-        "changePct": 0.44386397336815264,
+        "checkedAt": "2026-10-07T12:59:04.939Z",
+        "value": 102.491,
+        "change": 0.6580000000000013,
+        "changePct": 0.6461559612306544,
         "previousClose": 101.833,
         "marketDate": "2026-10-07",
-        "quotedAt": "2026-10-07T10:42:29.000Z",
+        "quotedAt": "2026-10-07T12:49:04.000Z",
         "quoteKind": "source-quote",
         "status": "ok",
-        "collectedAt": "2026-10-07T10:52:30.848Z"
+        "collectedAt": "2026-10-07T12:59:05.478Z"
       },
       {
         "id": "US2Y",
@@ -601,8 +601,8 @@
         "marketDate": "2026-10-06",
         "quotedAt": null,
         "quoteKind": "daily-yield",
-        "collectedAt": "2026-10-07T10:52:30.493Z",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "collectedAt": "2026-10-07T12:59:04.939Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "status": "ok"
       },
       {
@@ -620,8 +620,8 @@
         "marketDate": "2026-10-06",
         "quotedAt": null,
         "quoteKind": "daily-yield",
-        "collectedAt": "2026-10-07T10:52:30.493Z",
-        "checkedAt": "2026-10-07T10:52:30.493Z",
+        "collectedAt": "2026-10-07T12:59:04.939Z",
+        "checkedAt": "2026-10-07T12:59:04.939Z",
         "status": "ok"
       }
     ],
@@ -629,7 +629,7 @@
   },
   "briefingStatus": {
     "section": "briefing",
-    "checkedAt": "2026-10-07T10:52:30.493Z",
+    "checkedAt": "2026-10-07T12:59:04.939Z",
     "reportDate": "2026-10-07",
     "status": "ok",
     "error": null,
@@ -652,12 +652,12 @@
     "status": "ok",
     "source": "臺灣期貨交易所",
     "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport?queryDate=2026%2F10%2F07&marketCode=1&commodity_id=TX",
-    "collectedAt": "2026-10-07T10:52:30.493Z",
-    "checkedAt": "2026-10-07T10:52:30.493Z"
+    "collectedAt": "2026-10-07T12:59:04.939Z",
+    "checkedAt": "2026-10-07T12:59:04.939Z"
   },
   "nightStatus": {
     "section": "night",
-    "checkedAt": "2026-10-07T10:52:30.493Z",
+    "checkedAt": "2026-10-07T12:59:04.939Z",
     "reportDate": "2026-10-07",
     "status": "ok",
     "error": null,
