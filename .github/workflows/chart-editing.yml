@@ -6,6 +6,7 @@ on:
       - 'src/components/chart/**'
       - 'src/styles/components/chart-drawings.css'
       - 'scripts/chart-editing-check.mjs'
+      - 'scripts/chart-mounted-check.mjs'
       - '.github/workflows/chart-editing.yml'
 permissions:
   contents: read
@@ -30,6 +31,9 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright@1.63.0
       - run: npx playwright install --with-deps chromium
       - run: node scripts/chart-editing-check.mjs
+        env:
+          OX_CHART_MARKET: tw
+      - run: node scripts/chart-mounted-check.mjs
         env:
           OX_CHART_MARKET: tw
       - uses: actions/upload-artifact@v4
