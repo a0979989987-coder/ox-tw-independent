@@ -1,5 +1,5 @@
 import {releaseRangeRows} from './release-range.js';
-import { mountTWChartRadar } from './chart-radar.js?v=20261005-load16';
+import { mountTWChartRadar } from './chart-radar.js?v=20261007-tools2';
 import { radarAvailability } from './recovery.js?v=20261005-recovery20';
 import { TW_RADAR_MODES, normalizeTWStockCard, rowsForTWMode, renderTWStockCard } from "./radar-card.js";
 import { observeTWMiniCandles, resetTWMiniCandles, openTWStockDetail } from "./radar-candles.js?v=20261005-weeklist4";
