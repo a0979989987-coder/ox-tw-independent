@@ -1,7 +1,7 @@
 window.OXChartGestures = function({container,state,getRange,setRange,refreshRange,isDrawing,formatPrice=(n)=>String(n)}) {
   const life=new AbortController();
   const listen=(type,handler,options={})=>container.addEventListener(type,handler,{...(typeof options==='boolean'?{capture:options}:options),signal:life.signal});
-  let gesture = null,inspectTimer=null,lastAxisTap=0,waitForRelease=false;
+  let gesture = null,inspectTimer=null,lastAxisTap=0,waitForRelease=false,drawingGesture=false;
   const zone = target => {
     if (target.closest('.chart-price-axis')) return 'price';
     const cell = target.closest('td');
@@ -40,7 +40,10 @@ window.OXChartGestures = function({container,state,getRange,setRange,refreshRang
     // A finger may land on the compact price labels while the other is in the
     // plot. Two fingers always adjust candle density, never the price axis.
     const area = event.touches.length===2?'plot':zone(event.target);
-    if (!area || isDrawing?.()) return;
+    const drawings=container.oxDrawingController;
+    if(event.touches.length===2){drawings?.cancel();drawingGesture=false;}
+    else if(drawings?.touchStart(event)){drawingGesture=true;event.preventDefault();event.stopPropagation();return;}
+    if (!area || (!drawings && isDrawing?.())) return;
     const range = getRange();
     const logical = state.chart.timeScale().getVisibleLogicalRange();
     if (!range || !logical) return;
@@ -58,6 +61,7 @@ window.OXChartGestures = function({container,state,getRange,setRange,refreshRang
   };
   listen('touchstart', start, { passive:false, capture:true });
   listen('touchmove', event => {
+    if(drawingGesture){if(event.touches.length===2){start(event);return;}if(event.touches.length===1){container.oxDrawingController?.touchMove(event);event.preventDefault();event.stopPropagation();}return;}
     if (!gesture || !event.touches.length) return;
     if (event.touches.length!==gesture.count) { start(event); return; }
     const point=mid(event.touches), dx=point.x-gesture.x, dy=point.y-gesture.y;
@@ -96,12 +100,13 @@ window.OXChartGestures = function({container,state,getRange,setRange,refreshRang
   }, {passive:false,capture:true});
   const end=event=>{
     clearTimeout(inspectTimer);
+    if(drawingGesture){container.oxDrawingController?.touchEnd();drawingGesture=false;event.preventDefault();event.stopPropagation();return;}
     if(waitForRelease){if(!event.touches.length)waitForRelease=false;event.stopPropagation();return;}
     if(gesture){
       event.stopPropagation();
       if(gesture.count===2){waitForRelease=event.touches.length>0;gesture=null;return;}
       if(!gesture.moved&&gesture.count===1){
-        if(gesture.area==='plot'&&!gesture.inspect)inspect({x:gesture.x,y:gesture.y});
+        if(gesture.area==='plot'&&!gesture.inspect&&!container.oxDrawingController?.tap({x:gesture.x,y:gesture.y}))inspect({x:gesture.x,y:gesture.y});
         if(gesture.area==='price'){
           const now=performance.now();
           if(lastAxisTap&&now-lastAxisTap<350){state.chartPriceViewport=null;refreshRange();lastAxisTap=0;}else lastAxisTap=now;
@@ -111,7 +116,7 @@ window.OXChartGestures = function({container,state,getRange,setRange,refreshRang
     gesture=null;if(event.touches.length)start(event);
   };
   listen('touchend',end,{passive:false,capture:true});
-  listen('touchcancel',()=>{clearTimeout(inspectTimer);gesture=null;waitForRelease=false;},{passive:true,capture:true});
+  listen('touchcancel',()=>{clearTimeout(inspectTimer);container.oxDrawingController?.cancel();drawingGesture=false;gesture=null;waitForRelease=false;},{passive:true,capture:true});
   listen('dblclick',event=>{if(zone(event.target)==='price'){state.chartPriceViewport=null;refreshRange();}},true);
   return {destroy(){life.abort();clearTimeout(inspectTimer);gesture=null;}};
 };
