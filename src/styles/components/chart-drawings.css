@@ -159,3 +159,35 @@ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-inspector label{
 body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-inspector :is(input,select){min-width:0}
 
 body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-coordinates label:has(input[type="datetime-local"]){grid-column:1 / -1}
+
+/* Compact tools float over the plot; no layout row is reserved for them. */
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .chart-drawing-tools{top:var(--drawing-tool-top,56px)!important}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .chart-drawing-tools[hidden]{display:none!important}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:232px;gap:3px;padding:7px}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-menu>strong{grid-column:1/-1;padding:4px 6px;color:var(--drawing-text);opacity:.65;font:11px/1.4 system-ui}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-menu button{min-width:0;min-height:32px;padding:6px;font-size:12px}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-emoji-menu{display:grid;grid-template-columns:repeat(4,1fr);position:absolute;top:0;left:46px;z-index:25;width:176px;gap:3px;padding:6px;border:1px solid var(--drawing-line);border-radius:9px;background:var(--drawing-bg);box-shadow:0 8px 24px #0003}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-emoji-menu button{font:24px system-ui}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-advanced{min-width:0;font:12px/1.5 system-ui}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-advanced>summary{padding:5px 0;cursor:pointer;opacity:.75}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-advanced[open]{display:grid;gap:8px}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-advanced[open]>:not(summary){margin-top:8px}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-stop{grid-column:1 / -1}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-rr{padding:7px;border-radius:6px;background:#36bca31a;font:12px/1.6 system-ui;font-variant-numeric:tabular-nums}
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-rr[data-invalid="true"]{background:#ef60771a}
+@media(max-width:900px){
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .chart-drawing-tools{padding:2px;border-radius:8px;top:var(--drawing-tool-top,44px)!important}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) :is(.chart-drawing-tools,.chart-drawing-editor) button{width:32px;min-width:32px;height:34px;min-height:0;padding:6px}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) :is(.chart-drawing-tools,.chart-drawing-editor) button svg{width:18px;height:18px}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) :is(.drawing-tool-menu,.drawing-object-list,.drawing-emoji-menu){top:40px;left:0;max-height:min(48dvh,340px)}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-menu{width:min(232px,calc(100vw - 24px));}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-menu button{width:100%;height:auto;min-height:32px;min-width:0;padding:6px;text-align:left;display:block}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-color{width:32px;height:34px;flex-basis:32px}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-color input{width:22px;height:22px}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .chart-drawing-editor{bottom:32px;padding:2px;border-radius:8px}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-width-menu{left:0;max-width:calc(100vw - 24px);flex-wrap:wrap}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-inspector{top:calc(var(--drawing-tool-top,44px) + 43px);left:6px;right:6px;padding:9px;gap:7px;max-height:min(55dvh,420px);background:var(--drawing-bg)}
+ body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-tool-inspector :is(input:not([type="checkbox"]),select){min-height:34px;padding:4px;font-size:16px}
+}
+
+body.ox-terminal :is(#view-radar,.tw-chart-radar) .drawing-coordinates:not(:has(label:not([hidden]))){display:none}
