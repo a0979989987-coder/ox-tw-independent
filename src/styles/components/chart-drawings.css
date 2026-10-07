@@ -98,6 +98,7 @@ body.ox-terminal #view-radar :is(#chart) .chart-current-price-line {position:abs
 body.ox-terminal #view-radar :is(#chart) .chart-current-price .chart-mobile-last-price {transform:translateY(-50%);will-change:auto}
 
 /* Unified cursor and contextual editor; the drawing canvas never blocks navigation. */
+body.ox-terminal.tw-chart-focus > .ox-shell-header{display:none!important}
 body.ox-terminal :is(#view-radar,.tw-chart-radar) .chart-drawing-layer,
 body.ox-terminal :is(#view-radar,.tw-chart-radar) .chart-drawing-layer.is-editing{pointer-events:none!important;touch-action:auto;cursor:inherit}
 body.ox-terminal{--drawing-bg:#171c23f5;--drawing-text:#eeeae2;--drawing-line:#ffffff38;--drawing-active:#ffffff1f}

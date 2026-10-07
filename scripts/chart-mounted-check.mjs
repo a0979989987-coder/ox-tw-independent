@@ -63,6 +63,7 @@ try{
    await page.locator(market==='tw'?'.twcr-chart-box [data-action="focus"]':'#btn-chart-fullscreen').click();
    await page.waitForFunction(m=>!!document.fullscreenElement||document.body.classList.contains(m==='tw'?'tw-chart-focus':'chart-focus'),market);
    await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+   if(market==='tw')assert.equal(await page.locator('body > .ox-shell-header').isVisible(),false,'expanded chart controls must not be covered by the site navigation');
    const toolbar=page.locator(box+' .chart-drawing-tools');
    const foldedBefore=await page.locator(market==='tw'?'.tw-chart-radar':'#view-radar').getAttribute('class');await toolbar.locator('[data-action="fold"]').click();await toolbar.locator('[data-action="fold"]').click();assert.equal(await page.locator(market==='tw'?'.tw-chart-radar':'#view-radar').getAttribute('class'),foldedBefore,'folding drawing tools must not change the candidate panel');
    await toolbar.locator('[data-action="menu"]').click();await toolbar.locator('[data-draw="trend"]').click();
