@@ -13,7 +13,7 @@ export function mountResearch(view) {
   ['ox-tw-home-style', 'ox-tw-indicator-style'].forEach(id => document.getElementById(id)?.remove());
   if (!document.getElementById('ox-tw-research-css')) {
     const link = document.createElement('link'); link.id = 'ox-tw-research-css'; link.rel = 'stylesheet';
-    link.href = new URL('./research-ui.css?v=20261012-trails2', import.meta.url).href; document.head.append(link);
+    link.href = new URL('./research-ui.css?v=20261012-sector-detail', import.meta.url).href; document.head.append(link);
   }
   root.classList.remove('tw-home-root', 'tw-indicator-root');
   root.classList.add(view === 'home' ? 'tw-home-root' : 'tw-indicator-root');

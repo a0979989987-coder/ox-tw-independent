@@ -6,8 +6,9 @@ import { escape, number, pct, money, direction, segments, mountResearch, stockRo
 import { bubbleChart, bubblePoints, bubbleLayout, zoomBubbleLayout, drawBubbleAxes, MIN_BUBBLE_FLOW, meetsBubbleFlow, wheelChartViewport } from './research-bubbles.js?v=20261006-compact-zoom';
 import { SECTOR_DEFINITIONS, SECTOR_TAXONOMY_VERSION } from './sector-taxonomy.js';
 import { sectorPicker, sectorPickerList } from './sector-picker.js';
-import { replayHistory, replayFrames, replayFrameAt, drawReplayFrame, createReplayPlayer } from './research-replay.js?v=20261006-replay';
+import { replayHistory, replayFrames, replayFrameAt, replaySectorAt, drawReplayFrame, createReplayPlayer } from './research-replay.js?v=20261006-replay';
 import { closeResearchDetails, showSector, showStock, watchClick, showHomeHighlights, updateHomeHighlights } from './research-detail.js?v=20261005-briefingdate';
+import { sectorDetailSnapshot } from './research-detail-model.js';
 import { settingsButton, trailIcon, showRotationSettings } from './research-settings.js';
 const prefs = { trails: true, tab: 'bubble', scope: 'all', market: 'ALL', mode: 'day', density: 'all', zoom: 1, panX: 0, panY: 0, sort: 'buy', query: '', quadrant: null, help: false, replayIndex: null, replaySpeed: 1, classification: 'theme', selectedSectors: SECTOR_DEFINITIONS.map(sector => sector.name), pickerOpen: false, pickerQuery: '', openGroups: [] };
 let session, data = savedResearch(), loading = false, error = null, lastFetch = 0;
@@ -282,7 +283,18 @@ export function renderResearch(view, state, { host } = {}) {
     if(button.hasAttribute('data-home-refresh')){refreshHome(s,true);return;}
     if (button.dataset.watch) { event.stopPropagation(); watchClick(button); return; }
     if (button.dataset.stock) { showStock(data?.stocks.find(stock => stock.symbol === button.dataset.stock)); return; }
-    if (button.dataset.sector) { const sector = chartSectors().find(x => x.name === button.dataset.sector) || selectSectors(data).find(x => x.name === button.dataset.sector); if (sector) { pauseReplay(s); showSector({ ...sector, rows: prefs.replayIndex === null ? sector.rows : [], date: prefs.replayIndex === null ? null : historyDays()[Math.floor(prefs.replayIndex)]?.date }); } return; }
+    if (button.dataset.sector) {
+      const replaying = prefs.replayIndex !== null;
+      const sector = replaying && button.closest('.twx-bubbles')
+        ? replaySectorAt(s.replayFrames, prefs.replayIndex, button.dataset.sector)
+        : chartSectors().find(x => x.name === button.dataset.sector);
+      if (sector) {
+        pauseReplay(s);
+        const date = replaying ? sector.date || historyDays()[Math.floor(prefs.replayIndex)]?.date : data?.date;
+        showSector(sectorDetailSnapshot(replaying ? s.replayData : data, { ...sector, date }, { classification: prefs.classification, market: replaying ? 'ALL' : prefs.market }));
+      }
+      return;
+    }
     if (button.dataset.go) { if(button.dataset.go==='strength') document.dispatchEvent(new CustomEvent('ox:tw-tool',{detail:{tool:'rotation'}})); document.querySelector(`.dock-btn[data-view-target="${button.dataset.go}"]`)?.click(); return; }
 if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); return; }
     if (button.hasAttribute('data-sector-picker')) { prefs.pickerOpen = !prefs.pickerOpen; root.querySelector('.twx-sector-picker').hidden = !prefs.pickerOpen; button.setAttribute('aria-expanded', prefs.pickerOpen); return; }
@@ -363,6 +375,9 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
   };
   root.addEventListener('pointerdown', event => {
     const chart = event.target.closest('.twx-bubbles'); if (!chart || (event.pointerType !== 'touch' && event.button !== 0)) return;
+    // Freeze the visible target on contact so it cannot disappear or move
+    // away between pointerdown and click. Drag/pinch suppression still applies.
+    if (event.target.closest('.twx-bubble[aria-hidden="false"], .twx-bubble:not([aria-hidden])')) pauseReplay(s);
     if (event.pointerType === 'touch') {
       touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (touches.size === 2) { beginPinch(); return; }

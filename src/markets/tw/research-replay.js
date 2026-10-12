@@ -128,6 +128,19 @@ export function replayFrameAt(frames, position, { trails = true } = {}) {
   });
 }
 
+// Details follow the real observation whose label is currently visible,
+// including a bubble entering from the next date or fading out of this one.
+export function replaySectorAt(frames, position, name) {
+  if (!frames?.length) return null;
+  const value = clamp(position, 0, frames.length - 1), index = Math.floor(value);
+  const first = frames[index], next = frames[Math.min(index + 1, frames.length - 1)];
+  const a = first.points.find(p => p.name === name), b = next.points.find(p => p.name === name);
+  if (!a || mix(a.opacity, b?.opacity ?? a.opacity, value - index) <= 0) return null;
+  const frame = a.opacity ? first : next;
+  const sector = frame.sectors.find(s => s.name === name);
+  return sector ? { ...sector, date: frame.date } : null;
+}
+
 const svgNodes = new WeakMap();
 export function drawReplayFrame(svg, points, mode) {
   let nodes = svgNodes.get(svg);
@@ -163,8 +176,8 @@ export function drawReplayFrame(svg, points, mode) {
     }
     group.style.setProperty('--bubble', p.color || colors[quadrant(p.x, p.y)]);
     group.style.opacity = p.opacity;
-    group.style.pointerEvents = p.opacity > .99 ? '' : 'none';
-    group.setAttribute('tabindex', p.opacity > .99 ? '0' : '-1');
+    group.style.pointerEvents = p.opacity > 0 ? '' : 'none';
+    group.setAttribute('tabindex', p.opacity > 0 ? '0' : '-1');
     group.setAttribute('aria-hidden', p.opacity <= 0 ? 'true' : 'false');
     if (anchor) {
       const dot = anchor.querySelector('circle');
