@@ -33,7 +33,7 @@ export function mountNewsWorkspace(host, api) {
     body.append(tags, button('恢復隱藏新聞／來源', '', () => { api.save({ hidden: [], mutedSources: [] }); renderContent(); }, 'oxn-action'), button('更新來源快照', '', api.refresh, 'oxn-action'), node('p', 'oxn-caption', '資料依來源快照更新，並非即時串流；重新讀取會保留最後成功資料。'));
   }), 'oxn-close oxn-more'); header.append(more);
   const rail = createToolsRail({ tabs: [['calendar', '行事曆'], ['key', '關鍵新聞']], selected: state.tab, label: '新聞內容', attribute: 'data-news-tab', equal: true,
-    onSelect(tab) { state.tab = tab; persist(); panel?.destroy({ focus: false }); renderControls(); renderContent(); } }); rail.element.classList.add('oxn-tabs');
+    onSelect(tab) { state.tab = tab; persist(); panel?.destroy({ focus: false }); renderControls(); renderContent(); if(tab==='key')api.ensureFeed?.(); } }); rail.element.classList.add('oxn-tabs');
   const compactRailStyle = node('style'); compactRailStyle.textContent = '@media(max-width:600px){.tw-radar-root .twr-mode-rail{padding:3px!important}.tw-radar-root .twr-mode-rail button{min-height:28px!important;padding:4px 8px!important}.tw-radar-root .twr-mode-viewport{margin-bottom:0!important}}'; rail.element.shadowRoot.append(compactRailStyle);
   const controls = node('div', 'oxn-controls'), notification = node('div', 'oxn-notification'), content = node('div', 'oxn-content');
   root.append(header, rail.element, controls, notification, content); host.replaceChildren(root);
@@ -128,6 +128,11 @@ export function mountNewsWorkspace(host, api) {
     if(window.OXFeatures&&!window.OXFeatures.enterTool(state.tab,'data-news-tab',renderContent))return;
     content.replaceChildren(); marketChoice.textContent = state.market === 'all' ? '全部市場' : MARKET_NAMES[state.market]; status();
     if (!data.snapshot) { content.append(node('div', 'oxn-empty', data.error ? '暫時無法讀取資料，請重試。' : '載入新聞與事件…')); return; }
+    if (state.tab === 'key' && data.snapshot.feedComplete === false) {
+      content.append(node('p','oxn-empty',data.feedError?'新聞暫時無法取得，行事曆仍可使用。':'正在載入新聞…'));
+      if(data.feedError)content.append(button('重試新聞','重新載入新聞',()=>api.ensureFeed?.(true),'oxn-action'));
+      return;
+    }
     if (state.tab === 'calendar') {if(innerWidth<=600)renderMobileCalendar();else if(state.calendarView==='agenda')renderAgenda();else renderCalendar();} else renderNews();
     positionCalendar();
   }
@@ -168,7 +173,8 @@ export function mountNewsWorkspace(host, api) {
       });
     }
     const events = (data.snapshot.events || []).filter(i => eventDay(i)?.slice(0, 7) === state.month && inMarket(i, scope()) && (state.categories === null || state.categories.includes(eventCategory(i))) && matchesImportance(i, state.importance));
-    const map = new Map(); for (const e of events) { const key = eventDay(e); if (!map.has(key)) map.set(key, []); map.get(key).push(e); }
+    const map = new Map(), closedDays = new Map(); for (const e of events) { const key = eventDay(e); if (!map.has(key)) map.set(key, []); map.get(key).push(e); }
+    for(const e of data.snapshot.events || [])if(isTaiwanClosed(e)){const day=eventDay(e);if(!closedDays.has(day))closedDays.set(day,[]);closedDays.get(day).push(e);}
     const calendar = node('section', 'oxn-calendar'); calendar.setAttribute('aria-label', `${state.month} 完整月份行事曆`); calendar.dataset.weeks = String(gridInfo.weeks);
     const weekdays = node('div', 'oxn-weekdays'); (mobile ? '日一二三四五六' : '一二三四五六日').split('').forEach(d => weekdays.append(node('span', '', d)));
     const grid = node('div', 'oxn-calendar-grid'); grid.style.setProperty('--weeks', gridInfo.weeks); grid.setAttribute('role', 'grid');
@@ -177,7 +183,7 @@ export function mountNewsWorkspace(host, api) {
       const selectDay = () => { state.selectedDay=cell.date; persist(); renderContent(); };
       b.addEventListener('click', () => { selectDay(); if(mobile && entries.length)api.navigate({day:cell.date}); });
       if (cell.outside) b.classList.add('is-outside'); if (cell.date === taipeiDay()) { b.classList.add('is-today'); b.setAttribute('aria-current', 'date'); }
-      const closures=(data.snapshot.events||[]).filter(e=>eventDay(e)===cell.date&&isTaiwanClosed(e));
+      const closures=closedDays.get(cell.date)||[];
       if(scope()==='tw'&&closures.length){b.classList.add('is-market-closed');b.title=closures.map(label).join('／');b.append(node('span','oxn-market-closed-label','休'));}
       b.append(button(String(cell.day), `${cell.date}，${entries.length} 個已收錄事件`, e => { e.stopPropagation(); selectDay(); if(!mobile || entries.length)api.navigate({day:cell.date}); }, 'oxn-day-number'));
       if(entries.length)b.append(button(`${entries.length} 件`,`${cell.date}，開啟當日 ${entries.length} 個事件`,e=>{e.stopPropagation();state.selectedDay=cell.date;persist();api.navigate({day:cell.date});},'oxn-day-count'));
@@ -345,5 +351,5 @@ export function mountNewsWorkspace(host, api) {
   window.visualViewport?.addEventListener('resize', positionCalendar, { signal: life.signal });
   let scrollTimer; window.addEventListener('scroll', () => { if (!root.closest('.app-view.active')) return; clearTimeout(scrollTimer); scrollTimer = setTimeout(() => { state.scroll = scrollY; persist(); }, 180); }, { signal: life.signal, passive: true });
   renderControls();
-  return { host, update(next) { const changed = next.snapshot !== data.snapshot || !content.firstChild; data = next; if (changed) { detailKey = ''; renderContent(); } else status(); renderRoute(data.route); rail.position(); if (restorePosition) { restorePosition = false; requestAnimationFrame(() => window.scrollTo(0, state.scroll || 0)); } }, suspend() { closePanel(); detail?.destroy(); detail = null; detailKey = ''; clearInterval(countdown); countdown = null; }, destroy() { state.scroll = root.closest('.app-view.active') ? scrollY : state.scroll; persist(); closePanel(); detail?.destroy(); clearInterval(countdown); clearTimeout(scrollTimer); life.abort(); rail.destroy(); root.remove(); } };
+  return { host, update(next) { const changed = next.snapshot !== data.snapshot || next.feedError !== data.feedError || !content.firstChild; data = next; if (changed) { detailKey = ''; renderContent(); } else status(); renderRoute(data.route); rail.position(); if (state.tab==='key' && !data.snapshot?.feedComplete && !data.feedError) api.ensureFeed?.(); if (restorePosition) { restorePosition = false; requestAnimationFrame(() => window.scrollTo(0, state.scroll || 0)); } }, suspend() { closePanel(); detail?.destroy(); detail = null; detailKey = ''; clearInterval(countdown); countdown = null; }, destroy() { state.scroll = root.closest('.app-view.active') ? scrollY : state.scroll; persist(); closePanel(); detail?.destroy(); clearInterval(countdown); clearTimeout(scrollTimer); life.abort(); rail.destroy(); root.remove(); } };
 }

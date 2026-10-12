@@ -2,6 +2,7 @@ import {build} from 'esbuild';
 import {readFile,writeFile,mkdir,cp,rm} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {resolve,relative,dirname} from 'node:path';
+import {TOOL_STYLES,newsAssets} from './client-assets.mjs';
 const root=resolve(import.meta.dirname,'..');
 const basePath=process.env.SITE_BASE_PATH||'';
 if(basePath&&!/^\/[a-zA-Z0-9_.-]+$/.test(basePath))throw Error('Invalid site base path');
@@ -12,14 +13,20 @@ const browserURLs={name:'original-browser-urls',setup(b){b.onLoad({filter:/\.js$
 await mkdir(resolve(root,'src/generated'),{recursive:true});
 const entries=['/src/components/patterns/view.js','/src/markets/tw/patterns/source.js','/src/markets/tw/patterns/index-cache.js','/src/markets/tw/bubbles/view.js','/src/markets/tw/etf/view.js','/src/markets/tw/etf/savings.js'];
 const contents="import './src/app/app.js';\n"+entries.map((p,i)=>`import * as m${i} from '.${p}';`).join('\n')+`\nexport const tools={${entries.map((p,i)=>JSON.stringify(p)+`:m${i}`).join(',')}};`;
-await build({stdin:{contents,resolveDir:root,loader:'js'},bundle:true,format:'iife',globalName:'OXTWBundle',platform:'browser',minify:true,outfile:resolve(root,'src/generated/runtime.js'),plugins:[resolveVersion,browserURLs]});
+const styles=Object.fromEntries(await Promise.all(TOOL_STYLES.map(async path=>['/'+path,(await readFile(resolve(root,path),'utf8')).replace(/url\(\s*(['"]?)([^)'"\s]+)\1\s*\)/g,(all,quote,url)=>/^(?:[a-z]+:|\/|#)/i.test(url)?all:`url("${basePath+'/'+relative(root,resolve(root,dirname(path),url))}")`)])));
+await build({stdin:{contents,resolveDir:root,loader:'js'},bundle:true,format:'iife',globalName:'OXTWBundle',platform:'browser',minify:true,outfile:resolve(root,'src/generated/runtime.js'),banner:{js:`if(!globalThis.__OXTWRuntimeStarted){globalThis.__OXTWRuntimeStarted=true;globalThis.OXStyleTexts=${JSON.stringify(styles)};`},footer:{js:'globalThis.OXToolModules=OXTWBundle.tools;}'},plugins:[resolveVersion,browserURLs]});
 const runtime=await readFile(resolve(root,'src/generated/runtime.js'),'utf8');
-await writeFile(resolve(root,'src/generated/runtime.js'),runtime+'\nglobalThis.OXToolModules=OXTWBundle.tools;\n');
+const runtimeVersion=createHash('sha256').update(runtime).digest('hex').slice(0,12);
 await build({entryPoints:[resolve(root,'src/components/patterns/worker.js')],bundle:true,format:'esm',platform:'browser',minify:true,outfile:resolve(root,'src/generated/pattern-worker.js'),plugins:[resolveVersion]});
 await rm(resolve(root,'dist'),{recursive:true,force:true});
 await mkdir(resolve(root,'dist/client'),{recursive:true});
 for(const name of ['index.html','favicon.svg','src','data'])await cp(resolve(root,name),resolve(root,'dist/client',name),{recursive:true});
+const news=newsAssets(JSON.parse(await readFile(resolve(root,'data/news.json'),'utf8')));
+for(const [name,data]of Object.entries(news))await writeFile(resolve(root,`dist/client/data/news-${name}.json`),JSON.stringify(data));
+const bootPath=resolve(root,'dist/client/src/app/module-boot.js');
+await writeFile(bootPath,(await readFile(bootPath,'utf8')).replaceAll('20261012-startup1',runtimeVersion));
 let html=await readFile(resolve(root,'dist/client/index.html'),'utf8');
+html=html.replaceAll('20261012-startup1',runtimeVersion);
 // Preserve the cascade and marked lazy-style links, while collapsing the
 // dozens of shared stylesheets into two cacheable requests before first paint.
 const groups=[...html.matchAll(/(?:<link rel="stylesheet" href="[^"]+">)+/g)];

@@ -6,6 +6,8 @@ import {preloadBundle} from '../markets/tw/patterns/bundle.js';
 import {initShell} from './shell.js';
 import {initStockShortcut} from './stock-shortcut.js';
 import {LIVE_PREFERENCE_KEY,readLivePreference} from './live-preference.js';
+import '../components/news/center.js';
+import {withDeadline} from '../components/resource-deadline.js';
 
 const views=new Set(['home','strength','radar','data','news','media']);
 let shell;
@@ -67,11 +69,13 @@ function updateLive(persist=false){
   document.getElementById('tw-live-before-paint')?.remove();
   document.querySelector('.ox-live-shell').hidden=!liveChoice.checked;
   if(persist)try{localStorage.setItem(LIVE_PREFERENCE_KEY,liveChoice.checked?'1':'0');}catch{}
+  if(persist&&liveChoice.checked)updateHeadline();
 }
 liveChoice.addEventListener('change',()=>updateLive(true));updateLive();
 async function updateHeadline(){
-  try{const r=await fetch(new URL('../../data/news.json',import.meta.url),{signal:AbortSignal.timeout(8000)});const d=await r.json();
-    const item=d.news.find(n=>n.markets?.includes('tw'));document.getElementById('ox-live-text').textContent=item?.titleZh||item?.title||'台灣市場 · 官方日行情';
+  if(!liveChoice.checked)return;
+  try{const d=await withDeadline(async signal=>{const r=await fetch(new URL('../../data/news-headline.json',import.meta.url),{signal});if(!r.ok)throw Error('Headline unavailable');return r.json();},8000);
+    document.getElementById('ox-live-text').textContent=d.title||'台灣市場 · 官方日行情';
   }catch{document.getElementById('ox-live-text').textContent='台灣市場 · 官方日行情';}
 }
 updateHeadline();setInterval(()=>{if(!document.hidden)updateHeadline();},300000);
@@ -82,6 +86,8 @@ window.OXTW={navigate:window.switchAppView,openStock(symbol){
   window.switchAppView('radar');return {market:'tw',symbol,view:'radar'};
 }};
 initStockShortcut(symbol=>window.OXTW.openStock(symbol));
+globalThis.OXAppReady=true;
+document.dispatchEvent(new Event('ox:appready'));
 if(document.modelContext?.registerTool){
   document.modelContext.registerTool({name:'open_taiwan_stock_chart',title:'開啟台股圖表',description:'以股票代號開啟台股雷達 K 線，與介面股票搜尋共用同一入口。',inputSchema:{type:'object',properties:{symbol:{type:'string',pattern:'^\\d{4,6}[A-Z]?$'}},required:['symbol'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute(input){if(!input||typeof input.symbol!=='string'||Object.keys(input).some(k=>k!=='symbol'))throw Error('股票代號無效');return window.OXTW.openStock(input.symbol);}});
 }

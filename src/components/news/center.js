@@ -1,3 +1,7 @@
+import {mountNewsWorkspace} from './workspace.js';
+import {mergeMacroResults} from './macro.js';
+import {loadNewsSnapshot} from './snapshot-request.js';
+import {withDeadline} from '../resource-deadline.js';
 (() => {
   'use strict';
   const SAVED_KEY = 'ox-tw-independent:ox-news-preferences-v1';
@@ -22,47 +26,58 @@
   function refresh(force = false) {
     if (state.pending) return state.pending;
     if (state.snapshot && !force) return Promise.resolve(state.snapshot);
-    const request = ++state.request, controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    state.pending = fetch(`data/news.json${force ? `?t=${Date.now()}` : ''}`, { signal: controller.signal, cache: force ? 'reload' : 'default' })
-      .then(async response => { if (!response.ok) throw Error(`HTTP ${response.status}`); const data = await response.json(); if (data.schemaVersion !== 1 || !Array.isArray(data.news) || !Array.isArray(data.events)) throw Error('新聞資料格式不正確'); return data; })
+    const request = ++state.request;
+    state.pending = loadNewsSnapshot('data/news-calendar.json', {force})
       .then(data => { if (request !== state.request) return state.snapshot; state.lastError = null;
         if (state.snapshot && data.generatedAt !== state.snapshot.generatedAt) state.candidate = data;
         else if (!state.snapshot) state.snapshot = data;
+        if(force&&state.snapshot?.feedComplete)ensureFeed(true);
         render(); refreshMacro(force); return state.snapshot;
       }).catch(error => { if (request === state.request) { state.lastError = error; render(); } return state.snapshot; })
-      .finally(() => { clearTimeout(timeout); state.pending = null; });
+      .finally(() => { state.pending = null; render(); });
     render(); return state.pending;
+  }
+  function ensureFeed(force=false) {
+    if(state.feedPending)return state.feedPending;
+    if(state.snapshot?.feedComplete&&!force)return Promise.resolve(state.snapshot);
+    state.feedError=null;
+    state.feedPending=loadNewsSnapshot('data/news-feed.json',{force}).then(data=>{
+      if(!state.snapshot?.feedComplete || data.generatedAt===state.snapshot.generatedAt){state.snapshot=data;state.candidate=null;}
+      else state.candidate=data;
+      refreshMacro(force);return data;
+    }).catch(error=>{state.feedError=error;return state.snapshot;}).finally(()=>{state.feedPending=null;render();});
+    render();return state.feedPending;
   }
   let macroPending = false;
   async function refreshMacro(force) {
     if (macroPending) return; macroPending = true;
     try {
-      const [response, { mergeMacroResults }] = await Promise.all([fetch(`data/macro-results.json${force ? `?t=${Date.now()}` : ''}`, { cache: force ? 'reload' : 'default', signal: AbortSignal.timeout(8000) }), import('./macro.js?v=20261005-weeklist4')]);
-      if (!response.ok) return;
-      const supplement = await response.json();
+      const supplement = await withDeadline(async signal=>{const response=await fetch('data/macro-results.json',{cache:force?'reload':'default',signal});if(!response.ok)throw Error('Macro snapshot unavailable');return response.json();},8000);
       if (state.snapshot) state.snapshot = mergeMacroResults(state.snapshot, supplement);
       if (state.candidate) state.candidate = mergeMacroResults(state.candidate, supplement);
       render();
     } catch { /* Keep the calendar and its last successful official values. */ }
     finally { macroPending = false; }
   }
-  let generation = 0;
-  async function render() {
-    const token = ++generation;
+  let renderQueued=false;
+  function render() {
+    if(renderQueued)return;
+    renderQueued=true;
+    requestAnimationFrame(()=>{renderQueued=false;renderNow();});
+  }
+  function renderNow() {
     const view = document.querySelector('.app-view.active')?.dataset.appView;
     if (!['news', 'data'].includes(view)) { state.workspace?.suspend(); return; }
     // US keeps its existing Data workspace. Cross-market news remains available from the news menu.
     const scope = document.body.dataset.newsMode === '1' ? 'all' : currentMarket();
     const host = document.querySelector(`[data-news-surface="${scope === 'all' ? 'all' : 'market'}"]`);
     if (!host) return;
-    const { mountNewsWorkspace } = await import('./workspace.js?v=20261005-stable18');
-    if (token !== generation || !host.isConnected) return;
+    if (!host.isConnected) return;
     if (state.scope !== scope || state.workspace?.host !== host) {
       state.workspace?.destroy(); state.scope = scope;
-      state.workspace = mountNewsWorkspace(host, { scope, preferences, save, navigate, back: detailBack, exit: scope === 'all' ? () => close({ useHistory: true }) : exitMarket, refresh: () => refresh(true), applyUpdate() { state.snapshot = state.candidate; state.candidate = null; render(); }, unlockCountdown });
+      state.workspace = mountNewsWorkspace(host, { scope, preferences, save, navigate, back: detailBack, exit: scope === 'all' ? () => close({ useHistory: true }) : exitMarket, refresh: () => refresh(true), ensureFeed, applyUpdate() { state.snapshot = state.candidate; state.candidate = null; render(); }, unlockCountdown });
     }
-    state.workspace.update({ snapshot: state.snapshot, error: state.lastError, pending: Boolean(state.pending), candidate: Boolean(state.candidate), route: state.route });
+    state.workspace.update({ snapshot: state.snapshot, error: state.lastError, feedError:state.feedError, pending: Boolean(state.pending), candidate: Boolean(state.candidate), route: state.route });
   }
   function currentView() { return document.querySelector('.app-view.active')?.dataset.appView || 'radar'; }
   const baseURL = () => (location.pathname || '/') + (location.search || '');
@@ -148,7 +163,7 @@
   // The legacy boot briefly selects radar. During reload that must not push a
   // new history entry or erase the deep link before its route is restored.
   if (initialNewsHash) {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restoreInitialRoute, { once: true });
+    if (!window.switchAppView) document.addEventListener('ox:appready', restoreInitialRoute, { once: true });
     else restoreInitialRoute();
   }
   else render();

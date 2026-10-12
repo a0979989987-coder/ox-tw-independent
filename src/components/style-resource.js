@@ -3,6 +3,11 @@ export function createStyleLoader(fetcher = fetch, timeoutMs = 15000) {
   const resources = new Map(), failed = new Set();
   return function loadStyle(href) {
     const url = String(href);
+    // Published tools carry their exact CSS in the same versioned runtime.
+    // Shadow DOM no longer waits for three independent network requests.
+    const parsed = new URL(url), start = parsed.pathname.indexOf('/src/');
+    const embedded = globalThis.OXStyleTexts?.[start < 0 ? parsed.pathname : parsed.pathname.slice(start)];
+    if (typeof embedded === 'string' && parsed.origin === globalThis.location?.origin) return Promise.resolve(embedded);
     if (!resources.has(url)) {
       const task = withDeadline(async signal => {
         const response = await fetcher(url, { signal, cache: failed.has(url) ? 'reload' : 'default', priority: 'high' });

@@ -230,10 +230,14 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   symbol=next;state.symbol=next;state.period=frame;state.chartPriceViewport=null;const run=++serial;controller?.abort();controller=new AbortController();historyRecord=null;historyJob=null;fitAll=true;
   renderQuote();$('[data-series-note]').textContent='';
   $('[data-history-status]').textContent='歷史 K 線載入中';$('[data-action="history-retry"]').hidden=true;
-  status('官方 K 線載入中');renderList();if(!ensureChart())return;
+  status('官方 K 線載入中');renderList();
+  try {
+  if(!window.LightweightCharts&&window.OXEnsureChart)await window.OXEnsureChart();
+  if(run!==serial||life.signal.aborted)return;
+  if(!ensureChart())throw Error('圖表元件尚未就緒');
   state.chart.applyOptions({timeScale:{timeVisible:false,tickMarkFormatter:chartTickFormatter(frame)}});
   state.candleData=[];state.candleSeries.setData([]);state.volumeSeries.setData([]);levels();
-  try{status('正在載入股票 K 線');if(!bundleEntry(next,'1D',snapshot()?.date))await awaitBundleSymbol(next,controller.signal).catch(()=>{});if(run!==serial||life.signal.aborted)return;
+  status('正在載入股票 K 線');if(!bundleEntry(next,'1D',snapshot()?.date))await awaitBundleSymbol(next,controller.signal).catch(()=>{});if(run!==serial||life.signal.aborted)return;
    status('正在整理股票 K 線');const row=universe().find(r=>r.symbol===next),latest=latestDaily(row),base=bundleEntry(next,'1D',bundleState().date)?.data,asOf=snapshot()?.date;
    const data=base&&latest?.asOf===asOf?{...base,dataDate:asOf,candles:mergeDailyHistory(base.candles,latest.daily,asOf)}:await fetchSeries(next,'1D',controller.signal,asOf,{minimum:1});if(run!==serial||life.signal.aborted)return;
    status('正在開啟歷史 K 線');const record=await chartHistory(next,universe().find(r=>r.symbol===next)?.market,snapshot()?.date,data.candles,controller.signal);if(run!==serial||life.signal.aborted)return;

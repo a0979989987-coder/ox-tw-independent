@@ -2,14 +2,19 @@ import { SOURCE_CATALOG, MARKET_CATEGORIES, EVENT_PROVIDERS } from './config.js?
 export const validDate = value => { if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false; const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value; };
 export const safeLink = value => { try { const u = new URL(value); return u.protocol === 'https:' && !u.username && !u.password ? u.href : null; } catch { return null; } };
 export const plain = value => String(value ?? '').replace(/<[^>]*>/g, '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim();
+const taipeiDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' });
+const eventDates = new WeakMap();
 export function taipeiDay(value = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(value));
+  const parts = taipeiDateFormatter.formatToParts(new Date(value));
   const part = name => parts.find(p => p.type === name).value;
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 export function eventDay(item) {
-  if (item.date && validDate(item.date)) return item.date;
-  return Number.isFinite(Date.parse(item.occursAt)) ? taipeiDay(item.occursAt) : null;
+  const cached = eventDates.get(item);
+  if (cached && cached.date === item.date && cached.occursAt === item.occursAt) return cached.day;
+  const day = item.date && validDate(item.date) ? item.date : Number.isFinite(Date.parse(item.occursAt)) ? taipeiDay(item.occursAt) : null;
+  eventDates.set(item, { date: item.date, occursAt: item.occursAt, day });
+  return day;
 }
 export function eventCategory(item) {
   if (item.category) return item.category;
@@ -39,14 +44,18 @@ export function defaultState() { return { tab: 'calendar', calendarView: 'month'
 export const inMarket = (item, scope) => scope === 'all' || Boolean(item.markets?.includes(scope) &&
   (!(item.kind === 'event' || item.date || item.occursAt) || !eventCategory(item) || MARKET_CATEGORIES[scope]?.includes(eventCategory(item))));
 export function upcomingEventDays(snapshot, scope, state, start) {
-  return Array.from({ length: 8 }, (_, index) => {
+  const days = Array.from({ length: 8 }, (_, index) => {
     const date = new Date(start + 'T12:00:00Z'); date.setUTCDate(date.getUTCDate() + index);
     const day = date.toISOString().slice(0, 10);
-    const events = (snapshot?.events || []).filter(item => eventDay(item) === day && inMarket(item, scope) &&
-      (state.categories === null || state.categories.includes(eventCategory(item))) && matchesImportance(item, state.importance))
-      .sort((a, b) => (a.occursAt || '').localeCompare(b.occursAt || '') || (a.titleZh || a.title || '').localeCompare(b.titleZh || b.title || ''));
-    return { date: day, events, index };
-  }).filter(day => day.index === 0 || day.events.length);
+    return { date: day, events: [], index };
+  });
+  const byDate = new Map(days.map(day => [day.date, day]));
+  for (const item of snapshot?.events || []) {
+    const day = byDate.get(eventDay(item));
+    if (day && inMarket(item, scope) && (state.categories === null || state.categories.includes(eventCategory(item))) && matchesImportance(item, state.importance)) day.events.push(item);
+  }
+  for (const day of days) day.events.sort((a,b)=>(a.occursAt || '').localeCompare(b.occursAt || '') || (a.titleZh || a.title || '').localeCompare(b.titleZh || b.title || ''));
+  return days.filter(day => day.index === 0 || day.events.length);
 }
 export function canonicalURL(value) {
   const safe = safeLink(value); if (!safe) return null;
@@ -109,8 +118,10 @@ export function agendaDays(snapshot, scope, state) {
   return [...dates].sort(([a],[b])=>a.localeCompare(b)).map(([date,events])=>({date,events:events.sort((a,b)=>(a.occursAt||date).localeCompare(b.occursAt||date)||plain(a.titleZh||a.title).localeCompare(plain(b.titleZh||b.title)))}));
 }
 const STOP = new Set('以及 相關 表示 今年 今天 昨日 目前 預計 可能 最新 消息 新聞 公告 發布 宣布 報導 指出 美國 台灣 全球 官方 公司 集團 市場 投資 投資人 金融 交易 交易所 新增 因為 已經 還有 這個 這次 這些 其中 一個 成為 提供 推出 開放 預告 進行 發展 調整 計畫 資訊 來源 更新 年 月 日 萬 億 元 美元 the and for with from this that are has new its to of in on by at an us as is a will over via announces release available'.split(' '));
-const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
+let segmenter;
 export function hotWords(items) {
+  // Older in-app browsers can still open the calendar without Intl.Segmenter.
+  segmenter ??= typeof Intl.Segmenter === 'function' ? new Intl.Segmenter('zh-TW', { granularity: 'word' }) : { segment: text => (text.match(/[\p{L}\p{N}]+/gu) || []).map(segment => ({segment, isWordLike:true})) };
   const counts = new Map();
   for (const item of items) {
     const words = new Set((item.assets || []).map(a => a.name));
