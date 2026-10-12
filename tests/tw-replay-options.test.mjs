@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { REPLAY_PERIODS, REPLAY_SPEEDS, REPLAY_HISTORY_LIMIT, selectReplayWindow, replayPositionForDate } from '../src/markets/tw/research-replay-options.js';
-import { replayHistory, createReplayPlayer } from '../src/markets/tw/research-replay.js';
+import { REPLAY_SPEEDS, REPLAY_HISTORY_LIMIT, replayPositionForDate, replayOptionControls } from '../src/markets/tw/research-replay-options.js';
+import { createReplayPlayer } from '../src/markets/tw/research-replay.js';
 import { createReplayHistoryLoader } from '../src/markets/tw/research-replay-data.js';
 import { mergeResearchHistory } from '../src/markets/tw/research-data.js';
 import { SECTOR_TAXONOMY_VERSION } from '../src/markets/tw/sector-taxonomy.js';
@@ -19,47 +19,17 @@ function clock() {
     step(t) { const frames = [...pending.values()]; pending.clear(); frames.forEach(fn => fn(t)); } };
 }
 
-test('week, month, quarter and year periods select calendar windows ending at the latest observation', () => {
-  const history = dates('2025-01-01', '2026-10-08');
-  const expected = { '1w': '2026-10-02', '2w': '2026-09-25', '1m': '2026-09-09', '2m': '2026-08-09',
-    '1q': '2026-07-09', '2q': '2026-04-09', '3q': '2026-01-09', '1y': '2025-10-09', all: '2025-01-01' };
-  for (const { id } of REPLAY_PERIODS) {
-    const window = selectReplayWindow(history, id);
-    assert.equal(window.start, expected[id]); assert.equal(window.days[0].date, expected[id]);
-    assert.equal(window.days.at(-1).date, '2026-10-08'); assert.equal(window.limited, false);
-  }
+test('replay controls retain ten speeds and omit the period selector', () => {
+  const html = replayOptionControls(0.3);
+  assert.equal((html.match(/<option /g) || []).length, 10);
+  assert.match(html, /value="0.3" selected/);
+  assert.doesNotMatch(html, /data-replay-period|回放期間/);
 });
 
-test('month ends, leap years and a year crossing are clamped without spilling into the wrong month', () => {
-  const end = date => [{ date: '2020-01-01' }, { date }];
-  assert.equal(selectReplayWindow(end('2026-03-31'), '1m').start, '2026-03-01');
-  assert.equal(selectReplayWindow(end('2024-03-31'), '1m').start, '2024-03-01');
-  assert.equal(selectReplayWindow(end('2024-02-29'), '1y').start, '2023-03-01');
-  assert.equal(selectReplayWindow(end('2026-01-31'), '1q').start, '2025-11-01');
-  assert.deepEqual(selectReplayWindow([], '1y').days, []);
-});
-
-test('a short archive reports its real bounds, retains missing sessions and never invents history', () => {
-  const history = [{ date: '2026-10-01', sectors: [] }, { date: '2026-10-02', unavailable: true }, { date: '2026-10-08', sectors: [] }];
-  const year = selectReplayWindow(history, '1y');
-  assert.equal(year.limited, true); assert.deepEqual(year.days, history);
-  assert.deepEqual(selectReplayWindow(history, '1w').days.map(day => day.date), ['2026-10-02', '2026-10-08']);
-  assert.equal(history.length, 3);
-});
-
-test('short replay periods keep the preceding 20-session momentum calculation intact', () => {
-  const history = dates('2026-08-01', '2026-10-08').map((day, i) => ({ ...day,
-    sectors: [{ name: '半導體', count: 1, covered: 1, flow: i + 1, changePct: 1, turnoverTwd: 100 }] }));
-  const full = replayHistory(history, 'momentum'), selected = selectReplayWindow(full, '1w').days;
-  assert.equal(selected.length, 7);
-  assert.equal(selected[0].sectors[0].flow20, 1070);
-  assert.deepEqual(selected[0].sectors, full.find(day => day.date === '2026-10-02').sectors);
-});
-
-test('loading older history retains the fractional date and clamps to the new period when needed', () => {
+test('loading older history retains the fractional date and clamps when a date is unavailable', () => {
   const original = dates('2026-09-01', '2026-10-08'), expanded = dates('2026-08-01', '2026-10-08');
   assert.equal(replayPositionForDate(original, 3.25, expanded), 34.25);
-  const shorter = selectReplayWindow(expanded, '1w').days;
+  const shorter = expanded.slice(-7);
   assert.equal(replayPositionForDate(original, 3.25, shorter), 0);
   assert.equal(replayPositionForDate(original, original.length - 1, shorter), shorter.length - 1);
 });
@@ -110,4 +80,16 @@ test('failed or malformed archive loads retain the current usable data and can r
     const recovered = await load(snapshot);
     assert.equal(recovered.error, null); assert.deepEqual(recovered.history, snapshot.history); assert.equal(calls, 2);
   }
+});
+
+test('seeking during playback preserves running state and manual pause remains paused', () => {
+  const time = clock();
+  const player = createReplayPlayer({ length: 40, render() {}, ...time });
+  player.play(); time.step(0); time.step(600);
+  player.seek(12.25, { pause: false });
+  assert.equal(player.playing, true); assert.equal(time.pending.size, 1);
+  time.step(1200); time.step(1800); assert.equal(player.position, 12.75);
+  player.pause(); player.seek(8, { pause: false }); time.step(2400);
+  assert.equal(player.playing, false); assert.equal(player.position, 8);
+  player.destroy(); assert.equal(time.pending.size, 0);
 });

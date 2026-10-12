@@ -228,7 +228,7 @@ export function createReplayPlayer({ length, render, onState = () => {}, isActiv
       playing = true; previous = null; render(value); notify(); frame = requestFrame(tick);
     },
     pause,
-    seek(position) { if (destroyed) return; pause(); value = clamp(Number(position) || 0, 0, Math.max(0, length - 1)); render(value); notify(); },
+    seek(position, { pause: shouldPause = true } = {}) { if (destroyed) return; if (shouldPause) pause(); else previous = null; value = clamp(Number(position) || 0, 0, Math.max(0, length - 1)); render(value); notify(); },
     setSpeed(speed) { if (Number.isFinite(speed) && speed > 0) rate = speed; },
     destroy() { pause(); destroyed = true; }
   };

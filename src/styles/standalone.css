@@ -43,4 +43,5 @@ body[data-market="tw"]{min-height:100dvh}
 .tw-stock-shortcut button{color:inherit;background:#ffffff0b;border:1px solid #9da5a644;border-radius:10px;padding:9px 12px;white-space:nowrap;font:inherit;cursor:pointer}
 .tw-stock-shortcut small{grid-column:1/-1;opacity:.7;font-size:12px}
 body.theme-light .tw-stock-shortcut{background:#f8f9fa;color:#303842;box-shadow:0 12px 55px #35404a30}
-@media(max-width:620px){body.ox-terminal[data-market="tw"] .app-dock.glass-nav{bottom:calc(9px + env(safe-area-inset-bottom))!important}}
+/* Match the crypto dock within the safe viewport (no viewport-fit=cover). */
+@media(max-width:620px){body.ox-terminal[data-market="tw"] .app-dock.glass-nav{bottom:9px!important}}

@@ -10,9 +10,9 @@ import { replayHistory, replayFrames, replayFrameAt, replaySectorAt, drawReplayF
 import { closeResearchDetails, showSector, showStock, watchClick, showHomeHighlights, updateHomeHighlights } from './research-detail.js?v=20261005-briefingdate';
 import { sectorDetailSnapshot } from './research-detail-model.js';
 import { settingsButton, trailIcon, showRotationSettings } from './research-settings.js';
-import { REPLAY_PERIODS, REPLAY_SPEEDS, selectReplayWindow, replayPositionForDate, replayOptionControls } from './research-replay-options.js';
+import { REPLAY_SPEEDS, replayPositionForDate, replayOptionControls } from './research-replay-options.js';
 import { loadReplayHistory } from './research-replay-data.js';
-const prefs = { trails: true, tab: 'bubble', scope: 'all', market: 'ALL', mode: 'day', density: 'all', zoom: 1, panX: 0, panY: 0, sort: 'buy', query: '', quadrant: null, help: false, replayIndex: null, replayPeriod: '1m', replaySpeed: 1, classification: 'theme', selectedSectors: SECTOR_DEFINITIONS.map(sector => sector.name), pickerOpen: false, pickerQuery: '', openGroups: [] };
+const prefs = { trails: true, tab: 'bubble', scope: 'all', market: 'ALL', mode: 'day', density: 'all', zoom: 1, panX: 0, panY: 0, sort: 'buy', query: '', quadrant: null, help: false, replayIndex: null, replaySpeed: 1, classification: 'theme', selectedSectors: SECTOR_DEFINITIONS.map(sector => sector.name), pickerOpen: false, pickerQuery: '', openGroups: [] };
 let session, data = savedResearch(), loading = false, error = null, lastFetch = 0;
 let home=savedHome(),homeLoading=false,homeFetched=0,homeSession='after';
 async function refreshHome(s,force=false){
@@ -44,7 +44,7 @@ function availableHistoryDays() {
     replayHistoryCache = { history, mode, classification: prefs.classification, days: replayHistory(prefs.classification === 'theme' ? history.map(day => ({ ...day, sectors: day.themeVersion === SECTOR_TAXONOMY_VERSION ? day.themes || [] : [] })) : history, mode) };
   return replayHistoryCache.days;
 }
-function historyDays() { return selectReplayWindow(availableHistoryDays(), prefs.replayPeriod).days; }
+function historyDays() { return availableHistoryDays(); }
 function replaySectorFilter() {
   const query = prefs.query.trim().toLowerCase();
   const matched = prefs.scope === 'watch' || query
@@ -92,11 +92,11 @@ const replayDate = date => {
   return `${Number(date.slice(5,7))}/${Number(date.slice(8))} 週${'日一二三四五六'[d.getUTCDay()]}`;
 };
 function replayControls() {
-  const window = selectReplayWindow(availableHistoryDays(), prefs.replayPeriod), days = window.days;
+  const days = historyDays();
   const index = Math.min(Math.floor(prefs.replayIndex), days.length - 1);
   const day = days[index];
-  const coverage = session?.replayHistoryLoading ? '較長期間歷史讀取中…' : session?.replayHistoryError || (window.limited ? `現有${chartMode() === 'momentum' ? '資金動向' : ''}歷史自 ${days[0]?.date} 起，僅回放可用資料。` : `${days.length} 個交易日`);
-  return `<div class="twx-replay">${replayOptionControls(prefs.replayPeriod, prefs.replaySpeed)}<time data-replay-date>${escape(day ? replayDate(day.date) : '尚無完整歷史')}</time><input type="range" data-replay-seek min="0" max="${Math.max(0, days.length - 1)}" step="0.01" value="${prefs.replayIndex}" aria-label="回放交易日" ${days.length < 2 ? 'disabled' : ''}><div class="twx-replay-dates"><span>${escape(days[0]?.date || '')}</span><span>${escape(days.at(-1)?.date || '')}</span></div><small class="twx-replay-coverage" role="status">${escape(coverage)}</small><div class="twx-replay-buttons"><button type="button" data-replay-step="-1" aria-label="上一個交易日">‹</button><button type="button" data-replay-play aria-label="播放回放" ${days.length < 2 ? 'disabled' : ''}>▶</button><button type="button" data-replay-step="1" aria-label="下一個交易日">›</button></div><small data-replay-summary></small></div>`;
+  const coverage = session?.replayHistoryLoading ? '歷史資料讀取中…' : session?.replayHistoryError || `${days.length} 個交易日，僅回放可用資料。`;
+  return `<div class="twx-replay">${replayOptionControls(prefs.replaySpeed)}<time data-replay-date>${escape(day ? replayDate(day.date) : '尚無完整歷史')}</time><input type="range" data-replay-seek min="0" max="${Math.max(0, days.length - 1)}" step="0.01" value="${prefs.replayIndex}" aria-label="回放交易日" ${days.length < 2 ? 'disabled' : ''}><div class="twx-replay-dates"><span>${escape(days[0]?.date || '')}</span><span>${escape(days.at(-1)?.date || '')}</span></div><small class="twx-replay-coverage" role="status">${escape(coverage)}</small><div class="twx-replay-buttons"><button type="button" data-replay-step="-1" aria-label="上一個交易日">‹</button><button type="button" data-replay-play aria-label="播放回放" ${days.length < 2 ? 'disabled' : ''}>▶</button><button type="button" data-replay-step="1" aria-label="下一個交易日">›</button></div><small data-replay-summary></small></div>`;
 }
 function mountReplay(s, resume) {
   if (prefs.replayIndex === null) return;
@@ -317,10 +317,10 @@ export function renderResearch(view, state, { host } = {}) {
     if (button.dataset.sector) {
       const replaying = prefs.replayIndex !== null;
       const sector = replaying && button.closest('.twx-bubbles')
-        ? replaySectorAt(s.replayFrames, prefs.replayIndex, button.dataset.sector)
+        ? (s.pressedSector?.name === button.dataset.sector ? s.pressedSector : replaySectorAt(s.replayFrames, prefs.replayIndex, button.dataset.sector))
         : chartSectors().find(x => x.name === button.dataset.sector);
+      s.pressedSector = null;
       if (sector) {
-        pauseReplay(s);
         const date = replaying ? sector.date || historyDays()[Math.floor(prefs.replayIndex)]?.date : data?.date;
         showSector(sectorDetailSnapshot(replaying ? s.replayData : data, { ...sector, date }, { classification: prefs.classification, market: replaying ? 'ALL' : prefs.market }));
       }
@@ -336,7 +336,7 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
       return;
     }
     if (button.hasAttribute('data-replay-play')) { if (prefs.tab !== 'bubble') { prefs.tab = 'bubble'; paint(s); } if (s.player?.playing) pauseReplay(s); else playReplay(s); return; }
-    if (button.hasAttribute('data-replay-step')) { const position = s.player?.position || 0; s.player?.seek(Number(button.dataset.replayStep) < 0 ? Math.ceil(position) - 1 : Math.floor(position) + 1); return; }
+    if (button.hasAttribute('data-replay-step')) { const position = s.player?.position || 0; s.player?.seek(Number(button.dataset.replayStep) < 0 ? Math.ceil(position) - 1 : Math.floor(position) + 1, { pause: false }); return; }
     if (button.hasAttribute('data-expand')) { root.querySelector('.twx-chart-panel').classList.toggle('expanded'); button.setAttribute('aria-label', root.querySelector('.expanded') ? '收合圖表' : '展開圖表'); return; }
     if (button.dataset.zoom) {
       if (button.dataset.zoom === 'reset') resetChart();
@@ -349,18 +349,12 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
       root.querySelector(`[data-${key}="${prefs[key]}"]`)?.focus({preventScroll:true}); return;
     }
   }, { signal: s.controller.signal });
-  root.addEventListener('input', event => { if (event.target.matches('[data-sector-search]')) { prefs.pickerQuery = event.target.value; root.querySelector('.twx-sector-picker-list').innerHTML = sectorPickerList(prefs); root.querySelectorAll('[data-mixed]').forEach(input => { input.indeterminate = true; }); return; } if (event.target.matches('[data-replay-seek]')) { s.player?.seek(Number(event.target.value)); return; } if (event.target.matches('input[type="search"]')) { prefs.query = event.target.value; resetChart(); const cursor = event.target.selectionStart; paint(s); const input = root.querySelector('.twx-search input'); input.focus({ preventScroll: true }); try { input.setSelectionRange(cursor, cursor); } catch {} } }, { signal: s.controller.signal });
+  root.addEventListener('input', event => { if (event.target.matches('[data-sector-search]')) { prefs.pickerQuery = event.target.value; root.querySelector('.twx-sector-picker-list').innerHTML = sectorPickerList(prefs); root.querySelectorAll('[data-mixed]').forEach(input => { input.indeterminate = true; }); return; } if (event.target.matches('[data-replay-seek]')) { s.player?.seek(Number(event.target.value), { pause: false }); return; } if (event.target.matches('input[type="search"]')) { prefs.query = event.target.value; resetChart(); const cursor = event.target.selectionStart; paint(s); const input = root.querySelector('.twx-search input'); input.focus({ preventScroll: true }); try { input.setSelectionRange(cursor, cursor); } catch {} } }, { signal: s.controller.signal });
   root.addEventListener('change', event => {
     const input = event.target;
     if (input.matches('[data-replay-speed]')) {
       const speed = Number(input.value);
       if (REPLAY_SPEEDS.includes(speed)) { prefs.replaySpeed = speed; s.player?.setSpeed(speed); }
-      return;
-    }
-    if (input.matches('[data-replay-period]')) {
-      if (!REPLAY_PERIODS.some(period => period.id === input.value) || prefs.replayPeriod === input.value) return;
-      prefs.replayPeriod = input.value; prefs.replayIndex = 0; resetChart(); paint(s);
-      root.querySelector('[data-replay-period]')?.focus({ preventScroll: true });
       return;
     }
     if (input.matches('[data-market]')) { prefs.market = input.value; prefs.mode = 'auto'; prefs.quadrant = null; resetChart(); paint(s); }
@@ -414,14 +408,15 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
     pinch = { distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), zoom: prefs.zoom,
       x: (point.x - chart.viewBox.baseVal.width / 2 - prefs.panX) / prefs.zoom, y: (point.y - (chart.viewBox.baseVal.height - 6) / 2 - prefs.panY) / prefs.zoom };
     drag = null;
-    s.interacting = true; pauseReplay(s);
+    s.interacting = true;
     for (const id of touches.keys()) if (!root.hasPointerCapture(id)) root.setPointerCapture(id);
   };
   root.addEventListener('pointerdown', event => {
     const chart = event.target.closest('.twx-bubbles'); if (!chart || (event.pointerType !== 'touch' && event.button !== 0)) return;
-    // Freeze the visible target on contact so it cannot disappear or move
-    // away between pointerdown and click. Drag/pinch suppression still applies.
-    if (event.target.closest('.twx-bubble[aria-hidden="false"], .twx-bubble:not([aria-hidden])')) pauseReplay(s);
+    // Snapshot a moving bubble for detail taps without stopping the clock.
+    const bubble = event.target.closest('.twx-bubble[data-sector]');
+    s.pressedSector = bubble && prefs.replayIndex !== null
+      ? replaySectorAt(s.replayFrames, prefs.replayIndex, bubble.dataset.sector) : null;
     if (event.pointerType === 'touch') {
       touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (touches.size === 2) { beginPinch(); return; }
@@ -448,7 +443,7 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
     if (!drag || drag.id !== event.pointerId) return;
     const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) < 5 && !drag.moved) return;
-    if (!drag.moved) { s.interacting = true; pauseReplay(s); }
+    if (!drag.moved) { s.interacting = true; }
     drag.moved = true; event.preventDefault();
     if (!root.hasPointerCapture(event.pointerId)) root.setPointerCapture(event.pointerId);
     const bound = prefs.zoom * 170;
