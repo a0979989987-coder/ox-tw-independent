@@ -1,5 +1,6 @@
 import { aggregateThemes } from '../src/markets/tw/sector-groups.js';
 import { SECTOR_TAXONOMY_VERSION } from '../src/markets/tw/sector-taxonomy.js';
+import { REPLAY_HISTORY_LIMIT } from '../src/markets/tw/research-replay-options.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { getOfficialTWResearch } from '../server/markets/tw/research-provider.js';
 import { getOfficialTWMarketPulse } from '../api/v1/tw/providers/official.js';
@@ -47,7 +48,7 @@ if (process.argv.includes('--backfill')) {
     await writeFile(historyFile,JSON.stringify(history));
   }
 }
-history = [...new Map([...history,{date:snapshot.date,sectors:aggregateSectors(snapshot.stocks),themes:aggregateThemes(snapshot.stocks),themeVersion:SECTOR_TAXONOMY_VERSION,coverageVersion:RESEARCH_COVERAGE_VERSION,sourceHealth:snapshot.sourceHealth}].map(s=>[s.date,s])).values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-60);
+history = [...new Map([...history,{date:snapshot.date,sectors:aggregateSectors(snapshot.stocks),themes:aggregateThemes(snapshot.stocks),themeVersion:SECTOR_TAXONOMY_VERSION,coverageVersion:RESEARCH_COVERAGE_VERSION,sourceHealth:snapshot.sourceHealth}].map(s=>[s.date,s])).values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-REPLAY_HISTORY_LIMIT);
 await writeFile(historyFile,JSON.stringify(history));
 await writeFile(new URL('../data/tw-research.json',import.meta.url),JSON.stringify(enrichResearch(snapshot,history)));
 console.log(`Saved ${snapshot.stocks.length} stocks; ${history.length} trading dates.`);

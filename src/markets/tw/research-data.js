@@ -13,7 +13,7 @@ export function savedResearch() {
 }
 // Preserve the longer static replay window when an older API returns only its
 // recent dates. Merge by date, never relabel old observations as a newer date.
-export function mergeResearchHistory(previous = [], incoming = [], date) {
+export function mergeResearchHistory(previous = [], incoming = [], date, limit = 60) {
   const merged = new Map(previous.filter(day => day.date <= date).map(day => [day.date, day]));
   for (const day of incoming.filter(day => day.date <= date)) {
     const old = merged.get(day.date);
@@ -24,7 +24,7 @@ export function mergeResearchHistory(previous = [], incoming = [], date) {
     merged.set(day.date, day.themeVersion === SECTOR_TAXONOMY_VERSION || old?.themeVersion !== SECTOR_TAXONOMY_VERSION
       ? day : { ...day, themes: old.themes, themeVersion: old.themeVersion });
   }
-  return [...merged.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-60);
+  return [...merged.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-limit);
 }
 function accept(data) {
   if (!Array.isArray(data?.stocks) || !data.date) throw new Error('台股資料格式異常');
