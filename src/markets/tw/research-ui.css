@@ -123,7 +123,8 @@ body.theme-light .twx,body.theme-light .twx-dialog{--tx-ink:#252b2c;--tx-muted:#
 .twx-chart-method{display:block;margin:9px 2px 0;font-size:10px!important}.twx-chart-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.twx-chart-actions .twx-segments{min-height:34px}.twx-chart-actions .twx-segments button{font-size:11px;padding:3px 8px}.twx-zoom{display:flex;align-items:center;border:1px solid #ffffff24;border-radius:10px;overflow:hidden;background:#ffffff05}.twx-zoom button{height:34px;min-width:30px;padding:0 7px;background:none;border:0;font-size:13px}.twx-zoom button[data-zoom="reset"]{font-size:10px;min-width:43px;color:var(--tx-muted)}.twx-chart-hint{display:block;margin:8px 2px 0;font-size:10px!important;color:var(--tx-muted)}
 body.theme-light .twx-bubble-value{fill:#38433e}
 
-.twx-bubble-anchors{pointer-events:none}.twx-bubble-anchors line{stroke:#d7dfda;stroke-width:.8;stroke-opacity:.3}.twx-bubble-anchors circle{fill:#e2e8e4;fill-opacity:.75}
+.twx-bubble-anchors{pointer-events:none}.twx-bubble-anchors circle{fill:#e2e8e4;fill-opacity:.75}
+.twx-bubble-trails{pointer-events:none}.twx-bubble-trails path{fill:none;stroke:var(--bubble);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 
 /* Compact the TW controls while keeping the market summary and chart readable. */
 .twx-search{min-height:42px;padding:5px 10px;margin-bottom:8px;gap:7px}

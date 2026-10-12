@@ -7,7 +7,7 @@ test('highlights follow the selected session and use its actual data without ble
  const after=homeHighlights(home,'after',{date:'1900-01-01',sectors:[{name:'Outdated sector',flow:1e9}]});
  const before=homeHighlights(home,'before');
  assert.equal(after.title,'盤後重點');assert.equal(after.date,home.core.date);assert(after.entries.some(e=>e.title==='權值股貢獻'&&e.text.includes('估算')));assert(!after.entries.some(e=>e.title==='台指期夜盤'||e.text.includes('Outdated')));
- assert.equal(before.title,'盤前重點');assert.equal(before.date,home.briefing.date);assert(before.entries.some(e=>e.title==='台指期夜盤'&&e.date===home.night.tradeDate));assert(!before.entries.some(e=>e.title==='台股收盤'));
+ assert.equal(before.title,'盤前重點');assert.equal(before.date,home.briefing.date);assert(before.entries.some(e=>e.title==='台指期夜盤'&&e.date===home.night.sessionEnd.slice(0,10)));assert(!before.entries.some(e=>e.title==='台股收盤'));
  assert(before.entries.some(e=>e.title==='美股收盤'&&e.text.includes(home.briefing.rows.find(r=>r.group==='us').name)));
 });
 test('missing, stale and unsafe summary data remain visible and escaped',()=>{

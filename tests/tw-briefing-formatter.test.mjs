@@ -92,7 +92,9 @@ test('Monday morning uses the completed Friday night belonging to Monday, even i
   assert.match(report.text,/ADR\+2.95%/);
   assert(!report.missing.includes('當日已完成夜盤'));
   assert.doesNotMatch(highlightsContent(home,'before'),/待補|缺項：/);
-  assert(homeHighlights(home,'before').entries.some(e=>e.title==='台指期夜盤'&&e.date==='2026-10-05'));
+  // Morning eligibility uses the attributed trading date, while the detailed
+  // card labels when that completed session actually closed.
+  assert(homeHighlights(home,'before').entries.some(e=>e.title==='台指期夜盤'&&e.date==='2026-10-03'));
   // A night still trading at 08:30 cannot be used as a completed close.
   const unfinished={...home,night:{...home.night,sessionEnd:'2026-10-06T05:00:00+08:00'}};
   assert(!buildPremarketBriefing(homeBriefingInput(unfinished,'before')).text.includes('夜盤'));

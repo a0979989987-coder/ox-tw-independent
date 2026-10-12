@@ -38,10 +38,10 @@ export function replayFrames(days, mode, options = {}) {
   if (options.density === 'top') names = names.slice(0, 10);
   const scale = { xScale: flowScale(universe.map(p => p.x)), yScale: flowScale(universe.map(p => p.y)),
     maxSize: Math.max(1, ...universe.map(p => p.size)) };
-  const layouts = days.map(day => bubbleLayout(day.sectors || [], mode, { ...options, ...scale, names }));
+  const layouts = days.map(day => bubbleLayout(day.sectors || [], mode, { ...options, ...scale, names, labelPlacement: 'observed' }));
   const reference = new Map(layouts.flatMap(layout => layout.points).map(point => [point.name, point]));
   const last = new Map();
-  return layouts.map((layout, i) => ({ ...layout, date: days[i].date, sectors: days[i].sectors || [],
+  return layouts.map((layout, i) => ({ ...layout, replay: true, date: days[i].date, sectors: days[i].sectors || [],
     points: names.map(name => {
       const point = layout.points.find(p => p.name === name);
       if (point) last.set(name, point);
@@ -54,16 +54,55 @@ function blendColor(a, b, t) {
   return '#' + channels(a).map((n, i) => Math.round(mix(n, channels(b)[i], t)).toString(16).padStart(2, '0')).join('');
 }
 
+// Build short tails from this sector's dated path, not from rendered screen
+// history. Seeking or zooming therefore cannot connect to an old viewport,
+// and missing sessions break the path instead of inventing observations.
+function replayTrail(name, position, maps) {
+  const span = 1.25, maxLength = 120, sampleStep = .2, segments = [];
+  const at = value => {
+    const index = Math.floor(value), t = value - index, a = maps.get(index)?.get(name);
+    const b = maps.get(index + 1)?.get(name) || a;
+    if (!a || a.opacity !== 1 || (t > 0 && b.opacity !== 1)) return null;
+    return { px: mix(a.px, b.px, t), py: mix(a.py, b.py, t) };
+  };
+  let cursor = position, head = at(cursor), length = 0;
+  if (!head) return segments;
+  const start = Math.max(0, position - span);
+  for (let count = 0; count < 8 && cursor > start + 1e-8; count++) {
+    // Include each real session boundary, even between the regular samples.
+    const boundary = Math.ceil(cursor - 1e-8) - 1;
+    const older = Math.max(start, cursor - sampleStep, boundary);
+    let tail = at(older); if (!tail) break;
+    const distance = Math.hypot(head.px - tail.px, head.py - tail.py);
+    const remaining = maxLength - length;
+    if (distance > remaining) tail = { px: mix(head.px, tail.px, remaining / distance), py: mix(head.py, tail.py, remaining / distance) };
+    if (distance > .05) segments.push({ from: tail, to: head,
+      opacity: .46 * Math.pow(Math.max(0, 1 - (position - cursor) / span), 1.5) });
+    length += Math.min(distance, remaining);
+    if (length >= maxLength) break;
+    cursor = older; head = tail;
+  }
+  return segments.reverse();
+}
+
 export function replayFrameAt(frames, position) {
   if (!frames.length) return [];
   const value = clamp(position, 0, frames.length - 1), index = Math.floor(value), t = value - index;
   const from = frames[index].points, to = frames[Math.min(index + 1, frames.length - 1)].points;
   const target = new Map(to.map(p => [p.name, p]));
+  const maps = new Map();
+  for (let i = Math.max(0, Math.floor(value - 1.25)); i <= Math.min(frames.length - 1, index + 1); i++)
+    maps.set(i, new Map(frames[i].points.map(p => [p.name, p])));
   return from.map(a => {
     const b = target.get(a.name) || a;
+    const visible = a.opacity ? a : b;
     const point = { ...a, opacity: mix(a.opacity, b.opacity, t),
-      color: blendColor(colors[quadrant(a.x, a.y)], colors[quadrant(b.x, b.y)], t) };
-    for (const key of ['px', 'py', 'ax', 'ay', 'radius']) point[key] = mix(a[key], b[key], t);
+      color: a.opacity && b.opacity ? blendColor(colors[quadrant(a.x, a.y)], colors[quadrant(b.x, b.y)], t)
+        : colors[quadrant(visible.x, visible.y)], trail: replayTrail(a.name, value, maps) };
+    // A missing day fades at the last/next known location; it never travels
+    // from a fabricated zero or bridges a hole in the source history.
+    for (const key of ['px', 'py', 'ax', 'ay', 'radius'])
+      point[key] = a.opacity && b.opacity ? mix(a[key], b[key], t) : visible[key];
     return point;
   });
 }
@@ -72,17 +111,19 @@ const svgNodes = new WeakMap();
 export function drawReplayFrame(svg, points, mode) {
   let nodes = svgNodes.get(svg);
   if (!nodes) {
+    const anchors = new Map([...svg.querySelectorAll('[data-anchor-sector]')].map(node => [node.dataset.anchorSector, node]));
+    const trails = new Map([...svg.querySelectorAll('[data-trail-sector]')].map(node => [node.dataset.trailSector, node]));
     nodes = new Map([...svg.querySelectorAll('.twx-bubble')].map(group => [group.dataset.sector, {
       group, circle: group.querySelector('circle'), label: group.querySelector('.twx-bubble-label'),
       lines: [...group.querySelectorAll('tspan')], value: group.querySelector('.twx-bubble-value'),
-      title: group.querySelector('title'), anchor: [...svg.querySelectorAll('[data-anchor-sector]')]
-        .find(anchor => anchor.dataset.anchorSector === group.dataset.sector)
+      title: group.querySelector('title'), anchor: anchors.get(group.dataset.sector),
+      trail: trails.get(group.dataset.sector), trailPieces: [...(trails.get(group.dataset.sector)?.querySelectorAll('path') || [])]
     }]));
     svgNodes.set(svg, nodes);
   }
   for (const p of points) {
     const node = nodes.get(p.name); if (!node) continue;
-    const { group, circle, label, lines, value, title, anchor } = node;
+    const { group, circle, label, lines, value, title, anchor, trail, trailPieces } = node;
     const y = p.py - (p.lines.length * 14 + 11) / 2 + 10;
     circle.setAttribute('cx', p.px); circle.setAttribute('cy', p.py); circle.setAttribute('r', p.radius);
     label.setAttribute('x', p.px); label.setAttribute('y', y);
@@ -99,11 +140,18 @@ export function drawReplayFrame(svg, points, mode) {
     group.setAttribute('tabindex', p.opacity > .99 ? '0' : '-1');
     group.setAttribute('aria-hidden', p.opacity <= 0 ? 'true' : 'false');
     if (anchor) {
-      const dot = anchor.querySelector('circle'), line = anchor.querySelector('line');
+      const dot = anchor.querySelector('circle');
       dot.setAttribute('cx', p.ax); dot.setAttribute('cy', p.ay);
-      line.setAttribute('x1', p.ax); line.setAttribute('y1', p.ay);
-      line.setAttribute('x2', p.px); line.setAttribute('y2', p.py);
       anchor.style.opacity = p.opacity;
+    }
+    if (trail) {
+      trail.style.setProperty('--bubble', p.color || colors[quadrant(p.x, p.y)]);
+      trail.style.opacity = p.opacity;
+      trailPieces.forEach((path, i) => {
+        const piece = p.trail?.[i];
+        path.setAttribute('d', piece ? `M${piece.from.px.toFixed(2)},${piece.from.py.toFixed(2)}L${piece.to.px.toFixed(2)},${piece.to.py.toFixed(2)}` : '');
+        path.style.opacity = piece?.opacity || 0;
+      });
     }
   }
 }

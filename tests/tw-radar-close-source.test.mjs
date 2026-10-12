@@ -35,3 +35,29 @@ test('verified current-day quotes from both markets remain eligible',async t=>{
   assert.equal(data.dataDate,'2026-10-01');
   assert.deepEqual(new Set(data.radar.map(row=>row.market)),new Set(['TWSE','TPEX']));
 });
+
+test('official four-digit DR quotes are retained even without a financial-report industry record',async t=>{
+  source(t); const fetch = globalThis.fetch;
+  t.mock.method(globalThis,'fetch',async url=>String(url).includes('STOCK_DAY_ALL')
+    ? Response.json([{Code:'2330',Name:'台積電',Date:'2026-10-01',ClosingPrice:'100'}, {Code:'9103',Name:'美德醫療-DR',Date:'2026-10-01',ClosingPrice:'5.88',Change:'.53'}, {Code:'0050',Name:'ETF',Date:'2026-10-01',ClosingPrice:'50'}]) : fetch(url));
+  const {getOfficialTWRadar}=await import('../api/v1/tw/providers/radar.js?dr-membership');
+  const data=await getOfficialTWRadar({minimumDate:'2026-10-01'});
+  assert.equal(data.radar.find(row=>row.symbol==='9103').price,5.88);
+  assert(!data.radar.some(row=>row.symbol==='0050'));
+});
+
+test('Monday recovery reaches the verified pre-holiday session without spending requests on the weekend',async t=>{
+  const requests=[];
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T02:00:00Z')});
+  t.mock.method(globalThis,'fetch',async url=>{
+    const target=String(url); requests.push(target);
+    if(target.includes('t187ap05')) return Response.json([]);
+    if(target.includes('date=20261008')) return Response.json({stat:'OK',tables:[{fields:['證券代號','證券名稱','收盤價','成交股數'],data:[['2330','台積電','100','10000']]}]});
+    if(target.includes('115%2F10%2F08')) return Response.json({tables:[{fields:['代號','名稱','收盤','成交股數'],data:[['6488','環球晶','200','10000']]}]});
+    return new Response('temporarily unavailable',{status:503});
+  });
+  const {getOfficialTWRadar}=await import('../api/v1/tw/providers/radar.js?long-holiday');
+  const data=await getOfficialTWRadar({minimumDate:'2026-10-08'});
+  assert.equal(data.dataDate,'2026-10-08');
+  assert(!requests.some(url=>/date=2026101[01]|115%2F10%2F1[01]/.test(url)));
+});

@@ -22,3 +22,14 @@ body[data-market="tw"]{min-height:100dvh}
 .twr-release-controls button[aria-pressed="true"]{border-color:currentColor;box-shadow:0 0 7px #ffffff40}
 .twr-release-controls small{opacity:.65;font-size:11px}
 @media(max-width:600px){.twr-release-controls>small{flex-basis:100%}.twr-release-controls>span{font-size:11px}}
+
+/* Mobile news starts at the content edge, without stacking shell and workspace gaps. */
+@media(max-width:700px){
+  body[data-market="tw"] :is(#view-data,#view-news)>[data-news-surface]{margin-top:0!important}
+ body.ox-terminal[data-market="tw"][data-view="data"] main.app-main,
+ body.ox-terminal[data-market="tw"][data-view="news"] main.app-main{padding-top:max(4px,env(safe-area-inset-top))!important}
+ body[data-market="tw"] :is(#view-data,#view-news) .oxn-root{padding-top:0}
+ body[data-market="tw"] :is(#view-data,#view-news) .oxn-tabs{margin-top:0;margin-bottom:2px}
+ body[data-market="tw"] :is(#view-data,#view-news) .oxn-controls{margin-top:0;margin-bottom:3px}
+ body[data-market="tw"] :is(#view-data,#view-news) .oxn-notification:empty{display:none}
+}

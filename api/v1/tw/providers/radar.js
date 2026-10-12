@@ -792,12 +792,10 @@ function candidateTradingDates() {
       1
   ) {
 
-    dates.push(
-      addDays(
-        date,
-        -index
-      )
-    );
+    const candidate = addDays(date, -index);
+    // Weekend requests consume the bounded recovery window before a long
+    // holiday's last real session is reached. Daily cash sessions are weekdays.
+    if (candidate.getUTCDay() !== 0 && candidate.getUTCDay() !== 6) dates.push(candidate);
   }
 
 
@@ -1506,11 +1504,11 @@ function normalizeTWSEDailyRows(
           );
 
 
-        const company =
-          industryMap
-            ?.get(
-              symbol
-            );
+        // Official quote rows also include four-digit depositary receipts and
+        // newly listed companies missing from the financial-report dictionary.
+        const company = industryMap?.get(symbol) || (/^[1-9]\d{3}$/.test(symbol)
+          ? { name: '', industry: /^91/.test(symbol) ? '臺灣存託憑證' : '' }
+          : null);
 
 
         if (
@@ -1886,11 +1884,11 @@ function normalizeTPEXTableRows(
           );
 
 
-        const company =
-          industryMap
-            ?.get(
-              symbol
-            );
+        // Official quote rows also include four-digit depositary receipts and
+        // newly listed companies missing from the financial-report dictionary.
+        const company = industryMap?.get(symbol) || (/^[1-9]\d{3}$/.test(symbol)
+          ? { name: '', industry: /^91/.test(symbol) ? '臺灣存託憑證' : '' }
+          : null);
 
 
         if (
@@ -2042,11 +2040,11 @@ function normalizeTPEXAAData(
           );
 
 
-        const company =
-          industryMap
-            ?.get(
-              symbol
-            );
+        // Official quote rows also include four-digit depositary receipts and
+        // newly listed companies missing from the financial-report dictionary.
+        const company = industryMap?.get(symbol) || (/^[1-9]\d{3}$/.test(symbol)
+          ? { name: '', industry: /^91/.test(symbol) ? '臺灣存託憑證' : '' }
+          : null);
 
 
         if (
@@ -2398,7 +2396,7 @@ function normalizeTwseSnapshotStock(
 
 
   const company = industryMap?.get(symbol) ||
-    ((!industryMap?.size && /^[1-9]\d{3}$/.test(symbol))
+    ((/^[1-9]\d{3}$/.test(symbol))
       ? { name: textValue(row.Name || row.CompanyName || row['證券名稱']), industry: '' }
       : null);
 
@@ -2543,7 +2541,7 @@ function normalizeTpexSnapshotStock(
 
 
   const company = industryMap?.get(symbol) ||
-    ((!industryMap?.size && /^[1-9]\d{3}$/.test(symbol))
+    ((/^[1-9]\d{3}$/.test(symbol))
       ? { name: textValue(row.Name || row.CompanyName || row['證券名稱']), industry: '' }
       : null);
 

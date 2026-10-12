@@ -1,4 +1,5 @@
 import {savedHome,loadHome} from './home-data.js?v=20261005-briefingdate';
+import {homeRefreshDue} from './home-model.js';
 import {coreContent,briefingContent,institutionContent} from './home-content.js?v=20261001-twhome1';
 import { savedResearch, loadResearch, selectSectors, readWatchlist, quadrant } from './research-data.js?v=20261001-twhome1';
 import { escape, number, pct, money, direction, segments, mountResearch, stockRows } from './research-ui.js';
@@ -159,7 +160,7 @@ function chartToolbar(mode, replayDay) {
   return `<div class="twx-chart-tools">${segments('scope', [['all', '板塊'], ['watch', '自選']], prefs.scope)}${segments('tab', [['bubble', '泡泡圖'], ['rank', '排行']], prefs.tab)}${sectorPicker(prefs)}${segments('mode', [['momentum', '資金動向'], ['day', '當日價量']], mode)}<button type="button" data-replay aria-label="${prefs.replayIndex !== null ? '結束歷史回放' : '播放歷史回放'}" aria-pressed="${prefs.replayIndex !== null}" ${historyDays().length < 2 ? 'disabled title="此模式尚無完整歷史資料"' : ''}>${prefs.replayIndex !== null ? '結束' : '回放'}</button></div>`;
 }
 function chartHelp() {
-  return prefs.help ? `<div class="twx-chart-help" role="note">這是題材分類，一檔股票可能屬於多個板塊，因此不同板塊金額不可相加當作全市場總額。資金動向圖越右代表近 5 日資金流入越多，越左代表流出越多；越上代表買入力道增強，越下代表買入力道減弱。力道以近 5 日平均淨買超減去近 20 日平均淨買超計算。圈大小代表近 20 日淨買賣超絕對值，圈內金額代表近五日估算；當日價量圖則顯示當日淨買賣超與產業漲跌幅。細點是實際座標。雙指可縮放，放大後可拖曳。回放的過渡位置是動畫，金額維持所標示交易日的值。完整官方日報未列出的股票以當日無法人交易處理，來源不完整則保留缺漏。</div>` : '';
+  return prefs.help ? `<div class="twx-chart-help" role="note">這是題材分類，一檔股票可能屬於多個板塊，因此不同板塊金額不可相加當作全市場總額。資金動向圖越右代表近 5 日資金流入越多，越左代表流出越多；越上代表買入力道增強，越下代表買入力道減弱。力道以近 5 日平均淨買超減去近 20 日平均淨買超計算。圈大小代表近 20 日淨買賣超絕對值，圈內金額代表近五日估算；當日價量圖則顯示當日淨買賣超與產業漲跌幅。靜態圖的細點是實際座標，泡泡文字會避開重疊。回放時泡泡沿自身座標移動，短尾跡只顯示最近的移動方向，缺資料即中斷。雙指可縮放，放大後可拖曳。回放的過渡位置是動畫，金額維持所標示交易日的值。完整官方日報未列出的股票以當日無法人交易處理，來源不完整則保留缺漏。</div>` : '';
 }
 function chartActions() {
   return `<div class="twx-chart-actions">${prefs.scope === 'all' ? segments('density', [['all', '全部板塊'], ['top', '金額前 10']], prefs.density) : '<small>自選相關板塊</small>'}<div class="twx-zoom" role="group" aria-label="圖表縮放"><button type="button" data-zoom="out" aria-label="縮小圖表" ${prefs.zoom <= minChartZoom() ? 'disabled' : ''}>−</button><button type="button" data-zoom="reset" aria-label="重設圖表">${Math.round(prefs.zoom * 100)}%</button><button type="button" data-zoom="in" aria-label="放大圖表" ${prefs.zoom >= 8 ? 'disabled' : ''}>＋</button></div><button type="button" class="twx-expand" data-expand aria-label="展開圖表">⛶</button><button type="button" class="twx-help" data-help aria-label="圖表說明" aria-expanded="${prefs.help}">?</button></div><small class="twx-chart-hint"><span data-bubble-count>${bubbleCountText()}</span><span>雙指縮放 · 放大拖曳</span></small>${chartHelp()}`;
@@ -218,13 +219,19 @@ export function renderResearch(view, state, { host } = {}) {
   const outer = mountResearch(view); if (!outer) return null;
   const root = host || outer;
   data = savedResearch() || data;
-  if (session?.view === view && session.root === root && root.querySelector(`[data-twx-view="${view}"]`)) { session.state = state; if (!document.querySelector('.twx-dialog') && document.activeElement?.tagName !== 'INPUT' && prefs.replayIndex === null) paint(session); if(view==='home'&&Date.now()-homeFetched>300000)refreshHome(session); return root; }
+  if (session?.view === view && session.root === root && root.querySelector(`[data-twx-view="${view}"]`)) { session.state = state; if (!document.querySelector('.twx-dialog') && document.activeElement?.tagName !== 'INPUT' && prefs.replayIndex === null) paint(session); if(view==='home'&&homeRefreshDue(homeFetched))refreshHome(session); return root; }
   stopResearch();
-  const s = { view, root, state, controller: new AbortController() }; session = s; paint(s); if(view==='home'&&Date.now()-homeFetched>300000)refreshHome(s);
+  const s = { view, root, state, controller: new AbortController() }; session = s; paint(s); if(view==='home'&&homeRefreshDue(homeFetched))refreshHome(s);
+  if(view==='home'){
+    const check=()=>{if(current(s)&&!document.hidden&&homeRefreshDue(homeFetched))refreshHome(s);};
+    const timer=setInterval(check,60000);
+    document.addEventListener('visibilitychange',check,{signal:s.controller.signal});
+    s.controller.signal.addEventListener('abort',()=>clearInterval(timer),{once:true});
+  }
   root.addEventListener('click', event => {
     if ((s.interacting || Date.now() < (s.suppressClickUntil || 0)) && event.target.closest('.twx-bubbles')) { event.preventDefault(); event.stopPropagation(); return; }
     const button = event.target.closest('button, [data-sector]'); if (!button) return;
-    if(button.hasAttribute('data-home-session')){homeSession=homeSession==='after'?'before':'after';paint(s);return;}
+    if(button.hasAttribute('data-home-session')){homeSession=homeSession==='after'?'before':'after';paint(s);if(homeRefreshDue(homeFetched))refreshHome(s);return;}
     if(button.hasAttribute('data-home-highlights')){showHomeHighlights(home,homeSession,data);return;}
     if(button.hasAttribute('data-home-refresh')){refreshHome(s,true);return;}
     if (button.dataset.watch) { event.stopPropagation(); watchClick(button); return; }

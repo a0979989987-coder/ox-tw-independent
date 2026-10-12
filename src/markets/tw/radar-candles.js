@@ -9,6 +9,12 @@ let observer;
 let generation = 0;
 let inFlight = 0;
 const queue = [];
+const cachedEntry = symbol => {
+  const entry = cache.get(symbol);
+  if (entry && entry.expiresAt > Date.now()) return entry;
+  cache.delete(symbol);
+  return null;
+};
 
 export function resetTWMiniCandles() {
   generation++;
@@ -16,17 +22,18 @@ export function resetTWMiniCandles() {
 }
 
 function schedule(symbol) {
-  if (cache.has(symbol)) return Promise.resolve(cache.get(symbol));
+  const cached = cachedEntry(symbol);
+  if (cached) return Promise.resolve(cached);
   if (pending.has(symbol)) return pending.get(symbol);
   const promise = new Promise(resolve => {
     queue.push(async () => {
       try {
         const result = await twProvider.getCandles(symbol, { interval: "1D", range: "1M", limit: 24, adjusted: false });
-        const entry = { candles: result?.candles || [], error: false };
+        const entry = { candles: result?.candles || [], error: false, expiresAt: Date.now() + 600000 };
         cache.set(symbol, entry);
         resolve(entry);
       } catch {
-        const entry = { candles: [], error: true };
+        const entry = { candles: [], error: true, expiresAt: Date.now() + 30000 };
         cache.set(symbol, entry);
         resolve(entry);
       } finally {
@@ -66,7 +73,8 @@ export function observeTWMiniCandles(root) {
       observer.unobserve(entry.target);
       const node = entry.target;
       const symbol = node.dataset.twrMini;
-      if (cache.has(symbol)) paintMini(node, cache.get(symbol));
+      const cached = cachedEntry(symbol);
+      if (cached) paintMini(node, cached);
       else schedule(symbol).then(result => {
         if (current === generation && node.isConnected) paintMini(node, result);
       });

@@ -5,7 +5,7 @@ import {calculate,parseReport,parseWeights,taipeiClock,tradingDates} from '../se
 import {parseMarket,parseTreasury,retainMarket,collectBriefing,MARKETS} from '../server/markets/tw/home-markets.js';
 import {parseNight,collectNight} from '../server/markets/tw/home-night.js';
 import {collectCore,refreshHomeSection,getHomeSection} from '../server/markets/tw/home-provider.js';
-import {validCloseReport,validBriefing,validNight,acceptHomeSection,withOfficialTaiwanClose} from '../src/markets/tw/home-model.js';
+import {validCloseReport,validBriefing,validNight,acceptHomeSection,withOfficialTaiwanClose,homeRefreshDue} from '../src/markets/tw/home-model.js';
 import {coreContent,briefingContent} from '../src/markets/tw/home-content.js';
 const seed=JSON.parse(await readFile(new URL('../data/tw-home.json',import.meta.url),'utf8'));
 const weights={date:'2026-09-18',rows:Array.from({length:12},(_,i)=>({rank:i+1,code:String(2000+i),name:'Stock '+i,weight:i===0?.3:.01}))};
@@ -78,7 +78,9 @@ test('close gate uses Taipei time, never selects intraday, and source empty firs
 test('manual refresh bypasses cache and fetches sources even before publication; failure keeps valid data and acquisition time',async()=>{
  let count=0;const collectors={core:async()=>{count++;return seed.core;},briefing:async()=>{count++;return seed.briefing;}};
  // Keep this pre-publication scenario independent of daily seed refreshes.
- const now=new Date(seed.core.date+'T03:00:00Z');
+ // Market snapshots change independently over holidays. Advance beyond every
+ // fixture date so Asian previous-close rows cannot become report-day quotes.
+ const now=new Date([seed.core.date,seed.briefing.date].sort().at(-1)+'T03:00:00Z');
  do{now.setUTCDate(now.getUTCDate()+1);}while(taipeiClock(now).weekend);
  const a=await getHomeSection('core',{refresh:true,now,collectors});assert.equal(count,1);assert(a.refreshed);assert.equal(a.publication,'pending');
  const b=await getHomeSection('core',{now,collectors});assert.equal(count,1);assert.equal(b.refreshed,false);
@@ -128,7 +130,45 @@ test('browser manual refresh makes three uncached API acquisitions, preserves ne
   const {twProvider}=await import('../src/markets/tw/api.js?v=20261005-recovery20');twProvider.configure({apiBase:'https://test.invalid/api'});
   const {loadHome,savedHome}=await import('../src/markets/tw/home-data.js?test-cache');
   await loadHome();assert.equal(savedHome().core.savedAt,recent.savedAt);
-  requests.length=0;const progress=[];await loadHome({force:true,onChange:(_,count)=>count&&progress.push(count.done)});assert.deepEqual(progress,[1,2,3]);assert.equal(requests.length,4);assert(requests.filter(url=>!url.includes('data/tw-home.json')).every(url=>url.includes('refresh=1&t=')));assert.equal(savedHome().core.savedAt,recent.savedAt);
+  requests.length=0;const progress=[];await loadHome({force:true,onChange:(_,count)=>count&&progress.push(count.done)});assert.deepEqual(progress,[1,2,3]);assert.equal(requests.length,5);assert(requests.some(url=>url.startsWith('https://raw.githubusercontent.com/')));assert(requests.filter(url=>!url.includes('data/tw-home.json')).every(url=>url.includes('refresh=1&t=')));assert.equal(savedHome().core.savedAt,recent.savedAt);
   fail=true;await loadHome({force:true});assert.equal(savedHome().core.savedAt,recent.savedAt);assert.equal(savedHome().coreStatus.status,'stale');assert(savedHome().coreStatus.checkedAt);assert(savedHome().coreStatus.error);
  }finally{global.fetch=nativeFetch;global.localStorage=nativeStorage;}
+});
+
+test('an open or resumed home refreshes across Taipei publication times even inside its cache TTL',()=>{
+ const stamp=s=>Date.parse('2026-10-12T'+s+'+08:00');
+ assert.equal(homeRefreshDue(stamp('05:29:30'),stamp('05:30:01')),true);
+ assert.equal(homeRefreshDue(stamp('13:29:30'),stamp('13:30:01')),true);
+ assert.equal(homeRefreshDue(stamp('05:30:01'),stamp('05:32:00')),false);
+ assert.equal(homeRefreshDue(stamp('08:00:00'),stamp('08:05:00')),true);
+});
+
+test('fresh published snapshots bypass a delayed Pages deployment and preserve source dates when the live API fails',async()=>{
+ const nativeFetch=global.fetch,nativeStorage=global.localStorage;
+ const published=structuredClone(seed),acquired=new Date(Date.parse(seed.core.savedAt)+60000).toISOString();
+ published.core.savedAt=acquired;
+ published.coreStatus={...published.coreStatus,checkedAt:acquired,status:'ok',error:null};
+ global.localStorage={getItem:()=>null,setItem:()=>{}};
+ const changes=[];
+ global.fetch=async input=>{const url=String(input);
+  if(url.startsWith('https://raw.githubusercontent.com/'))return {ok:true,json:async()=>published};
+  if(url.includes('data/tw-home.json'))return {ok:true,json:async()=>seed};
+  throw Error('live API unavailable');
+ };
+ try{
+  const {loadHome}=await import('../src/markets/tw/home-data.js?test-published-snapshot');
+  const home=await loadHome({onChange:v=>changes.push(v.core?.savedAt)});
+  assert.equal(home.core.savedAt,acquired);assert.equal(home.core.date,seed.core.date);
+  assert.equal(home.coreStatus.checkedAt,acquired);assert.equal(home.coreStatus.status,'ok');
+  assert.equal(home.coreStatus.error,null);assert.equal(home.coreStatus.delivery,'snapshot');
+  assert.match(home.coreStatus.refreshError,/unavailable/);assert(changes.includes(acquired));
+ }finally{global.fetch=nativeFetch;global.localStorage=nativeStorage;}
+});
+
+test('market source dates and pending close publication are visible independently of acquisition time',()=>{
+ const html=briefingContent(seed,false);
+ const us=seed.briefing.rows.find(row=>row.group==='us');
+ assert(html.includes('行情 '+us.marketDate));assert(html.includes('擷取 '));
+ const pending=coreContent({...seed,coreStatus:{message:'今日收盤尚未公布，顯示最近完整交易日'}},false);
+ assert(pending.includes('今日收盤尚未公布，顯示最近完整交易日'));
 });

@@ -49,6 +49,7 @@ body.ox-terminal #market-unavailable-card.tw-radar-root { margin-top: 16px !impo
 .tw-radar-root .tw-stock-quote.up { color:var(--twr-up); }
 .tw-radar-root .tw-stock-quote.down { color:var(--twr-down); }
 .tw-radar-root .tw-stock-risk-area { min-height:47px; }
+.tw-radar-root .tw-stock-quote-date { display:block; color:inherit; opacity:.68; font-size:10px; line-height:1.4; margin:-2px 0 5px; }
 .tw-radar-root .tw-stock-risk-area.no-progress { min-height: 34px; }
 .tw-radar-root .tw-stock-risk-area.no-repeat { display:flex; align-items:center; gap:4px; }
 .tw-radar-root .tw-stock-risk-area.no-repeat .tw-stock-status { flex:1; }

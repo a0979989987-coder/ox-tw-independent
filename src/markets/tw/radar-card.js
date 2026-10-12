@@ -1,3 +1,4 @@
+import {currentTWDisposition, taipeiTradingDate} from './disposition-calendar.js';
 // The card accepts only normalized, provider-backed facts. Missing fields stay missing.
 // Future /radar response: { radar: [...], modes: { risk: [...], disposal: [...],
 // release: [...], earnings: [...] } }. Each mode is explicit provider membership.
@@ -42,6 +43,7 @@ export function normalizeTWStockCard(source) {
     disposition: {
       status: ["risk", "active", "release", "earnings"].includes(disposition.status) ? disposition.status : "",
       scheduled: disposition.scheduled === true,
+      ended: disposition.ended === true,
       riskLabel: text(disposition.riskLabel),
       riskBasis: text(disposition.riskBasis),
       noticeDate: safeDate(disposition.noticeDate),
@@ -76,16 +78,40 @@ export function normalizeTWStockCard(source) {
   };
 }
 
+// Merge quote facts independently of announcement membership. A sparse status
+// response must not erase an already available quote for that same security.
+export function hydrateTWStockCard(source, quotes = []) {
+  const quote = quotes.find(row => row.symbol === source?.symbol && (!source.market || !row.market || row.market === source.market));
+  if (!quote) return normalizeTWStockCard(source);
+  const merged = { ...quote, ...source };
+  const newerQuote = numeric(quote.price) > 0 && quote.dataDate && (!source.dataDate || quote.dataDate > source.dataDate);
+  const useQuote = newerQuote || (numeric(source.price) === null && numeric(quote.price) !== null);
+  for (const key of ['name','industry']) {
+    const value = quote[key];
+    if (!merged[key] && value) merged[key] = value;
+  }
+  if (useQuote) {
+    for (const key of ['price','change','changePct','volume','turnoverTwd','turnoverRate','currentCandle','dataDate','quoteLabel','quoteStatus','quoteSource']) merged[key] = quote[key] ?? null;
+    if (source.dataDate && quote.dataDate < source.dataDate && !merged.quoteLabel) merged.quoteLabel = `${quote.dataDate} 最近收盤價`;
+  } else if (quote.dataDate && quote.dataDate === source.dataDate) {
+    for (const key of ['change','changePct','volume','turnoverTwd','turnoverRate','currentCandle']) if (merged[key] === null || merged[key] === undefined || merged[key] === '') merged[key] = quote[key] ?? null;
+  }
+  merged.disposition = source.disposition;
+  return normalizeTWStockCard(merged);
+}
+
 // Explicit membership only: price action is never used to guess exchange disposition rules.
-export function rowsForTWMode(state, mode, classicRows, watchlist) {
+export function rowsForTWMode(state, mode, classicRows, watchlist, today = taipeiTradingDate()) {
   if (mode === "classic") return classicRows;
+  const calendar = state?.data?.radarModesMeta?.calendar;
+  const prepare = row => hydrateTWStockCard(currentTWDisposition(row, calendar, today), classicRows);
   if (mode === "watchlist") {
     if (!watchlist?.size) return [];
     const available = new Map(classicRows.map(row => [row.symbol, row]));
     // Announcement rows have more status fields than the ordinary quote rows.
     for (const category of ["risk", "disposal", "release"]) {
       for (const row of state?.data?.radarModes?.[category] || []) {
-        const normalized = normalizeTWStockCard(row);
+        const normalized = prepare(row);
         if (normalized) available.set(normalized.symbol, normalized);
       }
     }
@@ -94,7 +120,24 @@ export function rowsForTWMode(state, mode, classicRows, watchlist) {
       .filter(Boolean);
   }
   const supplied = state?.data?.radarModes?.[mode];
-  if (Array.isArray(supplied)) return supplied.map(normalizeTWStockCard).filter(Boolean);
+  if (Array.isArray(supplied)) {
+    const rows = supplied.map(prepare).filter(Boolean).map(row => {
+      const d = row.disposition;
+      if (mode !== 'risk' || !d.ended || !d.noticeDate) return row;
+      return normalizeTWStockCard({...row, disposition:{...d, status:'risk', scheduled:false, ended:false,
+        startDate:'',endDate:'',resumeDate:'',releaseDays:null,batchMinutes:null,
+        riskLabel:d.riskLabel.replace('再次處置','進入處置')}});
+    }).filter(row => !row.disposition.ended);
+    if (mode === 'disposal') {
+      const seen = new Set(rows.map(row => row.symbol));
+      for (const source of state?.data?.radarModes?.risk || []) {
+        if (!source.disposition?.scheduled) continue;
+        const row = prepare(source);
+        if (row && !row.disposition.scheduled && !row.disposition.ended && !seen.has(row.symbol)) { rows.push(row); seen.add(row.symbol); }
+      }
+    }
+    return rows;
+  }
   if (mode === "hot") return classicRows.filter(row => row.price !== null)
     .sort((a, b) => (b.turnoverTwd ?? -1) - (a.turnoverTwd ?? -1));
   return [];
@@ -118,7 +161,7 @@ function riskLabel(row) {
 
 function bottomLabel(row) {
   const d = row.disposition;
-  if (d.status === "release") return d.releaseDays === null ? "出關時間待更新" : d.releaseDays === 0 ? "今日處置結束" : `${d.releaseDays} 交易日後出關`;
+  if (d.status === "release") return d.endDate ? `處置至 ${d.endDate.slice(5).replace('-', '/')}（含）${d.resumeDate ? ` · ${d.resumeDate.slice(5).replace('-', '/')} 出關` : ''}` : "出關時間待更新";
   if (d.status === "active" || d.scheduled) return d.startDate && d.endDate
     ? `處置期間 ${d.startDate.slice(5).replace("-", "/")} - ${d.endDate.slice(5).replace("-", "/")}` : "處置期間待更新";
   if (d.exemption === true) return "豁免條件存在";
@@ -151,6 +194,7 @@ export function renderTWStockCard(source, watchlist) {
       <div class="tw-stock-price"><span class="tw-stock-single-k" ${candle ? '' : `data-twr-mini="${escapeTW(row.symbol)}"`} aria-label="官方最近交易日日 K · 非即時" title="官方最近交易日日 K · 非即時">${candle || '—'}</span><strong>${fmt(row.price)}</strong></div>
       <span class="tw-stock-change">${change} <small>(${pct})</small></span>
     </div>
+    ${row.quoteLabel ? `<small class="tw-stock-quote-date">${escapeTW(row.quoteLabel)}</small>` : row.price === null ? '<small class="tw-stock-quote-date">官方當日尚無成交價</small>' : ''}
     <div class="tw-stock-risk-area ${!hasRiskProgress ? 'no-progress' : ''}">
       <div class="tw-stock-status ${riskLabel(row).includes('最快')?'urgent':''}">${escapeTW(riskLabel(row))}</div>
       ${hasRiskProgress || hasBatch ? `<div class="tw-stock-risk-row">

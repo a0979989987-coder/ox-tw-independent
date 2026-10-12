@@ -12,7 +12,7 @@ export function homeHighlights(home,phase='after',research=null){
  const entries=[],before=phase==='before';
  if(before){
   const n=home.night;
-  if(n?.status!=='unavailable'&&finite(n?.close))entries.push(entry('台指期夜盤',`收盤 ${number(n.close)} 點，${signed(n.change)} 點（${pct(n.changePct)}）；最高 ${number(n.high)}、最低 ${number(n.low)}，成交 ${number(n.volume,0)} 口。`,{date:n.tradeDate||n.sessionEnd?.slice(0,10),source:n.source,url:n.sourceUrl,stale:n.status==='stale'||Boolean(home.nightStatus?.error),tone:direction(n.change)}));
+  if(n?.status!=='unavailable'&&finite(n?.close))entries.push(entry('台指期夜盤',`收盤 ${number(n.close)} 點，${signed(n.change)} 點（${pct(n.changePct)}）；最高 ${number(n.high)}、最低 ${number(n.low)}，成交 ${number(n.volume,0)} 口。`,{date:n.sessionEnd?.slice(0,10)||n.tradeDate,source:n.source,url:n.sourceUrl,stale:n.status==='stale'||Boolean(home.nightStatus?.error),tone:direction(n.change)}));
   for(const group of ['us','indicators','commodities','fx','yields','asia']){
    const rows=(home.briefing?.rows||[]).filter(r=>r.group===group&&finite(r.value));
    if(!rows.length)continue;

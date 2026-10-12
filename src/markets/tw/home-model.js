@@ -2,6 +2,12 @@ export const HOME_GROUPS=[['us','美國股市'],['asia','亞洲市場'],['indica
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s+'T12:00:00Z'))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;
 const close=(a,b)=>finite(a)&&finite(b)&&Math.abs(a-b)<1e-6;
+export function homeRefreshDue(lastFetched,now=Date.now()){
+ if(!lastFetched||now-lastFetched>=300000)return true;
+ const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
+ // A page left open across publication must not wait for its old cache TTL.
+ return ['05:30','13:30'].some(time=>{const boundary=Date.parse(`${day}T${time}:00+08:00`);return lastFetched<boundary&&now>=boundary;});
+}
 export function validCloseReport(r){
  if(!r||!validDate(r.date)||!validDate(r.previousDate)||!validDate(r.weightDate)||r.previousDate>=r.date||r.weightDate>r.date||!Array.isArray(r.stocks)||r.stocks.length!==12||new Set(r.stocks.map(s=>s.code)).size!==12)return false;
  const index=r.index;if(!index||!(index.close>0)||!(index.previousClose>0)||!close(index.change,index.close-index.previousClose)||!close(index.changePct,index.change/index.previousClose*100))return false;
