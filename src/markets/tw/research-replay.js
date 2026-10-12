@@ -1,4 +1,4 @@
-import { bubblePoints, bubbleLayout, flowScale, meetsBubbleFlow } from './research-bubbles.js';
+import { bubblePoints, bubbleLayout, flowScale, meetsBubbleFlow, REPLAY_TRAIL_PIECES } from './research-bubbles.js';
 import { money, pct } from './research-ui.js';
 import { quadrant } from './research-data.js';
 
@@ -38,15 +38,15 @@ export function replayFrames(days, mode, options = {}) {
   if (options.density === 'top') names = names.slice(0, 10);
   const scale = { xScale: flowScale(universe.map(p => p.x)), yScale: flowScale(universe.map(p => p.y)),
     maxSize: Math.max(1, ...universe.map(p => p.size)) };
-  const layouts = days.map(day => bubbleLayout(day.sectors || [], mode, { ...options, ...scale, names, labelPlacement: 'observed' }));
+  const layouts = days.map(day => bubbleLayout(day.sectors || [], mode, { ...options, ...scale, names, minFlow: 0, labelPlacement: 'observed' }));
   const reference = new Map(layouts.flatMap(layout => layout.points).map(point => [point.name, point]));
   const last = new Map();
   return layouts.map((layout, i) => ({ ...layout, replay: true, date: days[i].date, sectors: days[i].sectors || [],
     points: names.map(name => {
       const point = layout.points.find(p => p.name === name);
       if (point) last.set(name, point);
-      return { ...(point || last.get(name) || reference.get(name)), opacity: point ? 1 : 0,
-        filteredOut: (days[i].sectors || []).some(s => s.name === name && !meetsBubbleFlow(s, mode, options.minFlow || 0)) };
+      return { ...(point || last.get(name) || reference.get(name)), available: !!point,
+        opacity: point && meetsBubbleFlow(point, mode, options.minFlow || 0) ? 1 : 0 };
     }) }));
 }
 
@@ -55,20 +55,50 @@ function blendColor(a, b, t) {
   return '#' + channels(a).map((n, i) => Math.round(mix(n, channels(b)[i], t)).toString(16).padStart(2, '0')).join('');
 }
 
-// Match Crypto: six dated observations, a connected historical polyline and
-// dots at real turning points. Missing observations break the path.
+// A shape-preserving cubic shares its velocity at each dated observation.
+// Unlike an ease-in/out per day it has no artificial hold at every boundary;
+// unlike a free spline it cannot overshoot or invent extra extrema.
+function smoothCoordinate(before, a, b, after, key, t) {
+  const delta = b[key] - a[key];
+  if (!delta) return a[key];
+  const tangent = other => delta * other > 0 ? 2 * delta * other / (delta + other) : 0;
+  const m0 = before?.available ? tangent(a[key] - before[key]) : delta;
+  const m1 = after?.available ? tangent(after[key] - b[key]) : delta;
+  const t2 = t * t, t3 = t2 * t;
+  return (2*t3 - 3*t2 + 1)*a[key] + (t3 - 2*t2 + t)*m0
+    + (-2*t3 + 3*t2)*b[key] + (t3 - t2)*m1;
+}
+function positionAt(name, position, maps) {
+  const index = Math.floor(position), t = position - index;
+  const a = maps.get(index)?.get(name), b = maps.get(index + 1)?.get(name);
+  if (!a?.available) return b?.available ? b : a;
+  if (!b?.available || !t) return a;
+  const before = maps.get(index - 1)?.get(name), after = maps.get(index + 2)?.get(name);
+  return { px: smoothCoordinate(before, a, b, after, 'px', t),
+    py: smoothCoordinate(before, a, b, after, 'py', t),
+    ax: smoothCoordinate(before, a, b, after, 'ax', t),
+    ay: smoothCoordinate(before, a, b, after, 'ay', t), radius: mix(a.radius, b.radius, t) };
+}
+const TRAIL_DURATION = 3;
+// A sliding time window avoids dropping an entire dated segment at a turn.
+// Small contiguous pieces taper and fade with age; no orphan turning-point dots.
 function replayTrail(name, position, maps) {
-  const index = Math.floor(position), fraction = position - index;
-  const current = maps.get(index)?.get(name), next = maps.get(index + 1)?.get(name);
-  if (!current || current.opacity !== 1 || (fraction > 0 && next?.opacity !== 1)) return [];
-  const points = [];
-  for (let i = index; i >= Math.max(0, index - 5); i--) {
-    const point = maps.get(i)?.get(name);
-    if (!point || point.opacity !== 1) break;
-    points.unshift({px: point.px, py: point.py, date: point.date});
+  const index = Math.floor(position), current = maps.get(index)?.get(name);
+  if (!current?.available || !current.opacity) return [];
+  let first = index;
+  while (first > Math.max(0, Math.floor(position - TRAIL_DURATION)) && maps.get(first - 1)?.get(name)?.opacity === 1) first--;
+  const end = maps.get(index + 1)?.get(name)?.available ? position : index;
+  const start = Math.max(first, position - TRAIL_DURATION);
+  if (end <= start) return [];
+  const pieces = [];
+  let from = positionAt(name, start, maps);
+  for (let i = 1; i <= REPLAY_TRAIL_PIECES; i++) {
+    const time = mix(start, end, i / REPLAY_TRAIL_PIECES), to = positionAt(name, time, maps);
+    const freshness = clamp(1 - (position - time) / TRAIL_DURATION, 0, 1);
+    pieces.push({ from, to, opacity: .48 * freshness ** 1.6, width: .6 + freshness * 1.5 });
+    from = to;
   }
-  if (fraction > 0) points.push({px: mix(current.px, next.px, fraction), py: mix(current.py, next.py, fraction)});
-  return points.slice(1).map((to, i) => ({from: points[i], to, opacity: .68}));
+  return pieces;
 }
 const frameMaps = new WeakMap();
 function pointMap(frame) {
@@ -76,24 +106,24 @@ function pointMap(frame) {
   return frameMaps.get(frame);
 }
 
-export function replayFrameAt(frames, position) {
+export function replayFrameAt(frames, position, { trails = true } = {}) {
   if (!frames.length) return [];
   const value = clamp(position, 0, frames.length - 1), index = Math.floor(value), t = value - index;
   const from = frames[index].points, to = frames[Math.min(index + 1, frames.length - 1)].points;
   const target = new Map(to.map(p => [p.name, p]));
   const maps = new Map();
-  for (let i = Math.max(0, index - 5); i <= Math.min(frames.length - 1, index + 1); i++)
+  for (let i = Math.max(0, index - 4); i <= Math.min(frames.length - 1, index + 2); i++)
     maps.set(i, pointMap(frames[i]));
   return from.map(a => {
     const b = target.get(a.name) || a;
-    const visible = a.opacity ? a : b;
-    const point = { ...a, opacity: a.filteredOut ? 0 : mix(a.opacity, b.opacity, t),
-      color: a.opacity && b.opacity ? blendColor(colors[quadrant(a.x, a.y)], colors[quadrant(b.x, b.y)], t)
-        : colors[quadrant(visible.x, visible.y)], trail: replayTrail(a.name, value, maps) };
-    // A missing day fades at the last/next known location; it never travels
-    // from a fabricated zero or bridges a hole in the source history.
-    for (const key of ['px', 'py', 'ax', 'ay', 'radius'])
-      point[key] = a.opacity && b.opacity ? mix(a[key], b[key], t) : visible[key];
+    const visible = a.opacity ? a : b.opacity ? b : a;
+    const point = { ...visible, opacity: mix(a.opacity, b.opacity, t),
+      color: a.available && b.available ? blendColor(colors[quadrant(a.x, a.y)], colors[quadrant(b.x, b.y)], t)
+        : colors[quadrant(visible.x, visible.y)], trail: trails ? replayTrail(a.name, value, maps) : [] };
+    // Retain below-threshold coordinates so entering/leaving bubbles move
+    // continuously. Truly missing observations fade in place and break trails.
+    const geometry = positionAt(a.name, value, maps);
+    for (const key of ['px', 'py', 'ax', 'ay', 'radius']) point[key] = geometry[key];
     return point;
   });
 }
@@ -108,14 +138,15 @@ export function drawReplayFrame(svg, points, mode) {
       group, circle: group.querySelector('circle'), label: group.querySelector('.twx-bubble-label'),
       lines: [...group.querySelectorAll('tspan')], value: group.querySelector('.twx-bubble-value'),
       title: group.querySelector('title'), anchor: anchors.get(group.dataset.sector),
-      trail: trails.get(group.dataset.sector), trailPieces: [...(trails.get(group.dataset.sector)?.querySelectorAll('path') || [])],
-      trailDots: [...(trails.get(group.dataset.sector)?.querySelectorAll('circle') || [])]
+      trail: trails.get(group.dataset.sector), trailPieces: [...(trails.get(group.dataset.sector)?.querySelectorAll('path') || [])]
     }]));
     svgNodes.set(svg, nodes);
   }
   for (const p of points) {
     const node = nodes.get(p.name); if (!node) continue;
-    const { group, circle, label, lines, value, title, anchor, trail, trailPieces, trailDots } = node;
+    if (p.opacity === 0 && node.hidden) continue;
+    node.hidden = p.opacity === 0;
+    const { group, circle, label, lines, value, title, anchor, trail, trailPieces } = node;
     const y = p.py - (p.lines.length * 14 + 11) / 2 + 10;
     circle.setAttribute('cx', p.px); circle.setAttribute('cy', p.py); circle.setAttribute('r', p.radius);
     label.setAttribute('x', p.px); label.setAttribute('y', y);
@@ -123,9 +154,9 @@ export function drawReplayFrame(svg, points, mode) {
     value.setAttribute('x', p.px); value.setAttribute('y', y + p.lines.length * 14);
     // The amount stays on the dated observation; the in-between coordinates
     // are animation, not a fabricated intraday institutional observation.
-    const valueKey = `${mode}:${p.x}:${p.y}:${p.opacity > .99}`;
+    const valueKey = `${mode}:${p.x}:${p.y}`;
     if (node.valueKey !== valueKey) {
-      value.textContent = p.opacity > .99 ? money(p.x).replace(' 億', '億') : '—';
+      value.textContent = money(p.x).replace(' 億', '億');
       const description = `${p.name}，${mode === 'momentum' ? '近五日' : '當日'} ${money(p.x)}，${mode === 'momentum' ? '買入力道 ' + money(p.y) + '／日' : pct(p.y)}`;
       group.setAttribute('aria-label', description); if (title) title.textContent = description;
       node.valueKey = valueKey;
@@ -143,16 +174,13 @@ export function drawReplayFrame(svg, points, mode) {
     if (trail) {
       trail.style.setProperty('--bubble', p.color || colors[quadrant(p.x, p.y)]);
       trail.style.opacity = p.opacity;
-      trailPieces.forEach((path, i) => {
+      if (p.trail?.length || node.hadTrail) trailPieces.forEach((path, i) => {
         const piece = p.trail?.[i];
         path.setAttribute('d', piece ? `M${piece.from.px.toFixed(2)},${piece.from.py.toFixed(2)}L${piece.to.px.toFixed(2)},${piece.to.py.toFixed(2)}` : '');
         path.style.opacity = piece?.opacity || 0;
+        if (piece) path.style.strokeWidth = piece.width;
       });
-      trailDots.forEach((dot, i) => {
-        const point = p.trail?.[i]?.from;
-        if (point) { dot.setAttribute('cx', point.px); dot.setAttribute('cy', point.py); }
-        dot.style.opacity = point ? 1 : 0;
-      });
+      node.hadTrail = !!p.trail?.length;
     }
   }
 }

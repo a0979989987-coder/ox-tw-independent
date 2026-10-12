@@ -298,7 +298,21 @@ body.theme-light .twx-sector-market select{border-color:#bcc4c4;background:#f2f4
 /* Desktop charts use the entire panel width with a landscape viewport. */
 @media(min-width:900px){.twx[data-twx-view="strength"] .twx-bubbles{height:auto;max-height:none}.twx[data-twx-view="strength"] .twx-chart-panel.expanded .twx-bubbles{height:auto;max-height:none}}
 
-/* Crypto-style dated trajectories and turning-point markers. */
-.twx-bubble-trails path{stroke-width:1.7;stroke-linejoin:round}
-.twx-bubble-trails circle{fill:#15252b;stroke:var(--bubble,#aababa);stroke-width:.8}
-body.theme-light .twx-bubble-trails circle{fill:#334149}
+/* A single bottom-right settings entry keeps the plot uncluttered. */
+.twx-chart-settings,.twx-trail-toggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;min-height:36px;padding:5px 8px;border:0;border-radius:12px;background:transparent;color:var(--tx-muted);cursor:pointer}
+.twx-chart-settings{width:40px;height:40px;padding:8px}
+.twx-chart-settings svg,.twx-trail-toggle svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.twx-trail-toggle span{font-size:11px}
+.twx-trail-toggle[aria-pressed="true"]{color:var(--tx-ink);background:#ffffff0b}
+.twx-chart-settings:hover,.twx-trail-toggle:hover{background:#ffffff12;color:var(--tx-ink)}
+.twx-chart-panel[data-trails-visible="false"] .twx-bubble-trails{visibility:hidden}
+.twx-rotation-settings{width:min(420px,calc(100% - 28px));padding:20px}
+.twx-dialog header strong:focus{outline:none}
+.twx-rotation-settings .twx-detail-content{display:grid;gap:22px;padding:12px 0 4px}
+.twx-setting-row{display:grid;gap:10px}
+.twx-setting-row>strong{font-size:13px;font-weight:500;color:var(--tx-muted)}
+.twx-setting-row .twx-segments{min-height:44px}
+.twx-setting-row .twx-segments button{font-size:14px;padding:8px}
+.twx-setting-row>small{font-size:11px;line-height:1.6;color:var(--tx-muted)}
+body.theme-light .twx-trail-toggle[aria-pressed="true"],body.theme-light .twx-chart-settings:hover{background:#25333309}
+@media(max-width:480px){.twx-chart-settings,.twx-trail-toggle{min-height:40px}.twx-rotation-settings{padding:18px}}

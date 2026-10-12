@@ -30,13 +30,16 @@ test('wheel zoom keeps the pointer anchored and clamps the supported range',()=>
  assert.equal(wheelChartViewport({...v,zoom:8},at).zoom,8);
  assert.equal(wheelChartViewport(v,{...at,delta:100}).zoom,1);
 });
-test('six dated observations remain connected with exact historical vertices',()=>{
+test('old tails retreat continuously across date boundaries instead of dropping a whole turn',()=>{
  const frames=replayFrames(Array.from({length:9},(_,i)=>({date:`2026-10-${String(i+1).padStart(2,'0')}`,sectors:[sector('A',(i%2?1:-1)*(i+1)*1e9)]})),'day');
+ const before=replayFrameAt(frames,6.9999)[0], after=replayFrameAt(frames,7.0001)[0];
+ for(const edge of ['from','to']) for(let i=0;i<before.trail.length;i++){
+  assert.ok(Math.abs(before.trail[i][edge].px-after.trail[i][edge].px)<.2);
+  assert.ok(Math.abs(before.trail[i].opacity-after.trail[i].opacity)<.001);
+ }
  const point=replayFrameAt(frames,7.5)[0];
- assert.equal(point.trail.length,6);
- assert.equal(point.trail[0].from.px,frames[2].points[0].px);
- assert.equal(point.trail[4].to.px,frames[7].points[0].px);
- assert.equal(point.trail[5].to.px,point.px);
+ assert.ok(point.trail[0].opacity<point.trail.at(-1).opacity);
+ assert.equal(point.trail.at(-1).to.px,point.px);
 });
 test('animation clock crosses turning points without a hold or restart',()=>{
  let callback;const seen=[];

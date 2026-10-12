@@ -4,12 +4,16 @@ import { escape, number, pct, money, direction, stockRows } from './research-ui.
 import { readWatchlist, toggleWatch } from './research-data.js?v=20261001-twhome1';
 import {highlightsContent} from './home-highlights.js?v=20261005-briefingdate';
 export function closeResearchDetails() { document.querySelectorAll('.twx-dialog').forEach(d => { d.close(); d.remove(); }); }
-function dialog(title) {
+export function researchDialog(title, { className = '', onClose } = {}) {
   closeResearchDetails();
-  const node = document.createElement('dialog'); node.className = 'twx-dialog';
-  node.innerHTML = `<header><strong>${escape(title)}</strong><button type="button" data-close aria-label="關閉">×</button></header><div class="twx-detail-content"></div>`;
+  const node = document.createElement('dialog'); node.className = `twx-dialog ${className}`.trim();
+  node.setAttribute('aria-label', title);
+  node.innerHTML = `<header><strong tabindex="-1" autofocus>${escape(title)}</strong><button type="button" data-close aria-label="關閉">×</button></header><div class="twx-detail-content"></div>`;
   document.body.append(node); node.showModal();
+  // Opening a modal should not paint a keyboard focus box around its X.
+  node.querySelector('header strong').focus({ preventScroll: true });
   const close = () => { node.classList.add('leaving'); setTimeout(() => { node.close(); node.remove(); }, 180); };
+  node.addEventListener('close', () => onClose?.(), { once: true });
   node.addEventListener('cancel', e => { e.preventDefault(); close(); });
   node.addEventListener('click', e => { if (e.target.closest('[data-close]') || e.target === node) close(); });
   return node;
@@ -21,7 +25,7 @@ export function updateHomeHighlights(home,phase,research){
  node.querySelector('.twx-detail-content').innerHTML=highlightsContent(home,phase,research);
 }
 export function showHomeHighlights(home,phase,research){
- const node=dialog(phase==='before'?'盤前重點':'盤後重點');node.dataset.homeHighlights=phase;
+ const node=researchDialog(phase==='before'?'盤前重點':'盤後重點');node.dataset.homeHighlights=phase;
  node.setAttribute('aria-label',phase==='before'?'盤前重點':'盤後重點');
  updateHomeHighlights(home,phase,research);return node;
 }
@@ -31,7 +35,7 @@ export function watchClick(button) {
   button.classList.toggle('selected', selected); button.textContent = selected ? '★' : '☆'; button.setAttribute('aria-pressed', String(selected));
 }
 export function showSector(sector) {
-  const node = dialog(sector.name);
+  const node = researchDialog(sector.name);
   node.querySelector('.twx-detail-content').innerHTML = ` ${sector.date ? `<p class="twx-muted">歷史交易日 ${escape(sector.date)} · 未提供當日個股明細</p>` : ''}<div class="twx-detail-metrics"><span>當日法人估算<b class="${direction(sector.flow)}">${money(sector.flow)}</b></span><span>產業漲跌<b class="${direction(sector.changePct)}">${pct(sector.changePct)}</b></span><span>買超家數<b>${sector.buyCount} / ${sector.covered}</b></span></div><div class="twx-detail-metrics"><span>近五日累計<b>${money(sector.flow5)}</b></span><span>近月累計<b>${money(sector.flow20)}</b></span><span>買入力道<b>${money(sector.momentum)}／日</b></span></div><div class="twx-detail-list">${stockRows([...sector.rows].sort((a, b) => (b.netTwd ?? -Infinity) - (a.netTwd ?? -Infinity)), readWatchlist(), 2000)}</div>`;
   node.addEventListener('click', e => {
     const star = e.target.closest('[data-watch]'); if (star) { e.stopPropagation(); watchClick(star); return; }
@@ -40,7 +44,7 @@ export function showSector(sector) {
 }
 export async function showStock(stock) {
   if (!stock) return;
-  const node = dialog(`${stock.name} ${stock.symbol}`);
+  const node = researchDialog(`${stock.name} ${stock.symbol}`);
   node.querySelector('.twx-detail-content').innerHTML = `<div class="twx-detail-metrics"><span>收盤<b>${number(stock.price)}</b></span><span>漲跌<b class="${direction(stock.changePct)}">${pct(stock.changePct)}</b></span><span>法人估算<b class="${direction(stock.netTwd)}">${money(stock.netTwd)}</b></span></div><div class="twx-kline" aria-live="polite">日 K 載入中…</div><div class="twx-detail-metrics">${[['外資', stock.foreignTwd], ['投信', stock.trustTwd], ['自營商', stock.dealerTwd]].map(([label, v]) => `<span>${label}<b class="${direction(v)}">${money(v)}</b></span>`).join('')}</div>`;
   try {
     const result = await twProvider.getCandles(stock.symbol, { interval: '1D', range: '3M', limit: 60, adjusted: false });
