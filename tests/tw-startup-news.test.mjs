@@ -67,25 +67,35 @@ test('news model can be imported and searched when an older browser lacks Intl.S
 
 test('runtime starts independently of a failed chart vendor and exposes a bounded retry',async()=>{
   const code=(await readFile(new URL('../src/app/module-boot.js',import.meta.url),'utf8')).replace('import(new URL(','__import(new URL(');
+  for(const src of ['https://example.test/ox-tw-independent/src/app/module-boot.js','']){
   const children=[],attributes=new Map(),host={hasChildNodes:()=>false,setAttribute:(k,v)=>attributes.set(k,v),removeAttribute:k=>attributes.delete(k),append:n=>children.push(n)};
   let imported=0,chartAttempts=0;
   const context=vm.createContext({URL,Error,Promise,Date,setTimeout,clearTimeout,location:new URL('https://example.test/ox-tw-independent/'),
-    document:{currentScript:{src:'https://example.test/ox-tw-independent/src/app/module-boot.js'},getElementById:()=>host,createElement:()=>({setAttribute(){},remove(){}}),head:{append(script){chartAttempts++;queueMicrotask(()=>script.onerror());}}},
+    document:{currentScript:{src},getElementById:()=>host,createElement:()=>({setAttribute(){},remove(){}}),head:{append(script){chartAttempts++;assert.match(script.src,/\/ox-tw-independent\/src\/vendor\/lightweight-charts/);queueMicrotask(()=>script.onerror());}}},
     __import:async url=>{imported++;assert.match(url,/\/ox-tw-independent\/src\/generated\/runtime.js/);return {ready:true};}});
   vm.runInContext(code,context);
   assert.deepEqual(await context.OXRuntimeReady,{ready:true});assert.equal(imported,1);assert(!attributes.has('aria-busy'));
   await assert.rejects(context.OXEnsureChart());assert(chartAttempts<=4);
+  }
 });
 
 test('published boot/runtime versions match and core tool CSS is embedded',async()=>{
   const html=await readFile(new URL('../dist/client/index.html',import.meta.url),'utf8');
   const boot=await readFile(new URL('../dist/client/src/app/module-boot.js',import.meta.url),'utf8');
   const version=boot.match(/const version='([a-f0-9]{12})'/)?.[1];assert(version);
-  assert(html.includes('runtime.js?v='+version));assert(html.includes('module-boot.js?v='+version));
+  assert(html.includes('runtime.js?v='+version));assert(html.includes("const version='"+version+"'"));
+  assert(!/<script[^>]+src=/.test(html),'HTML must not wait for separate bootstrap/helper scripts');
   assert(!html.includes('<script src="src/vendor/lightweight-charts'));
   assert(!html.includes('src="src/components/news/center.js"'));
   const runtime=await readFile(new URL('../dist/client/src/generated/runtime.js',import.meta.url),'utf8');
   assert(runtime.includes('if(!globalThis.__OXTWRuntimeStarted)'));
   assert(runtime.includes('globalThis.OXStyleTexts='));
   for(const path of TOOL_STYLES)assert(runtime.includes('/'+path));
+});
+
+test('critical news and styled-content reveal cannot be parked behind a paused animation frame',async()=>{
+  const center=await readFile(new URL('../src/components/news/center.js',import.meta.url),'utf8');
+  assert.match(center,/queueMicrotask\(\(\)=>\{renderQueued=false;renderNow\(\)/);
+  const styles=await readFile(new URL('../src/components/style-ready.js',import.meta.url),'utf8');
+  assert(!styles.includes('requestAnimationFrame'));
 });

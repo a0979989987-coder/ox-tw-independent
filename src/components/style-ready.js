@@ -32,13 +32,15 @@ export function guardStyledContent(container, main, links, signal, selector = 'm
       const css=await Promise.all(sheets.map(({href})=>loadStyle(href)));
       if (signal?.aborted || generation!==run) return;
       sheets.forEach(({style},index)=>{style.textContent=css[index];});
-      requestAnimationFrame(()=>{
+      // All sheets are now installed synchronously before the next paint.
+      // Never leave real content cloaked behind a paused animation-frame queue.
+      {
         if(signal?.aborted || generation!==run)return;
         finished=true;cloak.remove();shell.remove();main.inert=false;main.removeAttribute('aria-busy');
         if(main.dataset.stylePending==='true'){main.style.removeProperty('visibility');delete main.dataset.stylePending;}
         if(host.style)host.style.position=position||'';
         window.dispatchEvent(new Event('resize'));
-      });
+      }
     } catch {
       if(signal?.aborted || generation!==run)return;
       if(attempt===0){

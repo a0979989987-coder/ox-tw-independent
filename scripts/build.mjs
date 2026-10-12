@@ -27,6 +27,12 @@ const bootPath=resolve(root,'dist/client/src/app/module-boot.js');
 await writeFile(bootPath,(await readFile(bootPath,'utf8')).replaceAll('20261012-startup1',runtimeVersion));
 let html=await readFile(resolve(root,'dist/client/index.html'),'utf8');
 html=html.replaceAll('20261012-startup1',runtimeVersion);
+// Small boot scripts travel with HTML. A stalled deferred helper download can
+// otherwise prevent the recovery timer itself from ever starting.
+for(const path of ['src/components/control-panel/resource-guard.js','src/app/preferences.js','src/components/loading-state.js','src/app/module-boot.js']){
+ const code=await readFile(resolve(root,'dist/client',path),'utf8');
+ html=html.replace(new RegExp(`<script(?: defer)? src="${path.replaceAll('.','\\.')}[^\"]*"><\\/script>`),()=>`<script data-ox-bootstrap="${path}">${code.replace(/<\/script/gi,'<\\/script')}</script>`);
+}
 // Preserve the cascade and marked lazy-style links, while collapsing the
 // dozens of shared stylesheets into two cacheable requests before first paint.
 const groups=[...html.matchAll(/(?:<link rel="stylesheet" href="[^"]+">)+/g)];

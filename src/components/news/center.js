@@ -63,7 +63,9 @@ import {withDeadline} from '../resource-deadline.js';
   function render() {
     if(renderQueued)return;
     renderQueued=true;
-    requestAnimationFrame(()=>{renderQueued=false;renderNow();});
+    // Loading must finish even when a browser pauses animation frames while
+    // restoring an in-app/background tab. Coalesce work, not visibility.
+    queueMicrotask(()=>{renderQueued=false;renderNow();});
   }
   function renderNow() {
     const view = document.querySelector('.app-view.active')?.dataset.appView;

@@ -1,3 +1,7 @@
+// Register chart helpers before mounting a chart, without separate blocking scripts.
+import '../components/chart/gestures.js';
+import '../components/chart/drawings.js';
+import '../components/radar/timeframe-filters.js';
 import {twModule} from '../markets/tw/index.js';
 import {stopTWStrength} from '../markets/tw/strength.js';
 import {stopTWRadar} from '../markets/tw/radar.js';
