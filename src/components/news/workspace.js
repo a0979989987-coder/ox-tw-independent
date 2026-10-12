@@ -1,10 +1,10 @@
 import {createEventIdentity,eventIdentityInfo} from './event-identity.js';
 import { createToolsRail } from '../strength/tools-rail.js?v=20261005-stable18';
 import { MARKET_NAMES, CATEGORY_NAMES, MARKET_CATEGORIES, TIME_CHOICES, sourceName } from './config.js?v=20261005-calendar11';
-import { defaultState, taipeiDay, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays } from './model.js?v=20261005-load16';
+import { defaultState, taipeiDay, formatNewsTime as fmt, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays } from './model.js?v=20261005-load16';
 import { macroResult, macroValue } from './macro.js?v=20261005-macro1';
 import { node, button, anchoredPanel, modal } from './layers.js';
-const fmt = value => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', dateStyle: 'short', timeStyle: 'short', hour12: false }).format(new Date(value)) : '時間待確認';
+const weekdayFormatter = new Intl.DateTimeFormat('zh-TW', {timeZone:'UTC', weekday:'short'});
 const label = item => item.titleZh || item.title || '標題資料未提供';
 const calendarTone = category => ({ macro: 'red', regulation: 'red', unlock: 'yellow', 'dividend-preview': 'yellow', payment: 'yellow', dividend: 'green', earnings: 'blue', exchange: 'blue', listing: 'blue', network: 'blue', governance: 'green', airdrop: 'green', burn: 'gray', holiday: 'gray' }[category] || 'gray');
 const statusLabel = item => item.announcementStatus === 'cancelled' ? '已取消' : item.announcementStatus === 'estimated' || item.kind === 'token-unlock' && item.date ? '預估排程' : item.announcementStatus === 'preview' ? '預告' : item.status === 'confirmed' || item.announcementStatus === 'confirmed' ? '已公告' : '狀態待確認';
@@ -226,7 +226,7 @@ export function mountNewsWorkspace(host, api) {
     for(const day of days){
       const section=node('section','oxn-agenda-day');section.dataset.date=day.date;
       const heading=node('div','oxn-agenda-day-heading'),date=node('time');date.dateTime=day.date;
-      date.append(node('strong','',String(Number(day.date.slice(8)))),node('span','',`${Number(day.date.slice(5,7))} 月 · ${new Intl.DateTimeFormat('zh-TW',{timeZone:'UTC',weekday:'short'}).format(new Date(day.date+'T12:00:00Z'))}`));heading.append(date);section.append(heading);
+      date.append(node('strong','',String(Number(day.date.slice(8)))),node('span','',`${Number(day.date.slice(5,7))} 月 · ${weekdayFormatter.format(new Date(day.date+'T12:00:00Z'))}`));heading.append(date);section.append(heading);
       if(day.date===taipeiDay()){section.classList.add('is-today');date.setAttribute('aria-current','date');}
       const events=node('div','oxn-agenda-events');
       for(const item of day.events){
@@ -243,26 +243,38 @@ export function mountNewsWorkspace(host, api) {
     if (state.reader === 'unread') items = items.filter(i => !(prefs.read || []).includes(i.id)); if (state.reader === 'following') items = items.filter(i => (prefs.followedSources || []).includes(i.sourceId));
     const range = node('div', 'oxn-news-range'); range.append(node('span', '', `${items.length} 篇・台北時間`), node('span', '', data.snapshot.generatedAt ? `快照 ${fmt(data.snapshot.generatedAt)}` : '快照時間未提供')); content.append(range);
     if (state.asset || state.query || state.words.length) { const selected = node('div', 'oxn-active-filters'); selected.append(node('span', '', [state.asset ? ranking(base).find(a => a.id === state.asset)?.name || '資產篩選' : '', state.query, ...state.words].filter(Boolean).join(' · ')), button('清除', '', () => { state.asset = null; state.query = ''; state.words = []; persist(); renderControls(); renderContent(); })); content.append(selected); }
-    const list = node('div', 'oxn-news-list'); for (const item of items.slice(0, state.limit)) list.append(newsRow(item));
+    const list = node('div', 'oxn-news-list'); for (const item of items.slice(0, state.limit)) list.append(newsRow(item, prefs));
     if (!items.length) list.append(node('p', 'oxn-empty', !state.times.length || state.sources?.length === 0 ? '沒有選取時間或來源。可在藥丸中選擇「全部」或恢復預設。' : '已收錄資料中沒有符合條件的新聞。'));
     content.append(list); if (items.length > state.limit) content.append(button(`載入更多（尚有 ${items.length - state.limit} 篇）`, '', () => { state.limit += 40; persist(); renderContent(); }, 'oxn-load-more'));
     const published = [...(data.snapshot.news || []), ...(data.snapshot.pendingNews || [])].filter(i => scope() === 'all' || i.markets?.includes(scope())).map(i => i.publishedAt).sort();
     content.append(node('p', 'oxn-caption', `${statsText(base)}。${published.length ? `現有文章發布範圍：${fmt(published[0])}～${fmt(published.at(-1))}；來源 RSS 篇數有限，未完整覆蓋所選區間。` : '目前没有本市場來源資料。'}`));
   }
-  function newsRow(item) {
+  function newsRow(item, prefs) {
     const row = node('details', 'oxn-news-row'); row.dataset.newsId = item.id;
     const summary = node('summary'), meta = node('div', 'oxn-news-meta');
     meta.append(node('span', 'oxn-source', sourceName(item)), node('time', '', fmt(item.publishedAt))); if (api.scope === 'all') meta.append(node('span', '', item.markets?.map(m => MARKET_NAMES[m]).filter(Boolean).join('／')));
     summary.append(meta, node('h3', '', label(item)), node('span', 'oxn-expand', '＋'));
     const tags = node('div', 'oxn-article-tags'); for (const asset of (item.assets || []).slice(0, 4)) tags.append(node('span', '', `${asset.symbol} ${asset.name}`)); if (item.translationStatus !== 'translated') tags.append(node('span', '', '翻譯待補')); if (tags.children.length) summary.append(tags);
+    row.append(summary); if ((prefs.read || []).includes(item.id)) row.classList.add('is-read');
+    // Closed articles only need their summary. Build full content once, on
+    // demand; do not parse browser preferences dozens of times during a paint.
+    let expanded = false;
+    row.addEventListener('toggle', () => {
+      if (!row.open || expanded) return;
+      expanded = true;
+      row.append(newsBody(item, row, api.preferences()));
+    });
+    return row;
+  }
+  function newsBody(item, row, prefs) {
     const body = node('div', 'oxn-article-body');
     if(item.translationMethod==='machine-title-only')body.append(node('small','oxn-caption','標題機器翻譯・原文保留供核對'));
     if (item.summaryZh) { body.append(node('small', 'oxn-caption', item.summaryType === 'system' ? '系統整理' : '來源摘要'), node('p', '', plain(item.summaryZh))); } else body.append(node('p', 'oxn-caption', item.translationStatus === 'translated' ? '來源未提供摘要，可點下方閱讀原文。' : '來源尚未提供繁中內容，可點下方閱讀原文。'));
     if (item.titleZh && item.title && item.title !== item.titleZh) body.append(node('p', 'oxn-original', item.title));
     if(item.aggregation)body.append(node('p','oxn-caption',`公開標題由 ${item.aggregation} 聚合 · ${item.publisher?`原始發布者：${item.publisher}`:`入口來源：${sourceName(item)}`}；非官方 API，不轉載全文。`));
     const actions = node('div', 'oxn-article-actions'), original = link(item.aggregation?'前往聚合連結／原文':'閱讀原文', item.link); if (original) actions.append(original);
-    const read = button((api.preferences().read || []).includes(item.id) ? '標為未讀' : '標為已讀', '', () => { const set = new Set(api.preferences().read || []); set.has(item.id) ? set.delete(item.id) : set.add(item.id); api.save({ read: [...set] }); read.textContent = set.has(item.id) ? '標為未讀' : '標為已讀'; row.classList.toggle('is-read', set.has(item.id)); });
-    const follow = button((api.preferences().followedSources || []).includes(item.sourceId) ? '取消追蹤' : '追蹤來源', '', () => { const set = new Set(api.preferences().followedSources || []); set.has(item.sourceId) ? set.delete(item.sourceId) : set.add(item.sourceId); api.save({ followedSources: [...set] }); follow.textContent = set.has(item.sourceId) ? '取消追蹤' : '追蹤來源'; });
+    const read = button((prefs.read || []).includes(item.id) ? '標為未讀' : '標為已讀', '', () => { const set = new Set(api.preferences().read || []); set.has(item.id) ? set.delete(item.id) : set.add(item.id); api.save({ read: [...set] }); read.textContent = set.has(item.id) ? '標為未讀' : '標為已讀'; row.classList.toggle('is-read', set.has(item.id)); });
+    const follow = button((prefs.followedSources || []).includes(item.sourceId) ? '取消追蹤' : '追蹤來源', '', () => { const set = new Set(api.preferences().followedSources || []); set.has(item.sourceId) ? set.delete(item.sourceId) : set.add(item.sourceId); api.save({ followedSources: [...set] }); follow.textContent = set.has(item.sourceId) ? '取消追蹤' : '追蹤來源'; });
     actions.append(read, follow, button('隱藏', '', () => { api.save({ hidden: [...new Set([...(api.preferences().hidden || []), item.id])] }); row.remove(); })); body.append(actions);
     for (const asset of item.assets || []) {
       const assetActions = node('div', 'oxn-asset-actions'); assetActions.append(button(`${asset.name}相關新聞`, '', () => { state.asset = asset.id; persist(); renderControls(); renderContent(); }));
@@ -271,7 +283,7 @@ export function mountNewsWorkspace(host, api) {
     }
     if (item.reports?.length > 1) { const related = node('div', 'oxn-related'); related.append(node('small', '', '同篇轉載／連結（不算獨立查證）')); for (const report of item.reports.slice(1)) { const a = link(sourceName(report), report.link); if (a) related.append(a); } body.append(related); }
     const health = data.snapshot.sources?.find(s => s.id === item.sourceId); if (health?.status === 'error') body.append(node('p', 'oxn-caption', '來源更新失敗・保留前次快照'));
-    row.append(summary, body); if ((api.preferences().read || []).includes(item.id)) row.classList.add('is-read'); return row;
+    return body;
   }
   function renderRoute(route) {
     const next = JSON.stringify(route || {}); if (detailKey === next && detail) return; detail?.destroy(); detail = null; clearInterval(countdown); countdown = null; detailKey = next;

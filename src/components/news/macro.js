@@ -17,8 +17,9 @@ export function macroResult(item, now = Date.now()) {
   const score = Math.sign(surprise) * degree;
   return { score, label: ['利空', '小空', '中性', '小多', '利多'][score + 2], summary: `實際值${surprise > 0 ? '低於' : surprise < 0 ? '高於' : '符合'}預期。${score > 0 ? '利率上行壓力較小，流動性面偏多。' : score < 0 ? '利率上行壓力較大，流動性面偏空。' : '與預期差距小，流動性面中性。'}` };
 }
+const macroNumberFormatter = new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 3 });
 export function macroValue(value, unit = '') {
-  return typeof value === 'number' && Number.isFinite(value) ? `${new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 3 }).format(value)}${unit}` : value == null || value === '' ? '—' : String(value);
+  return typeof value === 'number' && Number.isFinite(value) ? `${macroNumberFormatter.format(value)}${unit}` : value == null || value === '' ? '—' : String(value);
 }
 export function mergeMacroResults(snapshot, supplement) {
   if (supplement?.schemaVersion !== 1 || !Array.isArray(supplement.events)) return snapshot;

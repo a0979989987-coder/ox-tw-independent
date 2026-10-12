@@ -1,7 +1,7 @@
 import { aggregateCandles } from './model.js';
 import { withDeadline } from '../../../components/resource-deadline.js';
-import { classifyTWSeries } from '../classic.js?v=20261002-rank8';
-import { qualifyPatternMatches } from '../../../components/patterns/matcher.js?v=20261002-rank8';
+import { computeBundleEntry } from './bundle-compute.js';
+import { validateBundleEntry } from './qualification.js';
 // Official candles and named-pattern classifications are built once on the server.
 const manifestURL=new URL('../../../../data/tw-patterns/manifest.json',import.meta.url);
 const entries=new Map(),listeners=new Set();let manifest=null,pending=null,checkedAt=0,failed=0;
@@ -18,15 +18,11 @@ async function loadChunk(chunk,next){
   if(!/^daily-\d+\.json(?:\.gz)?$/.test(chunk.file))throw Error('分類資料路徑異常');
   const payload=await withDeadline(async signal=>{const result=await fetch(new URL(chunk.file+'?date='+next.date+'&revision='+encodeURIComponent(next.updatedAt||''),manifestURL),{cache:'default',signal});if(!result.ok)throw Error('分類資料尚未取得');return chunk.file.endsWith('.gz')&&!result.headers.get('content-encoding')?.includes('gzip')?new Response(result.body.pipeThrough(new DecompressionStream('gzip'))).json():result.json();},12000,'分類資料載入逾時');
   if(payload.date!==next.date||![5,6].includes(payload.algorithmVersion)||!Array.isArray(payload.entries))throw Error('分類資料日期不符');
-  let yieldedAt=performance.now();
-  for(const [index,e]of payload.entries.entries()){
-   if(e.key!==e.data?.symbol+':1D'||e.data.dataDate!==next.date||e.data.candles?.length<35||!e.matches)throw Error('分類資料格式異常');
-   const qualify=(candles,frame,matches)=>{const classic=classifyTWSeries(candles,frame);return {classic,matches:qualifyPatternMatches({candles,classic,volatility:classic.long.atr||classic.short.atr||0},matches)};};
-   const daily=qualify(e.data.candles,'1D',e.matches);
-   const frames=Object.fromEntries(Object.entries(e.frames||{}).map(([frame,prepared])=>[frame,qualify(aggregateCandles(e.data.candles,frame,next.date),frame,prepared.matches)]));
-   entries.set(e.key,{...e,...daily,data:{...e.data,classic:daily.classic},frames});
+  for(const e of payload.entries){
+   validateBundleEntry(e,next.date);
+   const prepared=await computeBundleEntry(e,next.date);
+   entries.set(e.key,{...e,...prepared,data:{...e.data,classic:prepared.classic}});
    emit();
-   if(index===0||performance.now()-yieldedAt>=8){await new Promise(resolve=>setTimeout(resolve,0));yieldedAt=performance.now();}
   }
  })().catch(error=>{chunks.delete(key);throw error;}).finally(()=>emit());
  chunks.set(key,job);return job;

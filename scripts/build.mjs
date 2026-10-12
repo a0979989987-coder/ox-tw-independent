@@ -9,8 +9,10 @@ if(basePath&&!/^\/[a-zA-Z0-9_.-]+$/.test(basePath))throw Error('Invalid site bas
 const apiBase=process.env.TW_API_BASE||'';
 if(apiBase){const url=new URL(apiBase);if(url.protocol!=='https:'&&!['localhost','127.0.0.1','terminal.local'].includes(url.hostname))throw Error('Taiwan API must use HTTPS');}
 const resolveVersion={name:'versioned-imports',setup(b){b.onResolve({filter:/^\./},args=>({path:resolve(args.resolveDir,args.path.split('?')[0])}));}};
-const browserURLs={name:'original-browser-urls',setup(b){b.onLoad({filter:/\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('import.meta.url',`new URL(${JSON.stringify(basePath+'/'+relative(root,args.path))},location.href).href`),loader:'js',resolveDir:dirname(args.path)}));}};
 await mkdir(resolve(root,'src/generated'),{recursive:true});
+await build({entryPoints:[resolve(root,'src/markets/tw/patterns/bundle-worker.js')],bundle:true,format:'iife',platform:'browser',minify:true,outfile:resolve(root,'src/generated/tw-bundle-worker.js'),plugins:[resolveVersion]});
+const bundleWorkerVersion=createHash('sha256').update(await readFile(resolve(root,'src/generated/tw-bundle-worker.js'))).digest('hex').slice(0,12);
+const browserURLs={name:'original-browser-urls',setup(b){b.onLoad({filter:/\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('tw-bundle-worker.js?v=20261012-startup2','tw-bundle-worker.js?v='+bundleWorkerVersion).replaceAll('import.meta.url',`new URL(${JSON.stringify(basePath+'/'+relative(root,args.path))},location.href).href`),loader:'js',resolveDir:dirname(args.path)}));}};
 const entries=['/src/components/patterns/view.js','/src/markets/tw/patterns/source.js','/src/markets/tw/patterns/index-cache.js','/src/markets/tw/bubbles/view.js','/src/markets/tw/etf/view.js','/src/markets/tw/etf/savings.js'];
 const contents="import './src/app/app.js';\n"+entries.map((p,i)=>`import * as m${i} from '.${p}';`).join('\n')+`\nexport const tools={${entries.map((p,i)=>JSON.stringify(p)+`:m${i}`).join(',')}};`;
 const styles=Object.fromEntries(await Promise.all(TOOL_STYLES.map(async path=>['/'+path,(await readFile(resolve(root,path),'utf8')).replace(/url\(\s*(['"]?)([^)'"\s]+)\1\s*\)/g,(all,quote,url)=>/^(?:[a-z]+:|\/|#)/i.test(url)?all:`url("${basePath+'/'+relative(root,resolve(root,dirname(path),url))}")`)])));

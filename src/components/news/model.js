@@ -3,6 +3,11 @@ export const validDate = value => { if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')
 export const safeLink = value => { try { const u = new URL(value); return u.protocol === 'https:' && !u.username && !u.password ? u.href : null; } catch { return null; } };
 export const plain = value => String(value ?? '').replace(/<[^>]*>/g, '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim();
 const taipeiDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' });
+const taipeiTimeFormatter = new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', dateStyle: 'short', timeStyle: 'short', hour12: false });
+export function formatNewsTime(value) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? taipeiTimeFormatter.format(new Date(timestamp)) : '時間待確認';
+}
 const eventDates = new WeakMap();
 export function taipeiDay(value = new Date()) {
   const parts = taipeiDateFormatter.formatToParts(new Date(value));
