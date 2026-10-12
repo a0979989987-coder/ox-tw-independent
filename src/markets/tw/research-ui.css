@@ -297,3 +297,8 @@ body.theme-light .twx-sector-market select{border-color:#bcc4c4;background:#f2f4
 
 /* Desktop charts use the entire panel width with a landscape viewport. */
 @media(min-width:900px){.twx[data-twx-view="strength"] .twx-bubbles{height:auto;max-height:none}.twx[data-twx-view="strength"] .twx-chart-panel.expanded .twx-bubbles{height:auto;max-height:none}}
+
+/* Crypto-style dated trajectories and turning-point markers. */
+.twx-bubble-trails path{stroke-width:1.7;stroke-linejoin:round}
+.twx-bubble-trails circle{fill:#15252b;stroke:var(--bubble,#aababa);stroke-width:.8}
+body.theme-light .twx-bubble-trails circle{fill:#334149}

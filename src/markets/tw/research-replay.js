@@ -1,4 +1,4 @@
-import { bubblePoints, bubbleLayout, flowScale } from './research-bubbles.js';
+import { bubblePoints, bubbleLayout, flowScale, meetsBubbleFlow } from './research-bubbles.js';
 import { money, pct } from './research-ui.js';
 import { quadrant } from './research-data.js';
 
@@ -31,7 +31,7 @@ export function replayHistory(history, mode = 'momentum') {
 // Fix the scales and the displayed roster for the whole replay. Otherwise an
 // unchanged sector can jump when another sector enters the day's top ten.
 export function replayFrames(days, mode, options = {}) {
-  const universe = days.flatMap(day => bubblePoints(day.sectors || [], mode));
+  const universe = days.flatMap(day => bubblePoints(day.sectors || [], mode)).filter(p => meetsBubbleFlow(p, mode, options.minFlow || 0));
   const peak = new Map();
   for (const point of universe) peak.set(point.name, Math.max(peak.get(point.name) || 0, Math.abs(point.x)));
   let names = [...peak].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
@@ -45,7 +45,8 @@ export function replayFrames(days, mode, options = {}) {
     points: names.map(name => {
       const point = layout.points.find(p => p.name === name);
       if (point) last.set(name, point);
-      return { ...(point || last.get(name) || reference.get(name)), opacity: point ? 1 : 0 };
+      return { ...(point || last.get(name) || reference.get(name)), opacity: point ? 1 : 0,
+        filteredOut: (days[i].sectors || []).some(s => s.name === name && !meetsBubbleFlow(s, mode, options.minFlow || 0)) };
     }) }));
 }
 
@@ -54,35 +55,25 @@ function blendColor(a, b, t) {
   return '#' + channels(a).map((n, i) => Math.round(mix(n, channels(b)[i], t)).toString(16).padStart(2, '0')).join('');
 }
 
-// Build short tails from this sector's dated path, not from rendered screen
-// history. Seeking or zooming therefore cannot connect to an old viewport,
-// and missing sessions break the path instead of inventing observations.
+// Match Crypto: six dated observations, a connected historical polyline and
+// dots at real turning points. Missing observations break the path.
 function replayTrail(name, position, maps) {
-  const span = 1.25, maxLength = 120, sampleStep = .2, segments = [];
-  const at = value => {
-    const index = Math.floor(value), t = value - index, a = maps.get(index)?.get(name);
-    const b = maps.get(index + 1)?.get(name) || a;
-    if (!a || a.opacity !== 1 || (t > 0 && b.opacity !== 1)) return null;
-    return { px: mix(a.px, b.px, t), py: mix(a.py, b.py, t) };
-  };
-  let cursor = position, head = at(cursor), length = 0;
-  if (!head) return segments;
-  const start = Math.max(0, position - span);
-  for (let count = 0; count < 8 && cursor > start + 1e-8; count++) {
-    // Include each real session boundary, even between the regular samples.
-    const boundary = Math.ceil(cursor - 1e-8) - 1;
-    const older = Math.max(start, cursor - sampleStep, boundary);
-    let tail = at(older); if (!tail) break;
-    const distance = Math.hypot(head.px - tail.px, head.py - tail.py);
-    const remaining = maxLength - length;
-    if (distance > remaining) tail = { px: mix(head.px, tail.px, remaining / distance), py: mix(head.py, tail.py, remaining / distance) };
-    if (distance > .05) segments.push({ from: tail, to: head,
-      opacity: .46 * Math.pow(Math.max(0, 1 - (position - cursor) / span), 1.5) });
-    length += Math.min(distance, remaining);
-    if (length >= maxLength) break;
-    cursor = older; head = tail;
+  const index = Math.floor(position), fraction = position - index;
+  const current = maps.get(index)?.get(name), next = maps.get(index + 1)?.get(name);
+  if (!current || current.opacity !== 1 || (fraction > 0 && next?.opacity !== 1)) return [];
+  const points = [];
+  for (let i = index; i >= Math.max(0, index - 5); i--) {
+    const point = maps.get(i)?.get(name);
+    if (!point || point.opacity !== 1) break;
+    points.unshift({px: point.px, py: point.py, date: point.date});
   }
-  return segments.reverse();
+  if (fraction > 0) points.push({px: mix(current.px, next.px, fraction), py: mix(current.py, next.py, fraction)});
+  return points.slice(1).map((to, i) => ({from: points[i], to, opacity: .68}));
+}
+const frameMaps = new WeakMap();
+function pointMap(frame) {
+  if (!frameMaps.has(frame)) frameMaps.set(frame, new Map(frame.points.map(p => [p.name, p])));
+  return frameMaps.get(frame);
 }
 
 export function replayFrameAt(frames, position) {
@@ -91,12 +82,12 @@ export function replayFrameAt(frames, position) {
   const from = frames[index].points, to = frames[Math.min(index + 1, frames.length - 1)].points;
   const target = new Map(to.map(p => [p.name, p]));
   const maps = new Map();
-  for (let i = Math.max(0, Math.floor(value - 1.25)); i <= Math.min(frames.length - 1, index + 1); i++)
-    maps.set(i, new Map(frames[i].points.map(p => [p.name, p])));
+  for (let i = Math.max(0, index - 5); i <= Math.min(frames.length - 1, index + 1); i++)
+    maps.set(i, pointMap(frames[i]));
   return from.map(a => {
     const b = target.get(a.name) || a;
     const visible = a.opacity ? a : b;
-    const point = { ...a, opacity: mix(a.opacity, b.opacity, t),
+    const point = { ...a, opacity: a.filteredOut ? 0 : mix(a.opacity, b.opacity, t),
       color: a.opacity && b.opacity ? blendColor(colors[quadrant(a.x, a.y)], colors[quadrant(b.x, b.y)], t)
         : colors[quadrant(visible.x, visible.y)], trail: replayTrail(a.name, value, maps) };
     // A missing day fades at the last/next known location; it never travels
@@ -117,13 +108,14 @@ export function drawReplayFrame(svg, points, mode) {
       group, circle: group.querySelector('circle'), label: group.querySelector('.twx-bubble-label'),
       lines: [...group.querySelectorAll('tspan')], value: group.querySelector('.twx-bubble-value'),
       title: group.querySelector('title'), anchor: anchors.get(group.dataset.sector),
-      trail: trails.get(group.dataset.sector), trailPieces: [...(trails.get(group.dataset.sector)?.querySelectorAll('path') || [])]
+      trail: trails.get(group.dataset.sector), trailPieces: [...(trails.get(group.dataset.sector)?.querySelectorAll('path') || [])],
+      trailDots: [...(trails.get(group.dataset.sector)?.querySelectorAll('circle') || [])]
     }]));
     svgNodes.set(svg, nodes);
   }
   for (const p of points) {
     const node = nodes.get(p.name); if (!node) continue;
-    const { group, circle, label, lines, value, title, anchor, trail, trailPieces } = node;
+    const { group, circle, label, lines, value, title, anchor, trail, trailPieces, trailDots } = node;
     const y = p.py - (p.lines.length * 14 + 11) / 2 + 10;
     circle.setAttribute('cx', p.px); circle.setAttribute('cy', p.py); circle.setAttribute('r', p.radius);
     label.setAttribute('x', p.px); label.setAttribute('y', y);
@@ -131,9 +123,13 @@ export function drawReplayFrame(svg, points, mode) {
     value.setAttribute('x', p.px); value.setAttribute('y', y + p.lines.length * 14);
     // The amount stays on the dated observation; the in-between coordinates
     // are animation, not a fabricated intraday institutional observation.
-    value.textContent = p.opacity > .99 ? money(p.x).replace(' 億', '億') : '—';
-    const description = `${p.name}，${mode === 'momentum' ? '近五日' : '當日'} ${money(p.x)}，${mode === 'momentum' ? '買入力道 ' + money(p.y) + '／日' : pct(p.y)}`;
-    group.setAttribute('aria-label', description); if (title) title.textContent = description;
+    const valueKey = `${mode}:${p.x}:${p.y}:${p.opacity > .99}`;
+    if (node.valueKey !== valueKey) {
+      value.textContent = p.opacity > .99 ? money(p.x).replace(' 億', '億') : '—';
+      const description = `${p.name}，${mode === 'momentum' ? '近五日' : '當日'} ${money(p.x)}，${mode === 'momentum' ? '買入力道 ' + money(p.y) + '／日' : pct(p.y)}`;
+      group.setAttribute('aria-label', description); if (title) title.textContent = description;
+      node.valueKey = valueKey;
+    }
     group.style.setProperty('--bubble', p.color || colors[quadrant(p.x, p.y)]);
     group.style.opacity = p.opacity;
     group.style.pointerEvents = p.opacity > .99 ? '' : 'none';
@@ -151,6 +147,11 @@ export function drawReplayFrame(svg, points, mode) {
         const piece = p.trail?.[i];
         path.setAttribute('d', piece ? `M${piece.from.px.toFixed(2)},${piece.from.py.toFixed(2)}L${piece.to.px.toFixed(2)},${piece.to.py.toFixed(2)}` : '');
         path.style.opacity = piece?.opacity || 0;
+      });
+      trailDots.forEach((dot, i) => {
+        const point = p.trail?.[i]?.from;
+        if (point) { dot.setAttribute('cx', point.px); dot.setAttribute('cy', point.py); }
+        dot.style.opacity = point ? 1 : 0;
       });
     }
   }
@@ -173,7 +174,7 @@ export function createReplayPlayer({ length, render, onState = () => {}, isActiv
     frame = null;
     if (!playing || destroyed) return;
     if (!isActive()) { pause(); return; }
-    if (previous !== null) value = Math.min(length - 1, value + Math.max(0, Math.min(100, timestamp - previous)) / 1200 * rate);
+    if (previous !== null) value = Math.min(length - 1, value + Math.max(0, timestamp - previous) / 1200 * rate);
     previous = timestamp; render(value); notify();
     if (value >= length - 1) { pause(); return; }
     frame = requestFrame(tick);

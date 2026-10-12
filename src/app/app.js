@@ -4,6 +4,7 @@ import {stopTWRadar} from '../markets/tw/radar.js';
 import {stopResearch,refreshTWResearch} from '../markets/tw/research-page.js';
 import {preloadBundle} from '../markets/tw/patterns/bundle.js';
 import {initShell} from './shell.js';
+import {initStockShortcut} from './stock-shortcut.js';
 import {LIVE_PREFERENCE_KEY,readLivePreference} from './live-preference.js';
 
 const views=new Set(['home','strength','radar','data','news','media']);
@@ -80,6 +81,7 @@ window.OXTW={navigate:window.switchAppView,openStock(symbol){
   document.dispatchEvent(new CustomEvent('ox:tw-chart-symbol',{detail:{symbol}}));
   window.switchAppView('radar');return {market:'tw',symbol,view:'radar'};
 }};
+initStockShortcut(symbol=>window.OXTW.openStock(symbol));
 if(document.modelContext?.registerTool){
   document.modelContext.registerTool({name:'open_taiwan_stock_chart',title:'開啟台股圖表',description:'以股票代號開啟台股雷達 K 線，與介面股票搜尋共用同一入口。',inputSchema:{type:'object',properties:{symbol:{type:'string',pattern:'^\\d{4,6}[A-Z]?$'}},required:['symbol'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute(input){if(!input||typeof input.symbol!=='string'||Object.keys(input).some(k=>k!=='symbol'))throw Error('股票代號無效');return window.OXTW.openStock(input.symbol);}});
 }

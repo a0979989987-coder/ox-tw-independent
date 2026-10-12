@@ -22,11 +22,11 @@ test('replay movement follows observations, not another sector changing the labe
   for (const position of [.25, .8, 1, 1.6, 2]) {
     const point = replayFrameAt(frames, position).find(p => p.name === fixed.name);
     near(point.px, start.px); near(point.py, start.py);
-    assert.deepEqual(point.trail, []);
+    assert.equal(pathLength(point.trail), 0);
   }
 });
 
-test('each bubble has a short fading tail of its own path and no permanent leader line', () => {
+test('each bubble connects dated historical turns on its own path without annotation leaders', () => {
   const frames = replayFrames([
     day('2026-10-01', [sector('A', -30, 1), sector('B', 10, -1)]),
     day('2026-10-02', [sector('A', -5, 2), sector('B', 40, -4)]),
@@ -34,8 +34,9 @@ test('each bubble has a short fading tail of its own path and no permanent leade
   ], 'day');
   const points = replayFrameAt(frames, 1.7);
   for (const point of points) {
-    assert.ok(point.trail.length > 1 && point.trail.length <= 8);
-    assert.ok(pathLength(point.trail) <= 120.00001);
+    assert.ok(point.trail.length > 1 && point.trail.length <= 6);
+    assert.equal(point.trail.length, 2);
+    near(point.trail[0].from.px, frames[0].points.find(p => p.name === point.name).px);
     near(point.trail.at(-1).to.px, point.px); near(point.trail.at(-1).to.py, point.py);
     for (let i = 1; i < point.trail.length; i++) {
       const a = point.trail[i - 1], b = point.trail[i];
@@ -93,8 +94,8 @@ test('SVG trail nodes are reused and cleared when seeking back to the start', ()
   const element = () => ({ attrs: {}, style: { setProperty(key, value) { this[key] = value; } },
     setAttribute(key, value) { this.attrs[key] = String(value); } });
   const circle = element(), label = element(), value = element(), title = element(), text = element();
-  const paths = Array.from({ length: 8 }, element);
-  const trail = { ...element(), dataset: { trailSector: 'A' }, querySelectorAll: () => paths };
+  const paths = Array.from({ length: 6 }, element), dots = Array.from({length:6}, element);
+  const trail = { ...element(), dataset: { trailSector: 'A' }, querySelectorAll: selector => selector === 'path' ? paths : dots };
   const group = { ...element(), dataset: { sector: 'A' },
     querySelector: s => ({ circle, '.twx-bubble-label': label, '.twx-bubble-value': value, title })[s],
     querySelectorAll: () => [text] };

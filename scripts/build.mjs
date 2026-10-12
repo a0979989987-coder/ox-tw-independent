@@ -1,5 +1,6 @@
 import {build} from 'esbuild';
 import {readFile,writeFile,mkdir,cp,rm} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {resolve,relative,dirname} from 'node:path';
 const root=resolve(import.meta.dirname,'..');
 const basePath=process.env.SITE_BASE_PATH||'';
@@ -19,6 +20,21 @@ await rm(resolve(root,'dist'),{recursive:true,force:true});
 await mkdir(resolve(root,'dist/client'),{recursive:true});
 for(const name of ['index.html','favicon.svg','src','data'])await cp(resolve(root,name),resolve(root,'dist/client',name),{recursive:true});
 let html=await readFile(resolve(root,'dist/client/index.html'),'utf8');
+// Preserve the cascade and marked lazy-style links, while collapsing the
+// dozens of shared stylesheets into two cacheable requests before first paint.
+const groups=[...html.matchAll(/(?:<link rel="stylesheet" href="[^"]+">)+/g)];
+for(const [index,match]of groups.entries()){
+ const paths=[...match[0].matchAll(/href="([^"]+)"/g)].map(m=>m[1].split('?')[0]);
+ if(paths.length<2)continue;
+ const css=(await Promise.all(paths.map(async path=>{
+  const text=await readFile(resolve(root,path),'utf8');
+  return text.replace(/url\(\s*(['"]?)([^)'"\s]+)\1\s*\)/g,(all,quote,url)=>/^(?:[a-z]+:|\/|#)/i.test(url)?all:`url("${basePath+'/'+relative(root,resolve(root,dirname(path),url))}")`);
+ }))).join('\n');
+ const version=createHash('sha256').update(css).digest('hex').slice(0,12);
+ const file=`src/generated/site-theme-${index}-${version}.css`;
+ await writeFile(resolve(root,'dist/client',file),css);
+ html=html.replace(match[0],`<link rel="stylesheet" href="${file}">`);
+}
 html=html.replace('<head>',`<head><meta name="ox-site-base-path" content="${basePath}">${apiBase?`<meta name="ox-tw-data-api-base" content="${apiBase}">`:''}`).replace('href="/favicon.svg"',`href="${basePath}/favicon.svg"`);
 await writeFile(resolve(root,'dist/client/index.html'),html);
 await writeFile(resolve(root,'dist/client/.nojekyll'),'');

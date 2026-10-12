@@ -70,7 +70,8 @@ export async function loadHistoryPage(record,signal,fetchPage=options=>twProvide
   // advance the cursor; an outage must never mark the history complete.
   record.daily=mergeDailyHistory(record.daily,rows,record.asOf);
   record.coverageStart=range.from;record.cursor=previousDate(range.from);record.complete=range.from===record.floor;
-  await writeStored(record);return record;
+  // Persistence is optional and must never delay the next history page.
+  void writeStored(record);return record;
  })().catch(error=>{abort(signal);if(error.name!=='AbortError')record.error=error;throw error;}).finally(()=>{record.pending=null;});
  return record.pending;
 }

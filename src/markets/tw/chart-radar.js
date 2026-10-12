@@ -127,7 +127,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   $('[data-tier-label]').textContent=tier==='all'?'':tier;
   host.querySelectorAll('[data-twcr-tab]').forEach(b=>{const selected=b.dataset.twcrTab===tab;b.classList.toggle('active',selected);b.setAttribute('aria-selected',String(selected));});
   host.querySelectorAll('[data-twcr-tier]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.twcrTier===tier)));
-  $('[data-surge-count]').textContent=rankChartRows(universe(),{tab:'surge'}).length;
+  $('[data-surge-count]').textContent=rankChartRows(universe(),{tab:'surge',side}).length;
   $('[data-watch-count]').textContent=watchlist.size;
   const direction=$('[data-action="side"]');
   direction.classList.toggle('is-long',side==='long');direction.classList.toggle('is-short',side==='short');
@@ -135,7 +135,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   direction.setAttribute('aria-pressed',String(side==='short'));
   direction.setAttribute('aria-checked',String(side==='short'));
   direction.title=side==='long'?'OX 經典多頭候選':'OX 經典空頭候選';
-  $('.twcr-pool-info').textContent=tab==='all'?`OX 經典${side==='long'?'多頭':'空頭'} · ${rows.length} 檔`:tab==='surge'?`當日成交額前 ${rows.length} 檔`:`自選 ${rows.length} 檔`;
+  $('.twcr-pool-info').textContent=tab==='all'?`OX 經典${side==='long'?'多頭':'空頭'} · ${rows.length} 檔`:tab==='surge'?`${side==='long'?'多頭':'空頭'} · 當日成交額前 ${rows.length} 檔`:`自選 ${rows.length} 檔`;
   const note=$('.twcr-classification-note'),quoteDate=snapshot()?.date;
   note.hidden=tab!=='all'||!classificationDate||!quoteDate||classificationDate===quoteDate;
   note.textContent=note.hidden?'':`候選分類 ${classificationDate} · 最新行情 ${quoteDate}；新分類公布後自動更新。`;

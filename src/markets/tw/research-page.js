@@ -3,7 +3,7 @@ import {homeRefreshDue} from './home-model.js';
 import {coreContent,briefingContent,institutionContent} from './home-content.js?v=20261001-twhome1';
 import { savedResearch, loadResearch, selectSectors, readWatchlist, quadrant } from './research-data.js?v=20261001-twhome1';
 import { escape, number, pct, money, direction, segments, mountResearch, stockRows } from './research-ui.js';
-import { bubbleChart, bubblePoints, bubbleLayout, zoomBubbleLayout, drawBubbleAxes } from './research-bubbles.js?v=20261006-compact-zoom';
+import { bubbleChart, bubblePoints, bubbleLayout, zoomBubbleLayout, drawBubbleAxes, MIN_BUBBLE_FLOW, meetsBubbleFlow, wheelChartViewport } from './research-bubbles.js?v=20261006-compact-zoom';
 import { SECTOR_DEFINITIONS, SECTOR_TAXONOMY_VERSION } from './sector-taxonomy.js';
 import { sectorPicker, sectorPickerList } from './sector-picker.js';
 import { replayHistory, replayFrames, replayFrameAt, drawReplayFrame, createReplayPlayer } from './research-replay.js?v=20261006-replay';
@@ -56,7 +56,7 @@ function playReplay(s) {
   s.player?.play();
 }
 function chartHeight() { if (session?.plotHeight && window.innerWidth < 900) return session.plotHeight; return typeof window !== 'undefined' && window.innerWidth < 900 ? Math.max(720, Math.min(1400, (window.innerHeight - 140) * 480 / Math.max(280, window.innerWidth - 24))) : Math.max(460, Math.min(850, window.innerHeight - 280)); }
-function chartOptions() { const width = window.innerWidth >= 900 ? Math.max(480, Math.round(session?.root.querySelector('.twx-chart-content')?.getBoundingClientRect().width || (session?.root.clientWidth || window.innerWidth) - 350)) : 480; return { ...prefs, width, height: chartHeight(), density: prefs.scope === 'watch' ? 'all' : prefs.density }; }
+function chartOptions() { const width = window.innerWidth >= 900 ? Math.max(480, Math.round(session?.root.querySelector('.twx-chart-content')?.getBoundingClientRect().width || (session?.root.clientWidth || window.innerWidth) - 350)) : 480; return { ...prefs, minFlow: MIN_BUBBLE_FLOW, width, height: chartHeight(), density: prefs.scope === 'watch' ? 'all' : prefs.density }; }
 function buildReplayFrames() {
   const mode = chartMode();
   return replayFrames(historyDays().map(day => ({ ...day, sectors: replaySectors(day).filter(sector => {
@@ -102,8 +102,13 @@ function mountReplay(s, resume) {
         if (summary) summary.textContent = `${mode === 'momentum' ? '近五日' : '當日'}買最多 ${buy ? buy.name + ' ' + money(buy.x) : '—'} ｜ 賣最多 ${sell ? sell.name + ' ' + money(sell.x) : '—'}`;
         const caption = s.root.querySelector('.twx-chart-method'); if (caption) caption.textContent = `歷史回放 ${day.date} · ${mode === 'momentum' ? '法人資金動向' : '當日價量'} · 過渡位置為動畫`;
         if (prefs.tab === 'rank') s.root.querySelector('.twx-chart-content').innerHTML = results();
-        const list = s.root.querySelector('.twx-sector-list');
-        if (list) list.innerHTML = day.sectors.map(sector => `<button type="button" data-sector="${escape(sector.name)}"><span>${escape(sector.name)}</span><b class="${direction(mode === 'momentum' ? sector.flow5 : sector.flow)}">${money(mode === 'momentum' ? sector.flow5 : sector.flow)}</b></button>`).join('');
+        // Keep sidebar nodes in place at turning points; replacing the entire
+        // list forces layout/paint just as the animation crosses a session.
+        const rows = new Map(day.sectors.map(row => [row.name, row]));
+        s.root.querySelectorAll('.twx-sector-list [data-sector]').forEach(button => {
+          const row = rows.get(button.dataset.sector), amount = row ? (mode === 'momentum' ? row.flow5 : row.flow) : null;
+          const label = button.querySelector('b'); label.textContent = money(amount); label.className = direction(amount);
+        });
       }
     }
   });
@@ -122,7 +127,19 @@ function filtered() {
 function results() {
   const sectors = filtered(), mode = chartMode();
   if (prefs.tab === 'bubble') {
-    const layout = prefs.replayIndex !== null ? session?.replayFrames?.[Math.floor(prefs.replayIndex)] : bubbleLayout(sectors, mode, chartOptions());
+    let layout;
+    if (prefs.replayIndex !== null) layout = session?.replayFrames?.[Math.floor(prefs.replayIndex)];
+    else {
+      const eligible = bubblePoints(sectors, mode).filter(p => meetsBubbleFlow(p, mode)).sort((a,b)=>Math.abs(b.x)-Math.abs(a.x));
+      const names = new Set((chartOptions().density === 'top' ? eligible.slice(0,10) : eligible).map(p => p.name));
+      const days = historyDays().slice(-6).map(day => ({...day, sectors: day.sectors.filter(p => names.has(p.name))}));
+      const latest = {date: data?.date, sectors: sectors.filter(p => names.has(p.name))};
+      if (days.at(-1)?.date === latest.date) days[days.length - 1] = latest;
+      else if (latest.date) days.push(latest);
+      const frames = replayFrames(days.slice(-6), mode, chartOptions());
+      if (session) session.staticFrames = frames;
+      layout = frames.at(-1) || bubbleLayout(sectors, mode, chartOptions());
+    }
     if (session) session.chartLayout = layout;
     return bubbleChart(sectors, mode, '', { ...chartOptions(), layout });
   }
@@ -139,6 +156,10 @@ function updateChartViewport(s) {
     s.replayFrames.forEach((frame, index) => { s.replayFrames[index] = zoomBubbleLayout(frame, prefs); });
     layout = s.replayFrames[Math.floor(prefs.replayIndex)];
     drawReplayFrame(svg, replayFrameAt(s.replayFrames, prefs.replayIndex), chartMode());
+  } else if (s.staticFrames?.length) {
+    s.staticFrames = s.staticFrames.map(frame => zoomBubbleLayout(frame, prefs));
+    layout = s.chartLayout = s.staticFrames.at(-1);
+    drawReplayFrame(svg, replayFrameAt(s.staticFrames, s.staticFrames.length - 1), chartMode());
   } else if (s.chartLayout) {
     layout = s.chartLayout = zoomBubbleLayout(s.chartLayout, prefs);
     drawReplayFrame(svg, layout.points, chartMode());
@@ -154,16 +175,17 @@ function bubbleCountText() {
   const count = prefs.replayIndex !== null && frame ? frame.points.filter(p => p.opacity > 0).length
     : chartOptions().density === 'top' ? Math.min(10, valid.length) : valid.length;
   const missing = sectors.length - valid.length;
-  return `本日繪出 ${count} 顆泡泡${missing > 0 ? ` · ${missing} 個板塊${mode === 'momentum' ? '歷史不足' : '資料不足'}` : ''}`;
+  const eligible = valid.filter(p => meetsBubbleFlow(p, mode));
+  return `本日繪出 ${prefs.replayIndex === null ? Math.min(count, eligible.length) : count} 顆泡泡 · 買賣超 ≥10億${missing > 0 ? ` · ${missing} 個板塊${mode === 'momentum' ? '歷史不足' : '資料不足'}` : ''}`;
 }
 function chartToolbar(mode, replayDay) {
   return `<div class="twx-chart-tools">${segments('scope', [['all', '板塊'], ['watch', '自選']], prefs.scope)}${segments('tab', [['bubble', '泡泡圖'], ['rank', '排行']], prefs.tab)}${sectorPicker(prefs)}${segments('mode', [['momentum', '資金動向'], ['day', '當日價量']], mode)}<button type="button" data-replay aria-label="${prefs.replayIndex !== null ? '結束歷史回放' : '播放歷史回放'}" aria-pressed="${prefs.replayIndex !== null}" ${historyDays().length < 2 ? 'disabled title="此模式尚無完整歷史資料"' : ''}>${prefs.replayIndex !== null ? '結束' : '回放'}</button></div>`;
 }
 function chartHelp() {
-  return prefs.help ? `<div class="twx-chart-help" role="note">這是題材分類，一檔股票可能屬於多個板塊，因此不同板塊金額不可相加當作全市場總額。資金動向圖越右代表近 5 日資金流入越多，越左代表流出越多；越上代表買入力道增強，越下代表買入力道減弱。力道以近 5 日平均淨買超減去近 20 日平均淨買超計算。圈大小代表近 20 日淨買賣超絕對值，圈內金額代表近五日估算；當日價量圖則顯示當日淨買賣超與產業漲跌幅。靜態圖的細點是實際座標，泡泡文字會避開重疊。回放時泡泡沿自身座標移動，短尾跡只顯示最近的移動方向，缺資料即中斷。雙指可縮放，放大後可拖曳。回放的過渡位置是動畫，金額維持所標示交易日的值。完整官方日報未列出的股票以當日無法人交易處理，來源不完整則保留缺漏。</div>` : '';
+  return prefs.help ? `<div class="twx-chart-help" role="note">這是題材分類，一檔股票可能屬於多個板塊，因此不同板塊金額不可相加當作全市場總額。資金動向圖越右代表近 5 日資金流入越多，越左代表流出越多；越上代表買入力道增強，越下代表買入力道減弱。力道以近 5 日平均淨買超減去近 20 日平均淨買超計算。圈大小代表近 20 日淨買賣超絕對值，圈內金額代表近五日估算；當日價量圖則顯示當日淨買賣超與產業漲跌幅。靜態圖的細點是實際座標，泡泡文字會避開重疊。回放時泡泡沿自身座標移動，軌跡連接最近六期實際座標，圓點標示歷史轉折，缺資料即中斷。僅顯示買賣超絕對值至少十億元的泡泡。滑鼠滾輪或雙指可縮放，放大後可拖曳。回放的過渡位置是動畫，金額維持所標示交易日的值。完整官方日報未列出的股票以當日無法人交易處理，來源不完整則保留缺漏。</div>` : '';
 }
 function chartActions() {
-  return `<div class="twx-chart-actions">${prefs.scope === 'all' ? segments('density', [['all', '全部板塊'], ['top', '金額前 10']], prefs.density) : '<small>自選相關板塊</small>'}<div class="twx-zoom" role="group" aria-label="圖表縮放"><button type="button" data-zoom="out" aria-label="縮小圖表" ${prefs.zoom <= minChartZoom() ? 'disabled' : ''}>−</button><button type="button" data-zoom="reset" aria-label="重設圖表">${Math.round(prefs.zoom * 100)}%</button><button type="button" data-zoom="in" aria-label="放大圖表" ${prefs.zoom >= 8 ? 'disabled' : ''}>＋</button></div><button type="button" class="twx-expand" data-expand aria-label="展開圖表">⛶</button><button type="button" class="twx-help" data-help aria-label="圖表說明" aria-expanded="${prefs.help}">?</button></div><small class="twx-chart-hint"><span data-bubble-count>${bubbleCountText()}</span><span>雙指縮放 · 放大拖曳</span></small>${chartHelp()}`;
+  return `<div class="twx-chart-actions">${prefs.scope === 'all' ? segments('density', [['all', '全部板塊'], ['top', '金額前 10']], prefs.density) : '<small>自選相關板塊</small>'}<div class="twx-zoom" role="group" aria-label="圖表縮放"><button type="button" data-zoom="out" aria-label="縮小圖表" ${prefs.zoom <= minChartZoom() ? 'disabled' : ''}>−</button><button type="button" data-zoom="reset" aria-label="重設圖表">${Math.round(prefs.zoom * 100)}%</button><button type="button" data-zoom="in" aria-label="放大圖表" ${prefs.zoom >= 8 ? 'disabled' : ''}>＋</button></div><button type="button" class="twx-expand" data-expand aria-label="展開圖表">⛶</button><button type="button" class="twx-help" data-help aria-label="圖表說明" aria-expanded="${prefs.help}">?</button></div><small class="twx-chart-hint"><span data-bubble-count>${bubbleCountText()}</span><span>滾輪／雙指縮放 · 放大拖曳</span></small>${chartHelp()}`;
 }
 function indicatorContent() {
   const all = chartSectors(), mode = chartMode();
@@ -187,7 +209,13 @@ function paint(s) {
   s.root.innerHTML = `<div class="twx" data-twx-view="${s.view}">${error && !data ? '<div class="twx-empty" role="status">資料暫時無法載入，請重新整理頁面。</div>' : ''}${content}</div>`;
   if (expanded) s.root.querySelector('.twx-chart-panel')?.classList.add('expanded');
   s.root.querySelectorAll('[data-mixed]').forEach(input => { input.indeterminate = true; });
-  if (s.view !== 'home') mountReplay(s, resume);
+  if (s.view !== 'home') {
+    mountReplay(s, resume);
+    if (prefs.replayIndex === null && s.staticFrames?.length) {
+      const svg = s.root.querySelector('.twx-bubbles');
+      if (svg) drawReplayFrame(svg, replayFrameAt(s.staticFrames, s.staticFrames.length - 1), chartMode());
+    }
+  }
   if (s.view !== 'home' && window.innerWidth < 900 && !expanded && !s.plotHeight) requestAnimationFrame(() => {
     if (!current(s)) return;
     const svg = s.root.querySelector('.twx-bubbles'); if (!svg) return;
@@ -251,7 +279,6 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
     if (button.hasAttribute('data-replay-speed')) { const speeds = [.5, 1, 2]; prefs.replaySpeed = speeds[(speeds.indexOf(prefs.replaySpeed) + 1) % speeds.length]; s.player?.setSpeed(prefs.replaySpeed); button.textContent = `${prefs.replaySpeed}x`; return; }
     if (button.hasAttribute('data-expand')) { root.querySelector('.twx-chart-panel').classList.toggle('expanded'); button.setAttribute('aria-label', root.querySelector('.expanded') ? '收合圖表' : '展開圖表'); return; }
     if (button.dataset.zoom) {
-      pauseReplay(s);
       if (button.dataset.zoom === 'reset') resetChart();
       else { prefs.zoom = Math.max(minChartZoom(), Math.min(8, prefs.zoom + (button.dataset.zoom === 'in' ? .5 : -.5))); if (prefs.zoom === minChartZoom()) resetChart(); }
       updateChartViewport(s); return;
@@ -296,6 +323,18 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
       updateChartViewport(s);
     });
   };
+  root.addEventListener('wheel', event => {
+    const chart = event.target.closest('.twx-bubbles');
+    if (!chart || event.deltaY === 0) return;
+    const rect = chart.getBoundingClientRect(), box = chart.viewBox.baseVal;
+    const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
+    Object.assign(prefs, wheelChartViewport(prefs, {
+      x: (event.clientX - rect.left) * box.width / rect.width,
+      y: (event.clientY - rect.top) * box.height / rect.height,
+      width: box.width, height: box.height, delta: pixels, minimum: minChartZoom()
+    }));
+    event.preventDefault(); draw();
+  }, {passive:false, signal:s.controller.signal});
   const beginPinch = () => {
     const [a, b] = [...touches.values()];
     const chart = root.querySelector('.twx-bubbles'); if (!a || !b || !chart) return;

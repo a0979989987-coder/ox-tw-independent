@@ -18,6 +18,17 @@ export function bubblePoints(sectors, mode = 'day') {
     size: mode === 'momentum' ? Math.abs(s.flow20 ?? NaN) : s.turnoverTwd
   })).filter(s => Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.size));
 }
+export const MIN_BUBBLE_FLOW = 1e9;
+export function meetsBubbleFlow(sector, mode = 'day', minimum = MIN_BUBBLE_FLOW) {
+  const amount = mode === 'momentum' ? sector.flow5 : sector.flow;
+  return Number.isFinite(amount) && Math.abs(amount) >= minimum;
+}
+export function wheelChartViewport(viewport, {x, y, width, height, delta, minimum = 1}) {
+  const zoom = clamp(viewport.zoom * Math.exp(-clamp(delta, -240, 240) * .002), minimum, 8);
+  const ratio = zoom / viewport.zoom;
+  return {zoom, panX: x - width / 2 - (x - width / 2 - viewport.panX) * ratio,
+    panY: y - (height - 6) / 2 - (y - (height - 6) / 2 - viewport.panY) * ratio};
+}
 // Bubble labels are annotations: small anchor dots retain the exact plotted
 // coordinates, while deterministic placement avoids covering nearby labels.
 export function placeBubbleLabels(points, cx, cy, zoom, stretch = 1, horizontalStretch = 1) {
@@ -67,8 +78,8 @@ export function placeBubbleLabels(points, cx, cy, zoom, stretch = 1, horizontalS
   return placed;
 }
 export function bubbleLayout(sectors, mode = 'day', { density = 'all', zoom = 1, panX = 0, panY = 0,
-  xScale, yScale, maxSize, names, height = 494, width = 480, labelPlacement = 'spread' } = {}) {
-  const all = bubblePoints(sectors, mode);
+  xScale, yScale, maxSize, names, height = 494, width = 480, labelPlacement = 'spread', minFlow = 0 } = {}) {
+  const all = bubblePoints(sectors, mode).filter(s => meetsBubbleFlow(s, mode, minFlow));
   const ranked = [...all].sort((a, b) => Math.abs(b.x) - Math.abs(a.x) || a.name.localeCompare(b.name));
   const selected = names ? names.map(name => all.find(s => s.name === name)).filter(Boolean) : density === 'top' ? ranked.slice(0, 10) : ranked;
   xScale ||= flowScale(all.map(s => s.x));
@@ -125,7 +136,7 @@ export function bubbleChart(sectors, mode = 'day', selected = '', options = {}) 
   // Anchor dots identify exact coordinates; an annotation leader is not a
   // history trail and must not sweep across the plot as its label moves.
   const anchors = plotted.map(s => `<g data-anchor-sector="${escape(s.name)}" style="opacity:${s.opacity ?? 1}"><circle cx="${s.ax}" cy="${s.ay}" r="2"/></g>`).join('');
-  const trails = layout.replay ? `<g class="twx-bubble-trails" clip-path="url(#twx-plot-clip)" aria-hidden="true">${plotted.map(s => `<g data-trail-sector="${escape(s.name)}">${'<path/>'.repeat(8)}</g>`).join('')}</g>` : '';
+  const trails = layout.replay ? `<g class="twx-bubble-trails" clip-path="url(#twx-plot-clip)" aria-hidden="true">${plotted.map(s => `<g data-trail-sector="${escape(s.name)}">${'<path/>'.repeat(6)}${'<circle r="2.3"/>'.repeat(6)}</g>`).join('')}</g>` : '';
   // Every rendered bubble owns its complete name and amount; none are hidden.
   const dots = [...plotted].reverse().map(s => {
     const { lines, radius, px: x, py: y } = s;
@@ -138,5 +149,5 @@ export function bubbleChart(sectors, mode = 'day', selected = '', options = {}) 
   const yTicks = [85, 165, 325, 405].map(sy);
   const sx = x => width / 2 + (x - 240) * horizontalStretch;
   const xTicks = (width > 700 ? [70, 155, 240, 325, 410] : [70, 240, 410]).map(sx);
-  return `<svg class="twx-bubbles ${z > 1 ? 'is-zoomed' : ''}" viewBox="0 0 ${width} ${height}" role="group" aria-label="${mode === 'momentum' ? '資金動向圖' : '當日價量圖'}；兩軸為對稱壓縮刻度；${points.length} 個產業，泡泡內金額為${mode === 'momentum' ? '近五日' : '當日'}估算"><defs><clipPath id="twx-plot-clip"><rect x="45" y="45" width="${width - 83}" height="${height - 97}" rx="8"/></clipPath></defs><g class="twx-chart-grid" clip-path="url(#twx-plot-clip)">${yTicks.map(y => line(45, y, width - 38, y)).join('')}${line(cx, 45, cx, height - 52, 'axis', 'x')}${line(45, cy, width - 38, cy, 'axis', 'y')}</g><g class="twx-axis-label"><text x="14" y="27">${mode === 'momentum' ? '↑ 更偏買入 · ↓ 更偏賣出（億／日）' : '當日產業漲跌幅（%）'}</text><text x="${width / 2}" y="${height - 11}" text-anchor="middle">${mode === 'momentum' ? '近五日' : '當日'}淨買賣超（億） · ← 流出｜流入 →</text>${xTicks.map(x => `<text data-x-tick="${x}" x="${x}" y="${height - 33}" text-anchor="middle">${formatX(xScale.value((x - cx) / (152 * z * horizontalStretch)))}</text>`).join('')}${yTicks.map(y => `<text data-y-tick="${y}" x="5" y="${y + 4}">${formatY(yScale.value((cy - y) / (152 * z * stretch)))}</text>`).join('')}</g>${mode === 'momentum' ? `<g class="twx-quadrant-label" aria-hidden="true"><text x="55" y="62">流出收斂</text><text x="${width - 50}" y="62" text-anchor="end">流入加速</text><text x="55" y="${height - 64}">流出加速</text><text x="${width - 50}" y="${height - 64}" text-anchor="end">流入放緩</text></g>` : ''}${trails}<g class="twx-bubble-anchors" clip-path="url(#twx-plot-clip)">${anchors}</g><g clip-path="url(#twx-plot-clip)">${dots}</g></svg>`;
+  return `<svg class="twx-bubbles ${z > 1 ? 'is-zoomed' : ''}" viewBox="0 0 ${width} ${height}" role="group" aria-label="${mode === 'momentum' ? '資金動向圖' : '當日價量圖'}；兩軸為對稱壓縮刻度；${points.length} 個產業，泡泡內金額為${mode === 'momentum' ? '近五日' : '當日'}估算"><defs><clipPath id="twx-plot-clip"><rect x="45" y="45" width="${width - 83}" height="${height - 97}" rx="8"/></clipPath></defs><g class="twx-chart-grid" clip-path="url(#twx-plot-clip)">${yTicks.map(y => line(45, y, width - 38, y)).join('')}${line(cx, 45, cx, height - 52, 'axis', 'x')}${line(45, cy, width - 38, cy, 'axis', 'y')}</g><g class="twx-axis-label"><text x="14" y="27">${mode === 'momentum' ? '↑ 更偏買入 · ↓ 更偏賣出（億／日）' : '當日產業漲跌幅（%）'}</text><text x="${width / 2}" y="${height - 11}" text-anchor="middle">${mode === 'momentum' ? '近五日' : '當日'}淨買賣超（億） · ← 流出｜流入 →</text>${xTicks.map(x => `<text data-x-tick="${x}" x="${x}" y="${height - 33}" text-anchor="middle">${formatX(xScale.value((x - cx) / (152 * z * horizontalStretch)))}</text>`).join('')}${yTicks.map(y => `<text data-y-tick="${y}" x="5" y="${y + 4}">${formatY(yScale.value((cy - y) / (152 * z * stretch)))}</text>`).join('')}</g>${mode === 'momentum' ? `<g class="twx-quadrant-label" aria-hidden="true"><text x="55" y="62">流出收斂</text><text x="${width - 50}" y="62" text-anchor="end">流入加速</text><text x="55" y="${height - 64}">流出加速</text><text x="${width - 50}" y="${height - 64}" text-anchor="end">流入放緩</text></g>` : ''}<g class="twx-bubble-anchors" clip-path="url(#twx-plot-clip)">${anchors}</g><g clip-path="url(#twx-plot-clip)">${dots}</g>${trails}</svg>`;
 }

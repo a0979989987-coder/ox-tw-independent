@@ -342,6 +342,10 @@ function render(
   }
 
 
+  // Data may arrive after navigating to news/settings. Do not mount a hidden
+  // chart or destroy the user's current tool in the background.
+  if(typeof document!=='undefined' && document.body?.dataset.view && document.body.dataset.view!==activeView)return null;
+
   const renderer =
     renderers[
       activeView

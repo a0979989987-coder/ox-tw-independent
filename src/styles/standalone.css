@@ -33,3 +33,14 @@ body[data-market="tw"]{min-height:100dvh}
  body[data-market="tw"] :is(#view-data,#view-news) .oxn-controls{margin-top:0;margin-bottom:3px}
  body[data-market="tw"] :is(#view-data,#view-news) .oxn-notification:empty{display:none}
 }
+
+.tw-stock-shortcut{width:min(420px,calc(100vw - 32px));padding:22px;border:1px solid #b9bfbd88;border-radius:20px;background:#191d20;color:#f0eee8;box-shadow:0 12px 55px #0008;font:inherit}
+.tw-stock-shortcut::backdrop{background:#0005}
+.tw-stock-shortcut form{display:grid;grid-template-columns:1fr auto;gap:16px}
+.tw-stock-shortcut label{font-size:15px;align-self:center}
+.tw-stock-shortcut form>div{grid-column:1/-1;display:flex;gap:10px}
+.tw-stock-shortcut input{width:100%;min-width:0;padding:12px;border:1px solid #9da5a666;border-radius:10px;background:transparent;color:inherit;font:inherit;font-size:24px;letter-spacing:3px}
+.tw-stock-shortcut button{color:inherit;background:#ffffff0b;border:1px solid #9da5a644;border-radius:10px;padding:9px 12px;white-space:nowrap;font:inherit;cursor:pointer}
+.tw-stock-shortcut small{grid-column:1/-1;opacity:.7;font-size:12px}
+body.theme-light .tw-stock-shortcut{background:#f8f9fa;color:#303842;box-shadow:0 12px 55px #35404a30}
+@media(max-width:620px){body.ox-terminal[data-market="tw"] .app-dock.glass-nav{bottom:calc(9px + env(safe-area-inset-bottom))!important}}

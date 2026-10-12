@@ -1,10 +1,11 @@
 /* Presentation adapter, not a second radar design system.
  * Crypto remains the source of truth; no Crypto nodes/handlers are mutated.
  * IDs are namespaced before inserting the market-specific copy. */
+const sheetCache=new WeakMap();
 export const radarId = id => `tw-radar-${id}`;
 export function radarPart(selector) {
   const source = document.querySelector(`#radar-template ${selector}`);
-  if (!source) throw new Error(`Missing Crypto radar presentation: ${selector}`);
+  if (!source) throw new Error(`Missing Taiwan radar presentation: ${selector}`);
   const copy = source.cloneNode(true);
   for (const node of [copy, ...copy.querySelectorAll('*')]) {
     if (node.id) node.id = radarId(node.id);
@@ -54,7 +55,11 @@ export function attachRadarStyles(root, { summaryColumns } = {}) {
     }).join('\n');
   }
   style.textContent = [...document.styleSheets].filter(sheet => !sheet.ownerNode?.dataset?.marketRadarPresentation && !sheet.ownerNode?.dataset?.twChartStyle).map(sheet => {
-    try { return rules(sheet.cssRules); } catch { return ''; }
+    try {
+      const key=`${summaryColumns}:${sheet.cssRules.length}`,cached=sheetCache.get(sheet);
+      if(cached?.key===key)return cached.css;
+      const css=rules(sheet.cssRules);sheetCache.set(sheet,{key,css});return css;
+    } catch { return ''; }
   }).join('\n');
   root.prepend(style);
   return () => style.remove();
