@@ -2,7 +2,7 @@ import { twProvider } from './api.js?v=20261005-recovery20';
 import { escape, number, pct, money, direction } from './research-ui.js';
 import { readWatchlist, toggleWatch, savedResearch } from './research-data.js?v=20261001-twhome1';
 import { bundleEntry, awaitBundleSymbol } from './patterns/bundle.js?v=20261005-load16';
-import { FRAME_LABELS } from './patterns/model.js';
+import { FRAME_LABELS, sessionFrameNote } from './patterns/model.js';
 import { stockDetailCandles, stockDetailChart } from './research-stock-chart.js';
 import {highlightsContent} from './home-highlights.js?v=20261005-briefingdate';
 export function closeResearchDetails() { document.querySelectorAll('.twx-dialog').forEach(d => { d.close(); d.remove(); }); }
@@ -74,7 +74,7 @@ export async function showStock(stock, { date = savedResearch()?.date, sectorDat
   const render = () => {
     const candles = stockDetailCandles(daily, frame, chartDate);
     chart.innerHTML = stockDetailChart(candles, `${stock.name} ${FRAME_LABELS[frame]}`) || '此級別尚無已完成 K 線';
-    stamp.textContent = `TWSE／TPEx · ${FRAME_LABELS[frame]} K · ${candles.length} 根 · ${candles.length ? `${candles[0].date} ～ ${candles.at(-1).lastDate || candles.at(-1).date}` : '—'} · 未復權`;
+    stamp.textContent = `TWSE／TPEx · ${FRAME_LABELS[frame]} K · ${candles.length} 根 · ${candles.length ? `${candles[0].date} ～ ${candles.at(-1).lastDate || candles.at(-1).date}` : '—'} · 未復權${sessionFrameNote(frame, candles.at(-1)?.lastDate || candles.at(-1)?.date) ? ' · ' + sessionFrameNote(frame, candles.at(-1)?.lastDate || candles.at(-1)?.date) : ''}`;
   };
   const load = async () => {
     request?.abort(); const controller = request = new AbortController();

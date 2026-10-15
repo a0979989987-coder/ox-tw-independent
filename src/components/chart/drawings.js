@@ -106,7 +106,7 @@ window.OXChartDrawings = function mountChartDrawings({box,chartEl,state,market='
     return distance(x,y,...segment(d));
   }
   function nearest(x,y,touch=false){let best=null,min=touch?20:9;for(const d of [...current()].reverse()){if(!visible(d))continue;const dist=hit(d,x,y);if(dist<min){min=dist;best=d;}if(d.id===selectedId){const a=pointXY(d.a),b=pointXY(d.b);if(Math.min(Math.hypot(x-a.x,y-a.y),Math.hypot(x-b.x,y-b.y))<(touch?22:11))return d;}}return best;}
-  function label(ctx,text,x,y){ctx.font='11px system-ui';const w=ctx.measureText(text).width+12;x=Math.max(4,Math.min(width-w-4,x));y=Math.max(17,Math.min(height-5,y));ctx.fillStyle=document.body.classList.contains('theme-light')?'#ffffffee':'#171b22ee';ctx.fillRect(x,y-15,w,20);ctx.fillStyle=document.body.classList.contains('theme-light')?'#25374a':'#f3f1e9';ctx.fillText(text,x+6,y);}
+  function label(ctx,text,x,y){ctx.font='11px system-ui';const w=ctx.measureText(text).width+12;x=Math.max(4,Math.min(width-w-4,x));y=Math.max(17,Math.min(height-5,y));ctx.fillStyle=document.body.classList.contains('theme-light')?'#ffffffee':document.body.classList.contains('theme-midnight')?'#1B2433ee':'#171b22ee';ctx.fillRect(x,y-15,w,20);ctx.fillStyle=document.body.classList.contains('theme-light')?'#25374a':'#f3f1e9';ctx.fillText(text,x+6,y);}
   function render(ctx,d,ghost=false){
     const a=pointXY(d.a),b=pointXY(d.b);if(![a.x,a.y,b.x,b.y].every(Number.isFinite))return;
     ctx.strokeStyle=colorOf(d);ctx.fillStyle=colorOf(d);ctx.lineWidth=d.width||2;ctx.setLineDash(d.dash==='dashed'?[8,5]:d.dash==='dotted'?[2,4]:[]);

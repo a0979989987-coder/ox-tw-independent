@@ -54,7 +54,7 @@ export function initShell({navigate,refresh,setTheme}){
   ['release','即將出關','出關 處置','radar','[data-twr-mode="release"]'],
   ['watch','自選清單','收藏 觀察 watchlist','radar','[data-twr-mode="watchlist"]'],
   ['news','新聞與行事曆','資訊 財經 事件 news calendar','data'],
-  ['theme','主題外觀','深色 白金 自動 theme','theme']
+  ['theme','主題外觀','深色 白金 午夜墨 自動 midnight theme','theme']
  ];
  const search=document.createElement('div');search.id='ox-feature-search-v38';search.className='ox-feature-search-wrap';
  search.innerHTML='<div class="ox-feature-search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.4-3.4"/></svg><input id="ox-feature-search-input-v38" type="search" autocomplete="off" placeholder="搜尋功能或工具…" aria-label="搜尋 OX 功能或工具" aria-controls="ox-feature-results-v38" aria-expanded="false"></div><div class="ox-feature-results" id="ox-feature-results-v38"></div>';

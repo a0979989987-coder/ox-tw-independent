@@ -45,3 +45,9 @@ body[data-market="tw"]{min-height:100dvh}
 body.theme-light .tw-stock-shortcut{background:#f8f9fa;color:#303842;box-shadow:0 12px 55px #35404a30}
 /* Match the crypto dock within the safe viewport (no viewport-fit=cover). */
 @media(max-width:620px){body.ox-terminal[data-market="tw"] .app-dock.glass-nav{bottom:9px!important}}
+
+/* Theme switch (app.js): a ~240ms cross-fade between themes; browsers without
+   view transitions fade colours instead. Nothing moves with reduced motion. */
+:root.ox-theme-transition::view-transition-old(root),:root.ox-theme-transition::view-transition-new(root){animation-duration:240ms;animation-timing-function:cubic-bezier(.2,.7,.2,1)}
+:root.ox-theme-fading,:root.ox-theme-fading *,:root.ox-theme-fading *::before,:root.ox-theme-fading *::after{transition:background-color .24s ease,border-color .24s ease,color .24s ease,fill .24s ease,stroke .24s ease,box-shadow .24s ease!important}
+@media(prefers-reduced-motion:reduce){:root.ox-theme-transition::view-transition-old(root),:root.ox-theme-transition::view-transition-new(root){animation:none}}

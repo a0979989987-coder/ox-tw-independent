@@ -5,9 +5,11 @@ import {calculate,parseReport,parseWeights,taipeiClock,tradingDates} from '../se
 import {parseMarket,parseTreasury,retainMarket,collectBriefing,MARKETS} from '../server/markets/tw/home-markets.js';
 import {parseNight,collectNight} from '../server/markets/tw/home-night.js';
 import {collectCore,refreshHomeSection,getHomeSection} from '../server/markets/tw/home-provider.js';
-import {validCloseReport,validBriefing,validNight,acceptHomeSection,withOfficialTaiwanClose,homeRefreshDue} from '../src/markets/tw/home-model.js';
+import {validCloseReport,validBriefing,validNight,acceptHomeSection,withOfficialTaiwanClose,homeRefreshDue,currentBriefing,RETIRED_BRIEFING_IDS} from '../src/markets/tw/home-model.js';
 import {coreContent,briefingContent} from '../src/markets/tw/home-content.js';
-const seed=JSON.parse(await readFile(new URL('../data/tw-home.json',import.meta.url),'utf8'));
+const raw=JSON.parse(await readFile(new URL('../data/tw-home.json',import.meta.url),'utf8'));
+// The committed snapshot may predate the removal of the US/FX sections.
+const seed={...raw,briefing:currentBriefing(raw.briefing)};
 const weights={date:'2026-09-18',rows:Array.from({length:12},(_,i)=>({rank:i+1,code:String(2000+i),name:'Stock '+i,weight:i===0?.3:.01}))};
 const report=(date,indexClose,indexChange,price)=>({date,indexClose,indexChange,stocks:new Map(weights.rows.map(w=>[w.code,{name:w.name,close:price}]))});
 test('morning Taiwan index uses the verified prior cash close without admitting report-day or invalid data',()=>{
@@ -35,7 +37,7 @@ test('Asia ignores report-day intraday quotes, walks holiday gaps and compares t
  const asia=parseMarket(raw,'TEST',345601,'1970-01-05');assert.equal(asia.value,100);assert.equal(asia.marketDate,'1970-01-02');assert.equal(asia.comparisonDate,'1970-01-01');assert.equal(asia.quoteKind,'previous-close');assert.equal(asia.quotedAt,null);
  const current=parseMarket(raw,'TEST',345601);assert.equal(current.previousClose,100);assert.throws(()=>parseMarket(raw,'WRONG',345601),/代號/);
  raw.chart.result[0].meta.fulldayPrice=999;raw.chart.result[0].meta.fulldayChange=2;assert.equal(parseMarket(raw,'TEST',345601).change,2);
- assert.equal(MARKETS.length,20);assert.equal(new Set(MARKETS.map(m=>m[2])).size,20);
+ assert.equal(MARKETS.length,14);assert.equal(new Set(MARKETS.map(m=>m[2])).size,14);
 });
 test('USD/JPY accepts the source canonical alias only with JPY currency and rejects reversed or unrelated symbols',()=>{
  const meta={symbol:'USDJPY=X',currency:'JPY',exchangeTimezoneName:'UTC',regularMarketTime:86400,regularMarketPrice:158};
@@ -106,7 +108,7 @@ test('briefing accepts quotes acquired after collection starts, while rejecting 
   const stamp=Math.floor(start.getTime()/1000)+(id==='^VIX'?31:20);
   return {chart:{result:[{meta:{symbol:id,regularMarketTime:stamp,regularMarketPrice:110,previousClose:100,exchangeTimezoneName:'UTC'},timestamp:[stamp-3*86400,stamp-2*86400,stamp],indicators:{quote:[{close:[90,100,110]}]}}]}};
  },text:async()=>'<feed/>'});
- const r=await collectBriefing(null,start,read,()=>received),fx=r.rows.find(row=>row.id==='JPY=X'),future=r.rows.find(row=>row.id==='^VIX');
+ const r=await collectBriefing(null,start,read,()=>received),fx=r.rows.find(row=>row.id==='TWD=X'),future=r.rows.find(row=>row.id==='^VIX');
  assert.equal(fx.status,'ok');assert.equal(fx.value,110);assert.equal(fx.collectedAt,received.toISOString());assert.equal(future.status,'unavailable');assert.match(future.error,/時間超出/);
 });
 test('home renders only one actual change field, estimates, independent dates, native market groups and bp/units',()=>{
@@ -171,4 +173,22 @@ test('market source dates and pending close publication are visible independentl
  assert(html.includes('行情 '+us.marketDate));assert(html.includes('擷取 '));
  const pending=coreContent({...seed,coreStatus:{message:'今日收盤尚未公布，顯示最近完整交易日'}},false);
  assert(pending.includes('今日收盤尚未公布，顯示最近完整交易日'));
+});
+
+test('homepage no longer has US-equity or FX sections; legacy snapshots drop retired quotes',async()=>{
+ // Fixed copy of a real home snapshot saved before the removal (22 rows).
+ const raw=JSON.parse(await readFile(new URL('./fixtures/tw-home-sample.json',import.meta.url),'utf8'));
+ assert.ok(raw.briefing.rows.some(row=>RETIRED_BRIEFING_IDS.includes(row.id)),'fixture predates the removal');
+ const seed={...raw,briefing:currentBriefing(raw.briefing)};
+ const html=briefingContent(seed,false);
+ assert(!html.includes('美國股市'));assert(!html.includes('外匯市場'));
+ for(const id of RETIRED_BRIEFING_IDS)assert(!html.includes(`data-market-row="${id}"`));
+ assert(!MARKETS.some(m=>RETIRED_BRIEFING_IDS.includes(m[2])));
+ // Inputs of the pre-market summary are still collected.
+ for(const id of ['^GSPC','^SOX','TSM','TWD=X'])assert(MARKETS.some(m=>m[2]===id),id);
+ for(const name of ['亞洲市場','市場指標','商品市場','美國公債殖利率'])assert(html.includes(name),name);
+ assert(validBriefing(currentBriefing(raw.briefing)));
+ const legacy={...seed.briefing,rows:[...seed.briefing.rows,{group:'fx',name:'USD/JPY',id:'JPY=X',value:150,status:'ok',marketDate:seed.briefing.date}]};
+ const accepted=acceptHomeSection('briefing',legacy);
+ assert(!accepted.rows.some(r=>RETIRED_BRIEFING_IDS.includes(r.id)));assert(validBriefing(accepted));
 });

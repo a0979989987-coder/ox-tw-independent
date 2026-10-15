@@ -4,8 +4,7 @@ on:
   schedule:
     # Asia/Taipei 14:20 and 17:20, after each market publishes its daily files.
     - cron: '20 6,9 * * 1-5'
-permissions:
-  contents: write
+permissions: {}
 concurrency:
   group: tw-etf-${{ github.ref }}
   cancel-in-progress: false
@@ -13,19 +12,43 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.package.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: node scripts/collect-tw-etf.mjs
       - run: node scripts/collect-tw-etf-extras.mjs
-      - name: Save source snapshots
+      - name: Package changed data
+        id: package
+        env:
+          DATA_PATHS: data/tw-etf
         run: |
-          git add data/tw-etf
-          if git diff --cached --quiet; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data(tw): refresh verified ETF data"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # shellcheck disable=SC2086
+          if [ -z "$(git status --porcelain -- $DATA_PATHS)" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # shellcheck disable=SC2086
+          tar -czf "$RUNNER_TEMP/data-update.tgz" -- $DATA_PATHS
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.package.outputs.changed == 'true'
+        with:
+          name: tw-etf-data
+          path: ${{ runner.temp }}/data-update.tgz
+          retention-days: 1
+          if-no-files-found: error
+  publish:
+    needs: collect
+    if: needs.collect.outputs.changed == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/commit-data.yml
+    with:
+      artifact: tw-etf-data
+      paths: data/tw-etf
+      message: 'data(tw): refresh verified ETF data'

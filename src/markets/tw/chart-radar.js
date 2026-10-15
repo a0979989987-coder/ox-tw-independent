@@ -1,15 +1,20 @@
+// Register chart gesture and drawing helpers with the chart chunk itself.
+import '../../components/chart/gestures.js';
+import '../../components/chart/drawings.js';
 import { evaluateClassic, compareClassic } from '../../core/classic.js?v=20261002-rank8';
 import { classicTWRow } from './classic.js?v=20261002-rank8';
 import {patternFrameTier} from './timeframe-tiers.js?v=20261002-rank8';
-import {FRAME_LABELS} from './patterns/model.js';
+import {FRAME_LABELS,sessionFrameNote} from './patterns/model.js';
 import { rankChartRows, chartUniverse } from './chart-radar-model.js?v=20261002-radarkeep1';
 import { escapeTW as esc } from './radar-card.js';
 import { savedResearch } from './research-data.js?v=20261001-twhome1';
-import { bundleState, bundleEntry, bundleClassification, subscribeBundle, preloadBundle, awaitBundleSymbol } from './patterns/bundle.js?v=20261005-load16';
+import { bundleState, bundleEntry, bundleClassification, subscribeBundle, preloadBundle, awaitBundleSymbol, HISTORY_FRAMES } from './patterns/bundle.js?v=20261005-load16';
+import { historyLoader, priorityPlan } from './patterns/chunk-loader.js?v=20261015-chunks1';
 import { fetchSeries } from './patterns/source.js?v=20261002-rank8';
 import { CHART_FRAMES, aggregateChartCandles, stockDetails, chartTickFormatter } from './chart-data.js?v=20261001-loading1';
 import { radarPart, attachRadarStyles } from '../../components/radar/market-workspace.js';
 import { chartHistory, loadHistoryPage, preserveHistoryViewport, mergeDailyHistory } from './chart-history.js?v=20261001-tiercomb1';
+import { activeTheme, MIDNIGHT_INK as INK } from '../../components/theme-palette.js';
 const UP='#f16a70',DOWN='#48b78e';
 const num=n=>Number.isFinite(n)?n.toLocaleString('zh-TW',{maximumFractionDigits:2}):'—';
 const change=n=>Number.isFinite(n)?`${n>=0?'+':''}${n.toFixed(2)}%`:'—';
@@ -96,7 +101,14 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
  }
  function status(message){const node=$('.twcr-status');if(/載入中|正在載入/.test(message)&&window.OXLoading)OXLoading.render(node,message,0,1);else node.textContent=message;node.classList.toggle('show',!!message);}
  const tierFilters=window.OXTierFilters?.mount($('[data-tw-tier-filter]'),{market:'tw',frames:Object.entries(FRAME_LABELS).map(([id,label])=>({id,label})),signal:life.signal});
- listen(document,'ox:timeframe-tier-change',event=>{if(event.detail.market==='tw'){renderList();preloadBundle().catch(()=>{});}});
+ // A time combination with 2W or 1M downloads the weekly/monthly history files
+ // (radar stocks first); other combinations never do.
+ function ensureTierHistory(){
+  const config=window.OXTierFilters?.get('tw');
+  if(!config?.enabled||!config.rules.some(rule=>HISTORY_FRAMES.includes(rule.frame)))return;
+  historyLoader().start({priority:priorityPlan({candidates:universe().map(row=>({symbol:row.symbol,tier:Number(String(row.tier||'').slice(1))||3}))})}).catch(()=>{});
+ }
+ listen(document,'ox:timeframe-tier-change',event=>{if(event.detail.market==='tw'){renderList();preloadBundle().catch(()=>{});ensureTierHistory();}});
  const cardNodes=new Map();
  function renderSearch(){
   const value=$('.twcr-search-dialog input').value.trim().toLowerCase(),stocks=universe().filter(r=>`${r.symbol} ${r.name}`.toLowerCase().includes(value)),rows=stocks.slice(0,60);
@@ -167,8 +179,9 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
  function getRange(){const h=el.clientHeight-state.chart.timeScale().height(),maxValue=state.candleSeries.coordinateToPrice(0),minValue=state.candleSeries.coordinateToPrice(h-1);return Number.isFinite(maxValue)&&maxValue>minValue?{minValue,maxValue}:null;}
  function setRange(range){const margins=state.chart.priceScale('right').options().scaleMargins,h=el.clientHeight-state.chart.timeScale().height(),span=range.maxValue-range.minValue;state.chartPriceViewport={minValue:range.minValue+span*h*margins.bottom/(h-1),maxValue:range.maxValue-span*h*margins.top/(h-1)};refreshRange();}
  function syncChartTheme(){
-  const light=document.body.classList.contains('theme-light');
-  state.chart?.applyOptions({layout:{background:{color:light?'#ffffff':'#101216'},textColor:light?'#616d7c':'#a9abb1'},grid:{horzLines:{color:light?'#94a3b81a':'#ffffff12'}},timeScale:{borderColor:light?'#d7dee7':'#ffffff1a'},rightPriceScale:{borderColor:light?'#d7dee7':'#ffffff1a'},crosshair:{vertLine:{labelBackgroundColor:light?'#8d712e':'#4c525e'},horzLine:{labelBackgroundColor:light?'#8d712e':'#4c525e'}}});
+  const theme=activeTheme(),light=theme==='light',ink=theme==='midnight';
+  const pick=(l,m,d)=>light?l:ink?m:d,axis=pick('#d7dee7',INK.line,'#ffffff1a'),label=pick('#8d712e',INK.raised,'#4c525e');
+  state.chart?.applyOptions({layout:{background:{color:pick('#ffffff',INK.surface,'#101216')},textColor:pick('#616d7c',INK.sub,'#a9abb1')},grid:{horzLines:{color:pick('#94a3b81a',INK.grid,'#ffffff12')}},timeScale:{borderColor:axis},rightPriceScale:{borderColor:axis},crosshair:{vertLine:{color:pick('#9598A1','#6E7685','#9598A1'),labelBackgroundColor:label},horzLine:{color:pick('#9598A1','#6E7685','#9598A1'),labelBackgroundColor:label}}});
   if(state.candleData.length)levels();
   const up=light?'#d34260':UP,down=light?'#16876a':DOWN;
   state.candleSeries?.applyOptions({upColor:up,downColor:down,borderUpColor:up,borderDownColor:down,wickUpColor:up,wickDownColor:down});
@@ -181,7 +194,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   state.candleSeries=state.chart.addCandlestickSeries({upColor:UP,downColor:DOWN,borderUpColor:UP,borderDownColor:DOWN,wickUpColor:UP,wickDownColor:DOWN,autoscaleInfoProvider:provider});
   state.volumeSeries=state.chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'volume',lastValueVisible:false,priceLineVisible:false});state.chart.priceScale('volume').applyOptions({scaleMargins:{top:matchMedia('(max-width:720px)').matches ? .88 : .85,bottom:0},visible:false});
   gestures=window.OXChartGestures?.({container:el,state,formatPrice:num,getRange,setRange,refreshRange,isDrawing:()=>el.querySelector('.chart-drawing-layer.is-editing')});
-  drawings=window.OXChartDrawings?.({box,chartEl:el,state,market:'tw',isExpanded:()=>focus});syncChartTheme();return true;
+  drawings=window.OXChartDrawings?.({box,chartEl:el,state,market:'tw',isExpanded:()=>focus});el.querySelector('#tv-attr-logo')?.setAttribute('aria-label','TradingView 圖表技術來源');syncChartTheme();return true;
  }
  function levels(){
   for(const line of levelLines)state.candleSeries?.removePriceLine(line);levelLines=[];
@@ -209,7 +222,8 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   }else if(range)state.chart.timeScale().setVisibleLogicalRange(preserveHistoryViewport(previous,candles,range));
   refreshRange();levels();drawings?.sync();
   const span=candles.length?`${candles[0].date} ～ ${candles.at(-1).lastDate||candles.at(-1).date}`:'尚無已完成 K 線';
-  $('[data-series-note]').textContent=`${CHART_FRAMES[frame]} K · ${candles.length} 根${frame==='1D'?'':'已完成 K 線'} · ${span} · 未復權`;
+  const sessionNote=sessionFrameNote(frame,candles.at(-1)?.lastDate||candles.at(-1)?.date);
+  $('[data-series-note]').textContent=`${CHART_FRAMES[frame]} K · ${candles.length} 根${frame==='1D'?'':'已完成 K 線'} · ${span} · 未復權${sessionNote?' · '+sessionNote:''}`;
   $('[data-history-status]').textContent=record.error?'歷史載入暫停，已載入資料保留':record.complete?'官方可取得歷史已全部載入':`正在補載歷史 · 已查至 ${record.coverageStart}`;
   $('[data-history-status]').title=record.error?.message||'';
   $('[data-action="history-retry"]').hidden=!record.error;
@@ -298,6 +312,6 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
  listen(document,'keydown',event=>{if(event.key==='Escape'){if($('.twcr-search-dialog').open){closeSearch();return;}menu(false);closeTools();if(focus)setFocus(false);}});
  listen(document,'ox:tw-close-refresh',()=>{renderList();refreshSelectedCandle().catch(()=>{});});
  const unsubscribe=subscribeBundle(()=>{renderList();if(symbol)refreshSelectedCandle().catch(()=>{});else{const first=rankChartRows(universe(),{side})[0]||universe()[0];if(first)openSymbol(first.symbol);}});
- renderList();const initial=rankChartRows(universe(),{side})[0]||universe()[0];if(initial)openSymbol(initial.symbol);else preloadBundle().catch(()=>{});
+ renderList();ensureTierHistory();const initial=rankChartRows(universe(),{side})[0]||universe()[0];if(initial)openSymbol(initial.symbol);else preloadBundle().catch(()=>{});
  return {openSymbol,update(next){marketState=next;renderList();if(symbol)refreshSelectedCandle().catch(()=>{});else{const first=rankChartRows(universe(),{side})[0]||universe()[0];if(first)openSymbol(first.symbol);}},destroy(){tierFilters?.destroy();life.abort();serial++;controller?.abort();clearTimeout(holdTimer);unsubscribe();scannerSize.disconnect();releaseStyles();document.body.classList.remove('tw-chart-focus');gestures?.destroy();drawings?.destroy();state.chart?.remove();host.textContent='';}};
 }

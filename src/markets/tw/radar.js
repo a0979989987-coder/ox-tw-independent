@@ -1,5 +1,6 @@
 import {releaseRangeRows} from './release-range.js';
-import { mountTWChartRadar } from './chart-radar.js?v=20261007-tools2';
+import { showToolLoadError } from '../../components/tool-load-error.js?v=20261005-recovery20';
+import { loadChunk } from '../../components/load-tool-module.js?v=20261005-recovery20';
 import { radarAvailability } from './recovery.js?v=20261005-recovery20';
 import { TW_RADAR_MODES, normalizeTWStockCard, rowsForTWMode, renderTWStockCard } from "./radar-card.js";
 import { observeTWMiniCandles, resetTWMiniCandles, openTWStockDetail } from "./radar-candles.js?v=20261005-weeklist4";
@@ -121,17 +122,31 @@ function activeModeRows(state, rows, watchlist) {
   return rowsForTWMode(state,activeMode,rows,watchlist);
 }
 let chartRadar=null,latestRadarState=null,pendingChartSymbol=null;
+// The K-line radar (chart, drawing tools, gestures) is a separate chunk loaded
+// the first time the 雷達 tab opens; the first screen is the official lists.
+let chartRadarModule=null,chartRadarJob=null;
+function loadChartRadar(){
+  return chartRadarJob??=loadChunk(new URL('./chart-radar.js?v=20261007-tools2',import.meta.url),()=>import('./chart-radar.js?v=20261007-tools2')).then(module=>chartRadarModule=module).catch(error=>{chartRadarJob=null;throw error;});
+}
 const RADAR_MODES = [...TW_RADAR_MODES.filter(mode => mode.id !== 'watchlist'), { id: "screener", label: "篩選器" }, ...TW_RADAR_MODES.filter(mode => mode.id === 'watchlist')];
 let screener=null, screenerHost=null, screenerGeneration=0;
 function stopScreener(){++screenerGeneration;screener?.destroy();screener=null;screenerHost=null;}
 async function showScreener(host){
   if(screenerHost===host)return;
   stopScreener();screenerHost=host;const generation=screenerGeneration;
-  host.textContent="篩選器載入中…";
-  try{const {mountScreener}=await import("./screener/view.js?v=20261005-stable18");
+  if(window.OXLoading?.skeleton)OXLoading.skeleton(host,"篩選器載入中","cards");else host.textContent="篩選器載入中…";
+  try{const {mountScreener}=await loadChunk(new URL("./screener/view.js?v=20261005-stable18",import.meta.url),()=>import("./screener/view.js?v=20261005-stable18"));
     if(generation!==screenerGeneration||activeMode!=="screener"||!host.isConnected)return;
     host.replaceChildren();screener=mountScreener(host,{onOpenRadar(symbol){document.dispatchEvent(new CustomEvent("ox:tw-chart-symbol",{detail:{symbol}}));}});
-  }catch{if(generation===screenerGeneration){host.textContent="篩選器暫時無法載入";screenerHost=null;}}
+  }catch(error){if(generation===screenerGeneration){screenerHost=null;showToolLoadError(host,error,()=>{if(activeMode==="screener"&&host.isConnected)showScreener(host);},{title:"篩選器暫時無法載入"});}}
+}
+// Placeholder cards keep the list geometry while the snapshot or API loads.
+function radarSkeleton(count = 6) {
+  return `<div class="twr-skeleton" role="status" aria-busy="true" aria-label="正在載入台股名單">${'<div class="twr-skeleton-card" aria-hidden="true"><i></i><i></i><i></i></div>'.repeat(count)}</div>`;
+}
+// Shown only after both the published snapshot and the live API failed.
+function radarUnavailable() {
+  return '<div class="twr-empty" role="status">台股資料暫時無法取得，請確認網路後重新載入。<button type="button" class="twr-retry" data-twr-retry>重新載入</button></div>';
 }
 export function stopTWRadar(){stopScreener();chartRadar?.destroy();chartRadar=null;pageObserver?.disconnect();modeResizeObserver?.disconnect();resetTWMiniCandles();}
 if(typeof document!=='undefined')document.addEventListener('ox:tw-chart-symbol',event=>{if(!/^\d{4}$/.test(event.detail?.symbol))return;activeMode='chart';pendingChartSymbol=event.detail.symbol;if(document.body.dataset.market==='tw'&&document.body.dataset.view==='radar')renderTWRadar(latestRadarState);});
@@ -3025,7 +3040,16 @@ function refreshRadarDataUI(
   if(screenerHost)stopScreener();
   if(activeMode==='chart'){
     pageObserver?.disconnect();resetTWMiniCandles();if(resultsPanel)resultsPanel.hidden=true;if(marketScan)marketScan.hidden=true;
-    if(!chartRadar)chartRadar=mountTWChartRadar(chartHost,{state,watchlist});else chartRadar.update(state);
+    if(!chartRadarModule){
+      if(chartHost.dataset.loading)return;
+      chartHost.dataset.loading='1';
+      if(window.OXLoading?.skeleton)OXLoading.skeleton(chartHost,'載入 K 線雷達','chart');else chartHost.textContent='K 線雷達載入中…';
+      const resume=()=>{if(activeMode==='chart'&&root.isConnected)refreshRadarDataUI(root,latestRadarState||state,watchlist);};
+      loadChartRadar().then(()=>{delete chartHost.dataset.loading;chartHost.replaceChildren();resume();},
+        error=>{delete chartHost.dataset.loading;if(chartHost.isConnected)showToolLoadError(chartHost,error,resume);});
+      return;
+    }
+    if(!chartRadar)chartRadar=chartRadarModule.mountTWChartRadar(chartHost,{state,watchlist});else chartRadar.update(state);
     if(pendingChartSymbol){chartRadar.openSymbol(pendingChartSymbol);pendingChartSymbol=null;}
     return;
   }
@@ -3118,7 +3142,9 @@ function refreshRadarDataUI(
     && activeMode === "classic"
   ) {
 
-    list.innerHTML = `<div class="twr-empty"><b>${state?.status === "error" ? "資料載入失敗" : state?.status === "loading" ? "資料載入中" : "尚無台股行情"}</b>請稍後重試。</div>`;
+    list.innerHTML = availability.loading ? radarSkeleton()
+      : availability.unavailable ? radarUnavailable()
+      : `<div class="twr-empty"><b>尚無台股行情</b>請稍後重試。</div>`;
 
     return;
   }
@@ -3139,7 +3165,9 @@ function refreshRadarDataUI(
       const meta = state?.data?.radarModesMeta?.[activeMode];
       const loading = activeMode !== "watchlist" && availability.loading && !meta;
       if (loading) {
-        list.innerHTML = '<div class="twr-empty" role="status">官方名單更新中，取得股票後即顯示。</div>';
+        list.innerHTML = radarSkeleton();
+      } else if (activeMode !== "watchlist" && (availability.unavailable || meta?.status === "error")) {
+        list.innerHTML = radarUnavailable();
       } else {
         const message = activeMode === "watchlist" ? "尚未收藏股票。點選股票卡片右上角的星星即可加入自選。"
           : availability.unavailable || meta?.status === "error" ? "台股資料暫時無法取得，請確認網路後重新載入。"
@@ -4116,6 +4144,11 @@ export function renderTWRadar(
       );
 
   root.querySelector('[data-twr-scan]')?.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('ox:tw-retry'));
+  });
+  root.querySelector('#twr-list')?.addEventListener('click', event => {
+    if (!event.target.closest('[data-twr-retry]')) return;
+    event.target.closest('[data-twr-retry]').disabled = true;
     document.dispatchEvent(new CustomEvent('ox:tw-retry'));
   });
 

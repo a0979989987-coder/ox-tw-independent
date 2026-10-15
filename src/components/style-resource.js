@@ -6,8 +6,14 @@ export function createStyleLoader(fetcher = fetch, timeoutMs = 15000) {
     // Published tools carry their exact CSS in the same versioned runtime.
     // Shadow DOM no longer waits for three independent network requests.
     const parsed = new URL(url), start = parsed.pathname.indexOf('/src/');
-    const embedded = globalThis.OXStyleTexts?.[start < 0 ? parsed.pathname : parsed.pathname.slice(start)];
-    if (typeof embedded === 'string' && parsed.origin === globalThis.location?.origin) return Promise.resolve(embedded);
+    const key = start < 0 ? parsed.pathname : parsed.pathname.slice(start);
+    const embedded = globalThis.OXStyleTexts?.[key];
+    const local = parsed.origin === globalThis.location?.origin;
+    if (typeof embedded === 'string' && local) return Promise.resolve(embedded);
+    // Published builds ship tool styles as one lazy chunk loaded with the first
+    // tool; wait for it rather than downloading each stylesheet a second time.
+    if (local && globalThis.OXToolStylePaths?.includes(key) && globalThis.OXLoadToolStyles && !failed.has(url))
+      return globalThis.OXLoadToolStyles().then(() => typeof globalThis.OXStyleTexts?.[key] === 'string' ? globalThis.OXStyleTexts[key] : (failed.add(url), loadStyle(href)), () => { failed.add(url); return loadStyle(href); });
     if (!resources.has(url)) {
       const task = withDeadline(async signal => {
         const response = await fetcher(url, { signal, cache: failed.has(url) ? 'reload' : 'default', priority: 'high' });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,readdir} from 'node:fs/promises';
 import {gunzipSync} from 'node:zlib';
 import {createHash} from 'node:crypto';
 import {Worker as ThreadWorker} from 'node:worker_threads';
@@ -61,7 +61,8 @@ test('compatibility fallback yields between timeframes without losing classifica
 test('published runtime requests the exact content-versioned worker',async()=>{
   const worker=await readFile(new URL('../dist/client/src/generated/tw-bundle-worker.js',import.meta.url));
   const version=createHash('sha256').update(worker).digest('hex').slice(0,12);
-  const runtime=await readFile(new URL('../dist/client/src/generated/runtime.js',import.meta.url),'utf8');
+  const dir=new URL('../dist/client/src/generated/app/chunks/',import.meta.url);
+  const runtime=(await Promise.all((await readdir(dir)).map(name=>readFile(new URL(name,dir),'utf8')))).join('\n');
   assert(runtime.includes('tw-bundle-worker.js?v='+version));
   assert(!runtime.includes('tw-bundle-worker.js?v=20261012-startup2'));
 });

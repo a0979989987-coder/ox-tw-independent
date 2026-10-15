@@ -117,3 +117,10 @@
 .px-local-loading .ox-loading{display:flex;gap:0}
 .px-local-loading .ox-loading-ring{width:12px;height:12px;border-width:1.5px}
 .px-local-loading .ox-loading-count,.px-local-loading .ox-loading-label{display:none}
+/* Whole-market background loading: a compact pill in the status row. */
+.px-market-pill{pointer-events:auto;flex:none;display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 9px;border:1px solid #ffffff30;border-radius:999px;background:#ffffff08;color:#b6bab8;font-size:10px;line-height:1.4;white-space:nowrap;font-variant-numeric:tabular-nums}
+.px-market-pill:disabled{opacity:1}.px-market-pill:not(:disabled){color:#eceee8;border-color:#ffffff6b}
+.px-market-pill .ox-loading-ring{width:10px;height:10px;border-width:1.5px}.px-market-pill:not(.is-loading) .ox-loading-ring{display:none}
+.px-status-row.is-compact :is(.px-status,.px-local-loading){display:none}
+/* Coarse pointers: invisible hit areas of at least 44px; looks unchanged. */
+@media(pointer:coarse){.px-icon,.px-control{position:relative;inset:auto}.px-icon::after,.px-refresh-pill::after{content:"";position:absolute;inset:min(0px,calc(50% - 22px))}.px-control::after{content:"";position:absolute;left:0;right:0;top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}}

@@ -107,6 +107,10 @@ export function bubbleLayout(sectors, mode = 'day', { density = 'all', zoom = 1,
 }
 // Move the existing annotations with the viewport. Text and circle sizes stay
 // readable; observed values, scales and replay membership remain unchanged.
+// True when the layout is already drawn at this zoom/pan (zoomBubbleLayout would be a no-op).
+export function bubbleViewMatches(layout, { zoom = 1, panX = 0, panY = 0 } = {}) {
+  return layout.z === clamp(zoom, 1, 8) && layout.cx === (layout.width || 480) / 2 + panX && layout.cy === (layout.height - 6) / 2 + panY;
+}
 export function zoomBubbleLayout(layout, { zoom = 1, panX = 0, panY = 0 } = {}) {
   const z = clamp(zoom, 1, 8), cx = (layout.width || 480) / 2 + panX, cy = (layout.height - 6) / 2 + panY;
   const ratio = z / layout.z;

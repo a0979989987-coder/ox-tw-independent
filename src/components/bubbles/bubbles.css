@@ -25,7 +25,7 @@
 .direction-toggle-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;font-size:16px;line-height:1;transition:color .28s,text-shadow .28s}
 .oxb-direction:hover .direction-toggle-icon,.oxb-direction:focus-visible .direction-toggle-icon,.oxb-direction:active .direction-toggle-icon{text-shadow:0 0 6px currentColor}
 .oxb-stage{position:relative;background:radial-gradient(ellipse at 50% 40%,#1a2022,#0c1012 85%);isolation:isolate}
-.oxb canvas{display:block;width:100%;height:clamp(460px,64dvh,650px);touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.oxb canvas{display:block;width:100%;height:clamp(460px,64dvh,650px);touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
 .oxb canvas:active{cursor:grabbing}
 .oxb-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;font-size:12px;color:#aeb9b8;pointer-events:none}
 .oxb-empty[hidden]{display:none}
@@ -72,3 +72,5 @@
 :is(#ox-control-close,button):is([aria-label*="關閉"],[aria-label="返回上一層"],[data-close],[data-twr-close],.close-btn,.modal-close,.ox-provider-close,.ox-control-close,.chart-tools-close)::after{content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:18px!important;height:1.5px!important;border:0!important;border-radius:1px!important;background:currentColor!important;box-shadow:none!important;transform:translate(-50%,-50%) rotate(45deg)!important;opacity:1!important;pointer-events:none}
 :is(#ox-control-close,button):is([aria-label*="關閉"],[aria-label="返回上一層"],[data-close],[data-twr-close],.close-btn,.modal-close,.ox-provider-close,.ox-control-close,.chart-tools-close)::after{transform:translate(-50%,-50%) rotate(-45deg)!important}
 :is(#ox-control-close,button):is([aria-label*="關閉"],[aria-label="返回上一層"],[data-close],[data-twr-close],.close-btn,.modal-close,.ox-provider-close,.ox-control-close,.chart-tools-close):focus-visible{outline:2px solid currentColor!important;outline-offset:2px}
+/* Coarse pointers: invisible hit areas of at least 40-44px; looks unchanged. */
+@media(pointer:coarse){.oxb-zoom button,.oxb-direction{position:relative;inset:auto}.oxb-zoom button::after{content:"";position:absolute;left:0;right:0;top:min(0px,calc(50% - 20px));bottom:min(0px,calc(50% - 20px))}.oxb-direction::after{content:"";position:absolute;inset:min(0px,calc(50% - 22px))}}

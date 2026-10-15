@@ -1,9 +1,10 @@
 import {createEventIdentity,eventIdentityInfo} from './event-identity.js';
 import { createToolsRail } from '../strength/tools-rail.js?v=20261005-stable18';
 import { MARKET_NAMES, CATEGORY_NAMES, MARKET_CATEGORIES, TIME_CHOICES, sourceName } from './config.js?v=20261005-calendar11';
-import { defaultState, taipeiDay, formatNewsTime as fmt, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays } from './model.js?v=20261005-load16';
+import { defaultState, taipeiDay, formatNewsTime as fmt, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays , newsRangeStart } from './model.js?v=20261005-load16';
 import { macroResult, macroValue } from './macro.js?v=20261005-macro1';
 import { node, button, anchoredPanel, modal } from './layers.js';
+import { feedNeedsMore } from './feed-pages.js';
 const weekdayFormatter = new Intl.DateTimeFormat('zh-TW', {timeZone:'UTC', weekday:'short'});
 const label = item => item.titleZh || item.title || '標題資料未提供';
 const calendarTone = category => ({ macro: 'red', regulation: 'red', unlock: 'yellow', 'dividend-preview': 'yellow', payment: 'yellow', dividend: 'green', earnings: 'blue', exchange: 'blue', listing: 'blue', network: 'blue', governance: 'green', airdrop: 'green', burn: 'gray', holiday: 'gray' }[category] || 'gray');
@@ -241,13 +242,18 @@ export function mountNewsWorkspace(host, api) {
   function renderNews() {
     const base = baseItems(), prefs = api.preferences(); let items = filterNews(base, state);
     if (state.reader === 'unread') items = items.filter(i => !(prefs.read || []).includes(i.id)); if (state.reader === 'following') items = items.filter(i => (prefs.followedSources || []).includes(i.sourceId));
-    const range = node('div', 'oxn-news-range'); range.append(node('span', '', `${items.length} 篇・台北時間`), node('span', '', data.snapshot.generatedAt ? `快照 ${fmt(data.snapshot.generatedAt)}` : '快照時間未提供')); content.append(range);
+    // Paged feed: older pages load when the selected dates reach past them.
+    const paging = data.snapshot.feedPaging, loadingOlder = feedNeedsMore(paging, newsRangeStart(state));
+    if (loadingOlder) api.ensureFeedRange?.(newsRangeStart(state));
+    const range = node('div', 'oxn-news-range'); range.append(node('span', '', loadingOlder ? `已載入 ${items.length} 篇・較早新聞載入中・台北時間` : `${items.length} 篇・台北時間`), node('span', '', data.snapshot.generatedAt ? `快照 ${fmt(data.snapshot.generatedAt)}` : '快照時間未提供')); content.append(range);
     if (state.asset || state.query || state.words.length) { const selected = node('div', 'oxn-active-filters'); selected.append(node('span', '', [state.asset ? ranking(base).find(a => a.id === state.asset)?.name || '資產篩選' : '', state.query, ...state.words].filter(Boolean).join(' · ')), button('清除', '', () => { state.asset = null; state.query = ''; state.words = []; persist(); renderControls(); renderContent(); })); content.append(selected); }
     const list = node('div', 'oxn-news-list'); for (const item of items.slice(0, state.limit)) list.append(newsRow(item, prefs));
     if (!items.length) list.append(node('p', 'oxn-empty', !state.times.length || state.sources?.length === 0 ? '沒有選取時間或來源。可在藥丸中選擇「全部」或恢復預設。' : '已收錄資料中沒有符合條件的新聞。'));
     content.append(list); if (items.length > state.limit) content.append(button(`載入更多（尚有 ${items.length - state.limit} 篇）`, '', () => { state.limit += 40; persist(); renderContent(); }, 'oxn-load-more'));
     const published = [...(data.snapshot.news || []), ...(data.snapshot.pendingNews || [])].filter(i => scope() === 'all' || i.markets?.includes(scope())).map(i => i.publishedAt).sort();
-    content.append(node('p', 'oxn-caption', `${statsText(base)}。${published.length ? `現有文章發布範圍：${fmt(published[0])}～${fmt(published.at(-1))}；來源 RSS 篇數有限，未完整覆蓋所選區間。` : '目前没有本市場來源資料。'}`));
+    // A paged feed reports the published range of the complete snapshot, not just the loaded pages.
+    if (paging && !paging.complete) { published.push(...[paging.index.oldest, paging.index.newest].filter(Boolean)); published.sort(); }
+    content.append(node('p', 'oxn-caption', `${loadingOlder ? '較早新聞載入中，統計將於載入後更新。' : statsText(base) + '。'}${published.length ? `現有文章發布範圍：${fmt(published[0])}～${fmt(published.at(-1))}；來源 RSS 篇數有限，未完整覆蓋所選區間。` : '目前没有本市場來源資料。'}`));
   }
   function newsRow(item, prefs) {
     const row = node('details', 'oxn-news-row'); row.dataset.newsId = item.id;

@@ -1,0 +1,346 @@
+/* Midnight Ink (午夜墨): third theme, loaded only while it is chosen and placed
+   after every other stylesheet. Shared palette with the crypto site:
+   page #0A0E16 · surface #0F1520 / #151C29 · raised #1B2433
+   line rgba(226,232,240,.08) / .16 · text #ECE7DE / #A9B0BC / #6E7685
+   accent (selection, thin borders, focus) #D9C79A · accent wash rgba(217,199,154,.14)
+   Smoked glass = low-opacity surface + thin line; no backdrop blur on phones.
+   Every rule is scoped to :root[data-ox-palette="midnight"] (set in <head> by
+   preferences.js), so the sheet is inert in the other themes. */
+:root[data-ox-palette="midnight"] {
+  --ox-theme-midnight-ready:1;
+  --mi-page:#0A0E16; --mi-s1:#0F1520; --mi-s2:#151C29; --mi-raised:#1B2433;
+  --mi-line:rgba(226,232,240,.08); --mi-line-strong:rgba(226,232,240,.16);
+  --mi-text:#ECE7DE; --mi-sub:#A9B0BC; --mi-weak:#6E7685;
+  --mi-accent:#D9C79A; --mi-accent-wash:rgba(217,199,154,.14);
+  --mi-glass:rgba(15,21,32,.72); --mi-glass-solid:rgba(15,21,32,.96);
+  --mi-hover:rgba(226,232,240,.05);
+  color-scheme:dark;
+  background:var(--mi-page);
+  /* Legacy palette variables used across the editorial and radar sheets. */
+  --bg:#0A0E16; --panel:#0F1520; --panel-alt:#151C29; --ink:#ECE7DE; --muted:#A9B0BC;
+  --line:rgba(226,232,240,.08); --gold:#D9C79A; --gold-dim:rgba(217,199,154,.14);
+  --tier-t1:#D9C79A; --tier-t2:#A9B0BC; --tier-t3:#6E7685;
+}
+:root[data-ox-palette="midnight"] body,
+:root[data-ox-palette="midnight"] body.ox-terminal,
+:root[data-ox-palette="midnight"] body:not(.theme-light) {
+  --bg:#0A0E16; --panel:#0F1520; --panel-alt:#151C29; --ink:#ECE7DE; --muted:#A9B0BC;
+  --line:rgba(226,232,240,.08); --gold:#D9C79A; --gold-dim:rgba(217,199,154,.14);
+  --blue:#A9B0BC; --purple:#A9B0BC; --tier-t1:#D9C79A; --tier-t2:#A9B0BC; --tier-t3:#6E7685;
+  --tw-border:rgba(226,232,240,.08); --tw-muted:#A9B0BC; --tw-soft:#151C29; --tw-card:#0F1520; --tw-card-strong:#151C29;
+  background:var(--mi-page)!important; color:var(--mi-text)!important;
+}
+:root[data-ox-palette="midnight"] ::selection { background:rgba(217,199,154,.32); color:#fff; }
+
+/* Focus ring and press feedback: champagne, thin. */
+:root[data-ox-palette="midnight"] body.ox-terminal :where(button,a,input,select,textarea,summary,[role="button"],[role="tab"],[tabindex]):focus-visible {
+  outline:2px solid var(--mi-accent)!important; outline-offset:2px!important; box-shadow:none;
+}
+
+/* ---- Shell: header, live strip, dock ---- */
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-shell-header {
+  background:rgba(10,14,22,.86)!important; border-color:var(--mi-line)!important; box-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-desktop-nav button { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-desktop-nav button:hover { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-desktop-nav button.active { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-desktop-nav button.active::after { background:var(--mi-accent)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-live-strip { background:var(--mi-glass)!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-live-badge { color:var(--mi-accent)!important; border-color:rgba(217,199,154,.36)!important; background:var(--mi-accent-wash)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .app-dock.glass-nav {
+  background:var(--mi-glass)!important; border:1px solid var(--mi-line-strong)!important;
+  box-shadow:0 10px 30px rgba(2,4,9,.55)!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal .app-dock .dock-btn { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .app-dock .dock-btn.active:not(.dock-radar) {
+  color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; border-color:rgba(217,199,154,.42)!important; box-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal .app-dock .dock-btn.active:not(.dock-radar)::before,
+:root[data-ox-palette="midnight"] body.ox-terminal .app-dock .dock-btn.active:not(.dock-radar)::after { background:transparent!important; border-color:rgba(217,199,154,.42)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .app-dock .dock-radar { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .dock-radar-orb.glass-orb { background:var(--mi-raised)!important; border-color:var(--mi-line-strong)!important; box-shadow:0 6px 18px rgba(2,4,9,.5)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .dock-radar.active .dock-radar-orb.glass-orb { border-color:rgba(217,199,154,.55)!important; }
+@media (hover:none), (max-width:767px) {
+  :root[data-ox-palette="midnight"] body.ox-terminal .app-dock.glass-nav { background-color:var(--mi-glass-solid)!important; background-image:none!important; }
+  :root[data-ox-palette="midnight"] body.ox-terminal .ox-live-strip { background-color:rgba(15,21,32,.94)!important; }
+  :root[data-ox-palette="midnight"] body.ox-terminal .dock-radar-orb.glass-orb { background-color:#1B2433!important; background-image:none!important; }
+}
+
+/* Dock: the sliding selection tile becomes a champagne-edged smoked tile. */
+:root[data-ox-palette="midnight"] body.ox-terminal .app-dock .ox-dock-indicator {
+  background:var(--mi-accent-wash)!important; border:1px solid rgba(217,199,154,.5)!important; box-shadow:none!important;
+}
+
+/* ---- Control center (menu) ---- */
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-overlay.is-open { background:rgba(4,6,11,.55)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-panel { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; color:var(--mi-text)!important; box-shadow:-18px 0 40px rgba(2,4,9,.55)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.ox-control-group,.ox-control-row) { background:transparent!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-row:is(:hover,:active):not(div) { background:var(--mi-hover)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-icon { color:var(--mi-sub)!important; background:transparent!important; border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-copy b { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-copy small,
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-arrow { color:var(--mi-weak)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.ox-theme-segment,.ox-market-segment) { background:var(--mi-page)!important; border:1px solid var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.ox-theme-segment button,.ox-market-chip) { color:var(--mi-sub)!important; background:transparent!important; border-color:transparent!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-market-chip.active {
+  color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; border:1px solid var(--mi-accent)!important; box-shadow:none!important;
+}
+/* Theme pills keep their size in every theme: the champagne edge is an inset ring. */
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-theme-segment button.active {
+  color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; border-color:transparent!important; box-shadow:inset 0 0 0 1px var(--mi-accent)!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.ox-control-ui-tag,.ox-control-live-tag,.ox-control-refresh) { color:var(--mi-sub)!important; border-color:var(--mi-line-strong)!important; background:transparent!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-toggle span { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-toggle span::after { background:var(--mi-sub)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-toggle input:checked+span { background:var(--mi-accent-wash)!important; border-color:var(--mi-accent)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-toggle input:checked+span::after { background:var(--mi-accent)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-edge-close { background:var(--mi-raised)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.ox-feature-search-box,.ox-feature-results) { background:var(--mi-s2)!important; border-color:var(--mi-line)!important; box-shadow:none!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-feature-search-box input { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-changelog { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .ox-control-advanced-back { color:var(--mi-text)!important; border-color:var(--mi-line)!important; }
+
+/* ---- Generic surfaces, controls and text roles ---- */
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.panel,.panel-head,.metric-card,.strength-card,.glass,.glass-strong,.media-card,.media-section,.detail-cell,.settings-card) {
+  background:var(--mi-s1)!important; border-color:var(--mi-line)!important; box-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.btn-act,.btn-tf,.tab-btn,.pill,.chart-tool-icon) {
+  background:var(--mi-s2)!important; border-color:var(--mi-line)!important; color:var(--mi-sub)!important; box-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.btn-tf.active,.tab-btn.active,.pill.active,[aria-pressed="true"].chart-tool-icon) {
+  background:var(--mi-accent-wash)!important; border-color:var(--mi-accent)!important; color:var(--mi-text)!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  background-color:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(input,textarea)::placeholder { color:var(--mi-weak)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal input[type="range"] { accent-color:var(--mi-accent); }
+:root[data-ox-palette="midnight"] body.ox-terminal :is(input[type="checkbox"],input[type="radio"]) { accent-color:var(--mi-accent); }
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.page-kicker,small,label) { color:var(--mi-sub); }
+:root[data-ox-palette="midnight"] .toast { background:var(--mi-raised)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:0 10px 30px rgba(2,4,9,.55)!important; }
+
+/* ---- Shared loading ring (loading-state.js) ---- */
+:root[data-ox-palette="midnight"] .ox-loading { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .ox-loading-ring { border-color:rgba(226,232,240,.12)!important; border-top-color:var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] .ox-loading-count { color:var(--mi-weak)!important; }
+
+/* ---- Taiwan radar: mode rail, cards, states ---- */
+:root[data-ox-palette="midnight"] #market-unavailable-card.tw-radar-root { --twr-up:#f16a70; --twr-down:#48b78e; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-mode-rail {
+  background:var(--mi-s1)!important; border:1px solid var(--mi-line)!important; box-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-mode-indicator {
+  background:var(--mi-accent-wash)!important; border:1px solid rgba(217,199,154,.72)!important; box-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-mode-rail button { color:var(--mi-sub)!important; text-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-mode-rail button :is(span,.twr-label-short) { color:inherit!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-mode-rail button.active { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root :is(.twr-results-head,.twr-header p) { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-results-head b { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-source-notice { color:var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card .tw-stock-card {
+  color:var(--mi-text)!important;
+  background:linear-gradient(165deg,rgba(27,36,51,.55),rgba(15,21,32,.96) 46%),var(--mi-s1)!important;
+  box-shadow:inset 0 1px 0 rgba(226,232,240,.05)!important;
+}
+:root[data-ox-palette="midnight"] #market-unavailable-card .tw-stock-card::before {
+  background:linear-gradient(var(--mi-line-strong),var(--mi-line-strong)) border-box!important;
+}
+:root[data-ox-palette="midnight"] #market-unavailable-card .tw-stock-card:hover { box-shadow:inset 0 1px 0 rgba(226,232,240,.06),0 8px 22px rgba(2,4,9,.45)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card .tw-stock-card:is(:hover,:focus-visible)::before { background:linear-gradient(rgba(217,199,154,.5),rgba(217,199,154,.5)) border-box!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card .tw-stock-card:active { transform:translateY(0) scale(.99); }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-identity span { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-industry { color:var(--mi-sub)!important; border-color:var(--mi-line-strong)!important; background:transparent!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-watch { color:var(--mi-weak)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-watch:is([aria-pressed="true"],.active,.on) { color:var(--mi-accent)!important; filter:none!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-flags i { background:rgba(226,232,240,.03)!important; color:var(--mi-weak)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-flags i.on { background:rgba(226,232,240,.09)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-batch { color:var(--mi-text)!important; border-color:var(--mi-line-strong)!important; background:var(--mi-s2)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-risk-track { background:rgba(226,232,240,.08)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .tw-stock-risk-track i { background:linear-gradient(90deg,rgba(217,199,154,.45),#D9C79A)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root :is(.tw-stock-metric small,.tw-stock-metrics small,.tw-stock-note,.tw-stock-meta) { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root :is(.twr-loading-card,.twr-skeleton-card) { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; box-shadow:inset 0 0 0 1px var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-loading-card i { background:rgba(226,232,240,.07)!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-skeleton-card i { background:linear-gradient(90deg,rgba(226,232,240,.05) 0,rgba(226,232,240,.11) 40%,rgba(226,232,240,.05) 80%)!important; background-size:240% 100%!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root .twr-scan-button {
+  background:var(--mi-raised)!important; border:1px solid rgba(217,199,154,.55)!important; color:var(--mi-text)!important;
+  box-shadow:0 6px 18px rgba(2,4,9,.55)!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.twr-retry,.twcr-history-retry,.ox-tool-error button) { color:var(--mi-text)!important; border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] .twr-release-controls button { border-color:var(--mi-line-strong)!important; color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .twr-release-controls button[aria-pressed="true"] { border-color:var(--mi-accent)!important; color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tw-radar-root :is(.twr-empty,.twcr-empty) { color:var(--mi-sub)!important; }
+
+/* Stock (risk / disposal) detail dialog */
+:root[data-ox-palette="midnight"] dialog.tw-stock-detail { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] dialog.tw-stock-detail::backdrop { background:rgba(4,6,11,.78)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-detail-scrim { background:rgba(4,6,11,.78)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-detail-panel { background:var(--mi-s1)!important; border:1px solid var(--mi-line-strong)!important; box-shadow:0 24px 60px rgba(2,4,9,.6)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-detail-panel :is(small,label,.tw-risk-muted) { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-detail-panel button { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] :is(.tw-risk-quote-grid>section,.tw-risk-metric,.tw-risk-announcement) { background:var(--mi-s2)!important; border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] .tw-risk-tags span { background:transparent!important; border-color:var(--mi-line-strong)!important; color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .tw-risk-links a { color:var(--mi-text)!important; border-bottom-color:rgba(217,199,154,.45)!important; }
+:root[data-ox-palette="midnight"] .tw-risk-progress { background:rgba(226,232,240,.08)!important; }
+:root[data-ox-palette="midnight"] .tw-risk-progress i { background:linear-gradient(90deg,rgba(217,199,154,.45),#D9C79A)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-announcement a { color:var(--mi-text)!important; }
+
+/* ---- Taiwan K-line radar (chart page) ---- */
+:root[data-ox-palette="midnight"] body.ox-terminal {
+  --drawing-bg:rgba(21,28,41,.97); --drawing-text:#ECE7DE; --drawing-line:rgba(226,232,240,.16); --drawing-active:rgba(217,199,154,.14);
+}
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar :is(.panel,.metric-card,.market-line-card,.chart-box,.twcr-scanner,.detail-panel,.top-summary) {
+  background:var(--mi-s1)!important; box-shadow:none!important; background-image:none!important;
+}
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .top-summary { background:transparent!important; }
+/* The chart page copies the shared #view-radar rules into its own scope (one
+   id, inserted after <head>), so these overrides repeat the id to outrank them. A chosen
+   direction keeps its thin coloured frame, without the glow. */
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar :is(.panel,.metric-card,.chart-box,.twcr-scanner,.detail-panel) { border-width:1px!important; border-style:solid!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar:not([data-price-direction]) :is(.panel,.metric-card,.chart-box,.twcr-scanner,.detail-panel,.market-line-card) { border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar[data-price-direction] :is(.chart-box,.market-line-card,.workspace>aside.panel) { box-shadow:none!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .market-line-item + .market-line-item { border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .market-line-item :is(label,small) { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .market-line-item strong { color:var(--mi-text); }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-controls { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-timeframe-strip .tf-glass-indicator { background:var(--mi-accent-wash)!important; border:1px solid rgba(217,199,154,.72)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-controls :is(.btn-tf,.chart-tool-icon,.btn-act) { background:transparent!important; border-color:transparent!important; color:var(--mi-sub)!important; box-shadow:none!important; text-shadow:none!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-controls .btn-tf.active { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-container { background:var(--mi-s1)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .scanner-tabs { border-color:var(--mi-line)!important; background:transparent!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .scanner-tabs .tab-btn { background:transparent!important; border-color:transparent!important; color:var(--mi-sub)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .scanner-tabs .tab-btn.active { color:var(--mi-text)!important; border-bottom:2px solid var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .twcr-card {
+  background:transparent!important; border-color:var(--mi-line)!important; box-shadow:none!important; color:var(--mi-text)!important;
+}
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .twcr-card:is(.active,[aria-current="true"],.selected) { background:var(--mi-accent-wash)!important; border-left:2px solid var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .twcr-card :is(small,.twcr-card-rank,.coin-sub) { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .detail-panel .panel-head { background:transparent!important; border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .detail-cell { background:transparent!important; border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .detail-cell label { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .pill { background:transparent!important; border:1px solid var(--mi-line-strong)!important; color:var(--mi-sub)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] :is(.twcr-tier-menu,#radar-tier-menu) { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; box-shadow:0 12px 30px rgba(2,4,9,.55)!important; }
+:root[data-ox-palette="midnight"] :is(.twcr-tier-menu,#radar-tier-menu) button[aria-checked="true"] { color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; }
+:root[data-ox-palette="midnight"] .twcr-search-dialog { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .twcr-search-dialog::backdrop { background:rgba(4,6,11,.7)!important; }
+:root[data-ox-palette="midnight"] :is(.twcr-exit,#btn-chart-exit-overlay) { background:var(--mi-raised)!important; border:1px solid var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twcr-history-retry { border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-loading-overlay { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-sub)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-cursor-price { background:#1B2433!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-price-axis span { background:var(--mi-s1)!important; color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] #market-unavailable-card#market-unavailable-card#market-unavailable-card .tw-chart-radar .chart-key-labels span { box-shadow:none!important; }
+
+/* Indicator / filter settings dialog */
+:root[data-ox-palette="midnight"] body.ox-terminal .chart-tools-overlay { background:rgba(4,6,11,.72)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal .chart-tools-dialog {
+  background:var(--mi-s1)!important; border:1px solid var(--mi-line-strong)!important; color:var(--mi-text)!important;
+  box-shadow:0 22px 60px rgba(2,4,9,.65)!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal .chart-tools-dialog :is(small,p,.chart-tools-note) { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.chart-indicator-option,.chart-filter-mode button,.chart-custom-filters label,.chart-timeframe-preferences label,.chart-choice span,.chart-tier-combination button) {
+  background:transparent!important; border-color:var(--mi-line-strong)!important; color:var(--mi-sub)!important; box-shadow:none!important; text-shadow:none!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.chart-indicator-option:is(:has(input:checked),[aria-pressed="true"]),.chart-filter-mode button[aria-pressed="true"],.chart-custom-filters label:has(input:checked),.chart-timeframe-preferences label:has(input:checked),.chart-choice input:checked+span) {
+  background:var(--mi-accent-wash)!important; border-color:var(--mi-accent)!important; color:var(--mi-text)!important;
+}
+:root[data-ox-palette="midnight"] body.ox-terminal :is(.chart-tools-close,.chart-tools-save) { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .chart-tier-combination select { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; }
+
+/* ---- Home and sector rotation (research UI) ---- */
+:root[data-ox-palette="midnight"] :is(.twx,.twx-dialog) { --tx-ink:#ECE7DE; --tx-muted:#A9B0BC; --tx-up:#f06c77; --tx-down:#47bc99; --tx-line:rgba(226,232,240,.08); }
+:root[data-ox-palette="midnight"] .twx-glass {
+  background:linear-gradient(165deg,rgba(27,36,51,.5),rgba(15,21,32,.96) 42%) padding-box,linear-gradient(var(--mi-line),var(--mi-line)) border-box!important;
+  border:1px solid transparent!important; box-shadow:inset 0 1px 0 rgba(226,232,240,.04)!important;
+}
+:root[data-ox-palette="midnight"] .twx :is(.twx-session-toggle,.twx-highlights-button,.twx-refresh) {
+  background:var(--mi-s1)!important; border:1px solid var(--mi-line-strong)!important; box-shadow:none!important; color:var(--mi-sub)!important;
+}
+:root[data-ox-palette="midnight"] .twx .twx-session-toggle .active,
+:root[data-ox-palette="midnight"] .twx :is(.twx-highlights-button,.twx-refresh) { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .twx :is(.twx-session-toggle,.twx-highlights-button,.twx-refresh):active { background:var(--mi-s2)!important; }
+:root[data-ox-palette="midnight"] .twx :is(.twx-indices>div+div,.twx-institution-market+div) { border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] .twx :is(.twx-contribution-totals,.twx-contribution-detail,.twx-institution-market>div,.twx-contribution-list>div,.twx-sector-chip,.twx-stock,.twx-rank,.twx-sector-list button) { border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-breadth-track { background:rgba(226,232,240,.06)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-breadth-track i:nth-child(2) { background:#6E7685!important; }
+:root[data-ox-palette="midnight"] .twx .twx-segments { background:var(--mi-s1)!important; border:1px solid var(--mi-line)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twx .twx-segments>i { background:var(--mi-accent-wash)!important; border:1px solid rgba(217,199,154,.72)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twx .twx-segments button { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-segments button[aria-pressed="true"] { color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .twx :is(.twx-votes button,.twx-quadrants button) { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twx :is(.twx-votes button[aria-pressed="true"],.twx-quadrants [aria-pressed="true"]) { background:var(--mi-accent-wash)!important; border-color:var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-quadrants .q2 strong { color:#A9B0BC!important; }
+:root[data-ox-palette="midnight"] .twx .twx-search { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-search :is(input,select) { background:transparent!important; border:0!important; }
+:root[data-ox-palette="midnight"] .twx .twx-search select { background:var(--mi-s2)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-search input::placeholder { color:var(--mi-weak)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-star { color:var(--mi-weak)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-star.selected { color:var(--mi-accent)!important; text-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twx .twx-chart-panel.expanded { background:var(--mi-page)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-chart-grid line { stroke:rgba(226,232,240,.06)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-chart-grid .axis { stroke:rgba(226,232,240,.16)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-axis-label { fill:#A9B0BC!important; }
+:root[data-ox-palette="midnight"] .twx .twx-bubble-label { fill:#ECE7DE!important; text-shadow:0 1px 3px #05070c!important; }
+:root[data-ox-palette="midnight"] .twx .twx-bubble-value { fill:#d9dce3!important; }
+:root[data-ox-palette="midnight"] .twx :is(.twx-chart-help,.twx-sector-picker) { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:0 14px 34px rgba(2,4,9,.55)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-chart-utility button { border-color:var(--mi-line-strong)!important; color:var(--mi-sub)!important; background:transparent!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twx .twx-chart-utility button:is([aria-pressed="true"],[aria-expanded="true"]) { border-color:var(--mi-accent)!important; color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; }
+:root[data-ox-palette="midnight"] .twx :is(.twx-replay-options option,select option) { background:var(--mi-s2)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-replay button { border-color:var(--mi-line-strong)!important; background:var(--mi-s2)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twx .twx-replay [data-replay-play] { border-color:rgba(217,199,154,.6)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-replay input[type="range"] { accent-color:var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-chart-tools button[data-replay] { border-color:var(--mi-line-strong)!important; color:var(--mi-sub)!important; background:transparent!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .twx .twx-chart-tools button[data-replay][aria-pressed="true"] { border-color:var(--mi-accent)!important; color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; }
+:root[data-ox-palette="midnight"] .twx-dialog { background:var(--mi-s1)!important; border:1px solid var(--mi-line-strong)!important; box-shadow:0 30px 90px rgba(2,4,9,.7)!important; }
+:root[data-ox-palette="midnight"] .twx-dialog::backdrop { background:rgba(4,6,11,.72)!important; }
+:root[data-ox-palette="midnight"] .twx-dialog header button { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] :is(.twx,.twx-dialog) :is(button,input,select):focus-visible { outline:2px solid var(--mi-accent)!important; outline-offset:2px!important; }
+
+/* ---- Screener ---- */
+:root[data-ox-palette="midnight"] .tws { --sc-bg:#0F1520; --sc-line:rgba(226,232,240,.14); --sc-ink:#ECE7DE; --sc-muted:#A9B0BC; color:var(--mi-text); }
+:root[data-ox-palette="midnight"] .tws .tws-primary { background:var(--mi-accent)!important; border-color:var(--mi-accent)!important; color:#0A0E16!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tws .tws-primary:hover { background:#e3d4ad!important; }
+:root[data-ox-palette="midnight"] .tws :is(input,select) { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .tws option { background:var(--mi-s2)!important; }
+:root[data-ox-palette="midnight"] .tws button:hover { border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] .tws :is(.tws-sidebar,.tws-filter-actions,.tws-mobile-actions,.tws-sheet-head) { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] .tws th { background:var(--mi-s2)!important; color:var(--mi-sub)!important; border-color:var(--mi-line)!important; }
+:root[data-ox-palette="midnight"] .tws :is(th:first-child,td:first-child) { background:var(--mi-s1)!important; }
+:root[data-ox-palette="midnight"] .tws .tws-categories button[aria-pressed=true] { border-color:var(--mi-accent)!important; background:var(--mi-accent-wash)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .tws .tws-notice { border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] .tws-dialog { background:var(--mi-s1)!important; border:1px solid var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .tws-dialog::backdrop { background:rgba(4,6,11,.75)!important; }
+:root[data-ox-palette="midnight"] .tws .tws-mobile-bar>.tws-open { border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] .tws .tws-results-scroll tr { background:var(--mi-s1)!important; }
+
+/* ---- News and calendar ---- */
+:root[data-ox-palette="midnight"] .oxn-root { --oxn-line:rgba(226,232,240,.08); --oxn-muted:#A9B0BC; --oxn-bg:rgba(21,28,41,.97); color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .oxn-root :is(.oxn-pill,.oxn-filter,.oxn-controls button) { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .oxn-root :is(.oxn-pill[aria-expanded="true"],.oxn-pill.is-filtered,.oxn-controls button[aria-pressed="true"],.oxn-tags button[aria-pressed="true"],.oxn-panel-actions .oxn-action[aria-pressed="true"]) { border-color:var(--mi-accent)!important; background:var(--mi-accent-wash)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .oxn-root :is(.oxn-agenda-day,.oxn-calendar,.oxn-day,.oxn-macro-result,.oxn-countdown) { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-agenda-day.is-today { border-color:rgba(217,199,154,.55)!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-agenda-day.is-today .oxn-agenda-day-heading strong { border-color:var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] .oxn-root :is(.oxn-day.is-today,.oxn-day[aria-pressed="true"],.oxn-day.is-selected,.oxn-day[aria-selected="true"]) { border-color:var(--mi-accent)!important; background:var(--mi-accent-wash)!important; box-shadow:none!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-calendar-event[data-category="unlock"] { border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] :is(.oxn-popover,.oxn-modal) { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:0 20px 60px rgba(2,4,9,.65)!important; }
+:root[data-ox-palette="midnight"] .oxn-layer-heading { background:var(--mi-s2)!important; }
+:root[data-ox-palette="midnight"] .oxn-modal-backdrop { background:rgba(4,6,11,.72)!important; }
+:root[data-ox-palette="midnight"] .oxn-root :is(small,.oxn-muted,time) { color:var(--mi-sub); }
+
+:root[data-ox-palette="midnight"] .oxn-root .oxn-week-date[aria-pressed="true"] { background:var(--mi-accent-wash)!important; color:var(--mi-text)!important; box-shadow:inset 0 0 0 1px var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-week-date[aria-pressed="true"] small { color:var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-week-date small { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-day.is-today { box-shadow:inset 0 0 0 1.5px var(--mi-accent)!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-day.is-today .oxn-day-number { color:var(--mi-text)!important; text-shadow:none!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-day.is-today::after { background:var(--mi-accent)!important; box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-day.is-selected:not(.is-today) { box-shadow:inset 0 0 0 1px rgba(217,199,154,.55)!important; background:var(--mi-accent-wash)!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-agenda-day.is-today { box-shadow:none!important; }
+:root[data-ox-palette="midnight"] .oxn-root .oxn-agenda-day.is-today .oxn-agenda-day-heading strong { background:var(--mi-accent-wash)!important; box-shadow:none!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .oxn-root :is(.oxn-event-type,.oxn-expand,.oxn-article-tags span,.oxn-news-source,.oxn-event-meta) { color:var(--mi-sub)!important; }
+:root[data-ox-palette="midnight"] .twx .twx-replay input { accent-color:var(--mi-accent)!important; background:transparent!important; }
+
+/* ---- Misc dialogs ---- */
+:root[data-ox-palette="midnight"] .tw-stock-shortcut { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-shortcut input { border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-shortcut button { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; }
+:root[data-ox-palette="midnight"] .tw-stock-shortcut::backdrop { background:rgba(4,6,11,.6)!important; }
+:root[data-ox-palette="midnight"] :is(.ox-provider-picker,.ox-contract-app-status) { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; }

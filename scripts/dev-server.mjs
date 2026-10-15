@@ -6,7 +6,7 @@ const root=resolve(import.meta.dirname,'../dist/client');
 const html=await readFile(resolve(root,'index.html'),'utf8');
 const basePath=html.match(/name="ox-site-base-path" content="([^"]*)"/)?.[1]||'';
 const flag=process.argv.indexOf('--port'),port=Number(flag>=0?process.argv[flag+1]:process.env.PORT)||4173;
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png'};
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const env={ASSETS:{async fetch(request){
   const url=new URL(typeof request==='string'?request:request.url);
   if(basePath&&url.pathname==='/')return Response.redirect(new URL(basePath+'/',url),302);

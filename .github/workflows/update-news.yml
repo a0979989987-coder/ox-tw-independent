@@ -8,8 +8,7 @@ on:
   schedule:
     - cron: '23 */6 * * *'
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: update-verified-news
@@ -21,24 +20,46 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.package.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      # No dependency needs an install script; none may run with repository access.
+      - run: npm ci --ignore-scripts
       - run: npm run news:collect
       - run: node --test tests/news-time.test.mjs tests/news-macro.test.mjs tests/tw-news-collection.test.mjs
-      - name: Publish changed snapshot
-        if: github.ref == 'refs/heads/main'
+      - name: Package changed data
+        id: package
+        env:
+          DATA_PATHS: data/news.json
         run: |
-          if git diff --quiet -- data/news.json; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/news.json
-          git commit -m "data(news): refresh verified source snapshot"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # shellcheck disable=SC2086
+          if [ -z "$(git status --porcelain -- $DATA_PATHS)" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # shellcheck disable=SC2086
+          tar -czf "$RUNNER_TEMP/data-update.tgz" -- $DATA_PATHS
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.package.outputs.changed == 'true'
+        with:
+          name: news-data
+          path: ${{ runner.temp }}/data-update.tgz
+          retention-days: 1
+          if-no-files-found: error
+  publish:
+    needs: collect
+    if: needs.collect.outputs.changed == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/commit-data.yml
+    with:
+      artifact: news-data
+      paths: data/news.json
+      message: 'data(news): refresh verified source snapshot'

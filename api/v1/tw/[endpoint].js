@@ -46,6 +46,7 @@ import {
 import {
   getOfficialTWIndicators
 } from "./providers/indicators.js";
+import { refreshAuthorized } from "./refresh-auth.js";
 
 
 /*
@@ -234,8 +235,12 @@ function applyCors(
   }
 
 
-  const allowed =
-    getAllowedOrigins();
+  // Request-scoped origins (e.g. the Worker's own host) arrive with the
+  // request instead of a shared global, so concurrent requests cannot mix them.
+  const allowed = [
+    ...getAllowedOrigins(),
+    ...(Array.isArray(req.allowedOrigins) ? req.allowedOrigins : [])
+  ];
 
 
   if (
@@ -1426,6 +1431,9 @@ async function handleIndicators(
 /* Main handler                                                               */
 /* ========================================================================== */
 
+// Unauthenticated refresh=1 is ignored (served from cache), never an error.
+function refreshRequested(req){return booleanParam(req.query?.refresh,false)&&refreshAuthorized(req.headers,process.env);}
+
 export async function handleTWRequest(
   req,
   res,
@@ -1501,14 +1509,14 @@ export async function handleTWRequest(
 
 
       case "research": {
-        const refresh=booleanParam(req.query.refresh,false);
+        const refresh=refreshRequested(req);
         const data = await getOfficialTWResearch({refresh});
         if(refresh)res.setHeader('Cache-Control','no-store');else setShortCache(res, 300);
         return ok(res, data, { realtime: false, provider: "official-tw" });
       }
 
       case "etf": {
-        const action=stringParam(req.query.action||'catalog'), refresh=booleanParam(req.query.refresh,false);
+        const action=stringParam(req.query.action||'catalog'), refresh=refreshRequested(req);
         const etf=await import('../../../server/markets/tw/etf.js');
         res.setHeader('Cache-Control','no-store');
         if(action==='catalog')return ok(res,await etf.getCatalog({refresh}),{realtime:false});
@@ -1525,7 +1533,7 @@ export async function handleTWRequest(
         const section=stringParam(req.query.section||'core');
         if(!['core','briefing','night'].includes(section))return fail(res,400,'INVALID_SECTION','Unknown Taiwan home section.');
         res.setHeader('Cache-Control','no-store');
-        const data=await getHomeSection(section,{refresh:booleanParam(req.query.refresh,false)});
+        const data=await getHomeSection(section,{refresh:refreshRequested(req)});
         return ok(res,data,{realtime:false,provider:'ox-tw-home',timezone:'Asia/Taipei'});
       }
 

@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '7,22,37,52 12-21 * * 1-5'
-permissions:
-  contents: write
+permissions: {}
 concurrency:
   group: update-official-macro
   cancel-in-progress: false
@@ -16,18 +15,42 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.package.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: node scripts/collect-macro-results.mjs
-      - name: Publish result facts
+      - name: Package changed data
+        id: package
+        env:
+          DATA_PATHS: data/macro-results.json
         run: |
-          if git diff --quiet -- data/macro-results.json; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/macro-results.json
-          git commit -m "data(news): refresh official macro results"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # shellcheck disable=SC2086
+          if [ -z "$(git status --porcelain -- $DATA_PATHS)" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # shellcheck disable=SC2086
+          tar -czf "$RUNNER_TEMP/data-update.tgz" -- $DATA_PATHS
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.package.outputs.changed == 'true'
+        with:
+          name: macro-results
+          path: ${{ runner.temp }}/data-update.tgz
+          retention-days: 1
+          if-no-files-found: error
+  publish:
+    needs: collect
+    if: needs.collect.outputs.changed == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/commit-data.yml
+    with:
+      artifact: macro-results
+      paths: data/macro-results.json
+      message: 'data(news): refresh official macro results'

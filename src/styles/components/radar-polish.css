@@ -59,10 +59,18 @@ body.ox-terminal.theme-light #view-radar[data-price-direction="down"] {--ox-sele
 @media(max-width:700px) {
   body.ox-terminal .tw-radar-root .twr-results-panel {margin-inline:0!important;padding-inline:0!important}
   body.ox-terminal .tw-radar-root .twr-list {gap:8px!important}
-  body.ox-terminal .tw-radar-root .tw-stock-card {min-height:144px!important;padding:8px!important}
-  body.ox-terminal .tw-radar-root .tw-stock-quote {margin-block:5px!important}
-  body.ox-terminal .tw-radar-root .tw-stock-risk-area {min-height:36px!important}
-  body.ox-terminal .tw-radar-root .tw-stock-risk-area.no-progress {min-height:28px!important}
+  /* Compact phone list: height follows content (no fixed 144px), tighter
+     spacing; every field stays. Stats sit on the card bottom so neighbouring
+     cards in a row still line up. */
+  body.ox-terminal .tw-radar-root .tw-stock-card {min-height:0!important;padding:7px 8px!important}
+  body.ox-terminal .tw-radar-root .tw-stock-top {min-height:22px}
+  body.ox-terminal .tw-radar-root .tw-stock-watch {height:22px}
+  body.ox-terminal .tw-radar-root .tw-stock-quote {margin-block:3px!important}
+  body.ox-terminal .tw-radar-root .tw-stock-risk-area {min-height:0!important}
+  body.ox-terminal .tw-radar-root .tw-stock-risk-area.no-progress {min-height:0!important}
+  body.ox-terminal .tw-radar-root .tw-stock-risk-row {min-height:22px}
+  body.ox-terminal .tw-radar-root .tw-stock-stats {margin-top:auto;padding-top:4px}
+  body.ox-terminal .tw-radar-root .tw-stock-bottom {padding-top:4px}
 }
 /* Render the chart's native high-density pixels without a compositor filter. */
 body.ox-terminal .tw-chart-radar :is(.chart-container,canvas) {filter:none!important;opacity:1!important}

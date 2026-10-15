@@ -1,5 +1,6 @@
 import { radiusTargets, metricText, canonical } from './model.js?v=20261001-bubbles3';
 import {squeeze,recover,deformation} from './soft-body.js?v=20261002-finance4';
+import {keepPinchInChart} from '../chart/pinch-guard.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const hash=s=>[...s].reduce((v,c)=>(v*31+c.charCodeAt(0))>>>0,7);
 export class BubbleField {
@@ -17,6 +18,9 @@ export class BubbleField {
     canvas.addEventListener('pointerup',e=>this.up(e),opts);canvas.addEventListener('pointercancel',e=>this.up(e,true),opts);
     canvas.addEventListener('lostpointercapture',e=>this.up(e,true),opts);
     canvas.addEventListener('wheel',e=>{e.preventDefault();this.setZoom(this.zoom*Math.exp(-e.deltaY*.001),this.point(e));},{...opts,passive:false});
+    // Two fingers zoom the bubbles at any zoom. One finger drags a bubble, or
+    // pans once zoomed in; on empty space at 100 % it scrolls the page (pan-y).
+    keepPinchInChart(canvas,{signal:this.life.signal,claims:touch=>this.zoom>1||!!this.hit(this.point(touch))});
     this.resize();
   }
   point(e){const r=this.canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
@@ -57,10 +61,10 @@ export class BubbleField {
     if(added||layout||this.paused||this.reduced.matches){for(let i=0;i<70;i++)this.resolveCollisions(false);}
     this.canvas.dataset.coins=String(this.nodes.length);this.canvas.dataset.metric=metric;this.canvas.setAttribute('aria-label',`${this.metricNames[metric]}動態泡泡圖，${this.nodes.length} 個${this.assetName}；可拖曳泡泡，雙指縮放`);this.paint();this.run();
   }
-  sprite(n){const light=document.body.classList.contains('theme-light');const r=n.target,scale=2,margin=8,side=(r*2+margin*2),c=document.createElement('canvas');c.width=Math.ceil(side*scale);c.height=Math.ceil(side*scale);let ctx=c.getContext('2d');ctx.scale(scale,scale);const center=side/2;
+  sprite(n){const light=document.body.classList.contains('theme-light'),ink=document.body.classList.contains('theme-midnight');const r=n.target,scale=2,margin=8,side=(r*2+margin*2),c=document.createElement('canvas');c.width=Math.ceil(side*scale);c.height=Math.ceil(side*scale);let ctx=c.getContext('2d');ctx.scale(scale,scale);const center=side/2;
     const direction=n.sign??(n.metric==='flow'?n.value:n.change),tone=direction>0?(this.palette?.up||'#44bde7'):direction<0?(this.palette?.down||'#f15e7b'):'#aeb6ba';n.tone=tone;
     const glow=ctx.createRadialGradient(center,center,r*.78,center,center,r+5);glow.addColorStop(0,tone+'00');glow.addColorStop(.74,tone+'55');glow.addColorStop(1,tone+'00');ctx.fillStyle=glow;ctx.fillRect(0,0,side,side);
-    const fill=ctx.createRadialGradient(center-r*.3,center-r*.35,0,center,center,r);fill.addColorStop(0,light?'#ffffff':'#242b30');fill.addColorStop(.65,light?'#fffdf7':'#151b1f');fill.addColorStop(1,tone+'42');ctx.fillStyle=fill;ctx.beginPath();ctx.arc(center,center,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle=tone+'b0';ctx.lineWidth=1.4;ctx.stroke();
+    const fill=ctx.createRadialGradient(center-r*.3,center-r*.35,0,center,center,r);fill.addColorStop(0,light?'#ffffff':ink?'#1B2433':'#242b30');fill.addColorStop(.65,light?'#fffdf7':ink?'#0F1520':'#151b1f');fill.addColorStop(1,tone+'42');ctx.fillStyle=fill;ctx.beginPath();ctx.arc(center,center,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle=tone+'b0';ctx.lineWidth=1.4;ctx.stroke();
     // The shell yields under pressure; the label and logo remain readable.
     const label=document.createElement('canvas');label.width=c.width;label.height=c.height;n.labelSprite=label;ctx=label.getContext('2d');ctx.scale(scale,scale);
     const url=this.logo(canonical(n.base))||n.image;let img=url&&this.images.get(url);
@@ -68,7 +72,7 @@ export class BubbleField {
     const full=r>=23,logoSize=Math.min(25,r*.43);let nameY=center+(full?0:2);
     if(full){const ly=center-r*.58;ctx.save();ctx.beginPath();ctx.arc(center,ly,logoSize/2,0,Math.PI*2);ctx.clip();if(img?.complete&&img.naturalWidth)ctx.drawImage(img,center-logoSize/2,ly-logoSize/2,logoSize,logoSize);else{ctx.fillStyle=tone+'45';ctx.fillRect(center-logoSize/2,ly-logoSize/2,logoSize,logoSize);ctx.fillStyle=light?'#374151':'#fff';ctx.font=`600 ${logoSize*.48}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n.base.slice(0,1),center,ly);}ctx.restore();}
     ctx.textAlign='center';ctx.textBaseline='middle';let font=Math.min(27,r*.48);ctx.font=`500 ${font}px Inter,system-ui`;const maxWidth=r*1.68;if(ctx.measureText(n.base).width>maxWidth){font*=maxWidth/ctx.measureText(n.base).width;ctx.font=`500 ${font}px Inter,system-ui`;}
-    ctx.fillStyle=light?'#374151':'#f1f1eb';ctx.fillText(n.base,center,nameY);if(r>=19){ctx.font=`500 ${Math.min(13,Math.max(8,r*.25))}px Inter,system-ui`;ctx.fillStyle=light?'#585347':'#e6e9e8';ctx.fillText(this.formatMetric(n.value,n.metric),center,nameY+Math.min(22,r*.39),r*1.73);}return c;
+    ctx.fillStyle=light?'#374151':ink?'#ECE7DE':'#f1f1eb';ctx.fillText(n.base,center,nameY);if(r>=19){ctx.font=`500 ${Math.min(13,Math.max(8,r*.25))}px Inter,system-ui`;ctx.fillStyle=light?'#585347':'#e6e9e8';ctx.fillText(this.formatMetric(n.value,n.metric),center,nameY+Math.min(22,r*.39),r*1.73);}return c;
   }
   extents(n){const d=deformation(n),c=Math.cos(d.angle),s=Math.sin(d.angle);return {x:n.r*Math.hypot(d.sx*c,d.sy*s),y:n.r*Math.hypot(d.sx*s,d.sy*c)};}
   advanceDrag(dt){const d=this.drag;if(!d?.moved||!d.node||!d.target)return;const n=d.node,r=this.extents(n),ease=this.reduced.matches?1:1-Math.exp(-.8*dt),x=n.x,y=n.y;

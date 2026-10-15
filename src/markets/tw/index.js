@@ -1,4 +1,4 @@
-import { stopResearch, preloadResearch, refreshTWResearch } from "./research-page.js?v=20261005-briefingdate";
+import { stopResearch, preloadResearch, refreshTWResearch, researchInUse } from "./research-page.js?v=20261005-briefingdate";
 import { createAfterCloseRefresh } from './after-close.js?v=20261001-twhome1';
 import {
   TW_MODULE_CONFIG
@@ -23,9 +23,9 @@ import {
 import { cancelTWLookup } from "./lookup.js?v=20261001-tiercomb1";
 import { stopTWStrength, preloadTWStrength } from "./strength.js?v=20261005-recovery20";
 import { createPreloader } from "./preload.js?v=20261001-twhome1";
-import { preloadBundle } from "./patterns/bundle.js?v=20261005-load16";
-import {savedRadarSnapshot,saveRadarSnapshot,bundledRadarSnapshot} from './radar-snapshot.js?v=20261005-recovery20';
-import { radarNeedsRecovery } from './recovery.js?v=20261005-recovery20';
+import { preloadBundle, ensureBundleManifest, bundleState } from "./patterns/bundle.js?v=20261005-load16";
+import {bundledRadarSnapshot,readCachedRadar,writeCachedRadar,firstScreenSnapshot} from './radar-snapshot.js?v=20261005-recovery20';
+import { radarNeedsRecovery, createRecoveryScheduler } from './recovery.js?v=20261005-recovery20';
 
 
 /*
@@ -88,21 +88,33 @@ let isActive =
 function cacheRadarState(state) {
  if(state?.data?.usingCachedRadar||state?.data?.meta?.sourceErrors?.radar)return;
  const data=state?.data;
- saveRadarSnapshot({savedAt:Date.parse(data?.radarUpdatedAt),data:{radar:data?.radar,
+ const saved=firstScreenSnapshot({savedAt:Date.parse(data?.radarUpdatedAt),data:{radar:data?.radar,
    modes:data?.radarModes,modesMeta:data?.radarModesMeta,dataDate:data?.radarDataDate}});
+ persistFirstScreen(saved);
+}
+function persistFirstScreen(saved) {
+ if(!saved)return;
+ // Persist after the paint; IndexedDB clones off the critical path.
+ const idle=globalThis.requestIdleCallback||(fn=>setTimeout(fn,500));
+ idle(()=>{writeCachedRadar(saved);},{timeout:5000});
 }
 function showSavedRadar(saved) {
  if(!saved)return;
  const state=seedTWRadar(saved);
  if(isActive&&activeView==='radar')render(state);
 }
-showSavedRadar(savedRadarSnapshot());
-let recoveryTimer,recoveryAttempts=0;
-function scheduleRecovery() {
- clearTimeout(recoveryTimer);
- if(!isActive||!radarNeedsRecovery(createTWMarketState())||recoveryAttempts>=3)return;
- recoveryTimer=setTimeout(()=>{recoveryAttempts++;recoverMarketData(true);},[5000,15000,30000][recoveryAttempts]);
-}
+// Asynchronous first-screen cache; the published snapshot and API do not wait for it.
+readCachedRadar().then(showSavedRadar).catch(error=>console.warn('First-screen cache not shown',error));
+// Background recovery runs only when no verified snapshot is on screen. It
+// backs off (5s, 15s, 45s, then every 2 minutes), pauses while the tab is
+// hidden and makes one attempt when the tab returns.
+let snapshotReady=false;
+const recovery=createRecoveryScheduler({
+  needed:()=>isActive&&!snapshotReady&&radarNeedsRecovery(createTWMarketState()),
+  hidden:()=>typeof document!=='undefined'&&document.hidden,
+  run:()=>recoverMarketData(true)
+});
+function scheduleRecovery(){recovery.schedule();}
 
 /* ========================================================================== */
 /* Shared market host                                                        */
@@ -377,12 +389,13 @@ function render(
 /* ========================================================================== */
 
 let marketDataController;
-const ensureMarketData = createPreloader(async ({silent=false}={}) => {
+const ensureMarketData = createPreloader(async ({silent=false,retryDelays}={}) => {
   const controller = new AbortController();marketDataController=controller;
   try {
   const state = await refreshTWMarketState({
     signal: controller.signal,
     force: true,
+    retryDelays,
     onRadarReady(state) {
       cacheRadarState(state);
       if (isActive && activeView === "radar") render(state);
@@ -395,35 +408,49 @@ const ensureMarketData = createPreloader(async ({silent=false}={}) => {
 }, { usable: state => ["ready", "partial"].includes(state?.status)
   && Array.isArray(state?.data?.radar) && !radarNeedsRecovery(state) });
 
+// The published snapshot (preloaded by the HTML) and the live API start
+// together. Whichever valid source arrives first renders; the newer one wins.
+function loadBundledRadar() {
+  return bundledRadarSnapshot().then(saved => { snapshotReady = true; recovery.cancel(); showSavedRadar(saved); persistFirstScreen(firstScreenSnapshot(saved)); },
+    () => { if (isActive && activeView === 'radar') render(createTWMarketState()); scheduleRecovery(); });
+}
 async function loadMarketData(options = {}) {
-  showSavedRadar(savedRadarSnapshot());
-  // Seed complete membership before the live request can return a partial list.
-  try{showSavedRadar(await bundledRadarSnapshot());}catch{}
+  loadBundledRadar();
   const pending = ensureMarketData(options);
   if (isActive) render(createTWMarketState());
   return pending;
 }
 
+// After the close, refresh what this page already uses. Research and the
+// 15 MB pattern bundle are fetched only if a view already loaded them; the
+// radar alone must not pull the whole pattern market on an afternoon visit.
 const closeRefresh=createAfterCloseRefresh(async()=>{
-  await Promise.allSettled([loadMarketData({force:true,silent:true}),refreshTWResearch(),preloadBundle({force:true,silent:true})]);
+  const jobs=[loadMarketData({force:true,silent:true})];
+  if(researchInUse())jobs.push(refreshTWResearch());
+  // With Save-Data, or while the board is still loading chunks, only the
+  // manifest is refreshed: the board reloads what it shows on its own.
+  const patterns=bundleState();
+  if(patterns.date)jobs.push(patterns.loading||globalThis.navigator?.connection?.saveData===true?ensureBundleManifest({force:true}):preloadBundle({force:true,silent:true}));
+  await Promise.allSettled(jobs);
   if(isActive)document.dispatchEvent(new CustomEvent('ox:tw-close-refresh'));
 },{active:()=>isActive,visible:()=>!document.hidden,online:()=>navigator.onLine!==false});
 let lastRecoveryAt = -Infinity;
-function recoverMarketData(force = false) {
+function recoverMarketData(force = false, { manual = false } = {}) {
   if (!isActive || typeof document === 'undefined' || document.hidden
     || typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  if (!manual && snapshotReady) return;
   if (!force && (!radarNeedsRecovery(createTWMarketState()) || Date.now() - lastRecoveryAt < 15000)) return;
   lastRecoveryAt = Date.now();
-  return loadMarketData({ force: true });
+  // Manual retries keep the request-level retries; scheduled ones rely on backoff.
+  return loadMarketData({ force: true, ...(manual ? {} : { retryDelays: [] }) });
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => closeRefresh.check());
   window.addEventListener('focus', () => closeRefresh.check());
   document.addEventListener('visibilitychange', () => closeRefresh.check());
   window.addEventListener('online', () => recoverMarketData());
-  window.addEventListener('focus', () => recoverMarketData());
-  document.addEventListener('visibilitychange', () => recoverMarketData());
-  document.addEventListener('ox:tw-retry', () => recoverMarketData(true));
+  document.addEventListener('visibilitychange', () => recovery.visibilityChanged());
+  document.addEventListener('ox:tw-retry', () => { recovery.reset(); recoverMarketData(true, { manual: true }); });
 }
 
 function preload() {
@@ -468,7 +495,7 @@ export const twModule =
 
       isActive =
         true;
-      recoveryAttempts=0;
+      recovery.reset();
 
       if (
         isValidView(
@@ -533,7 +560,7 @@ export const twModule =
       isActive =
         false;
       marketDataController?.abort();
-      clearTimeout(recoveryTimer);
+      recovery.cancel();
       closeRefresh.stop();
 
       stopTWStrength();

@@ -1,0 +1,86 @@
+name: Commit verified data
+# Called by the update-* workflows. Their collection jobs run third-party
+# code (npm packages, source parsers) with a read-only token and no stored
+# credentials; only this job can push, and it runs no npm. It accepts nothing
+# from the artifact except regular files at the caller's allowlisted data/
+# paths, and commits only when their content changed.
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Artifact holding data-update.tgz
+        type: string
+        required: true
+      paths:
+        description: Space-separated data/ paths that may be updated
+        type: string
+        required: true
+      message:
+        description: Commit message
+        type: string
+        required: true
+permissions: {}
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ runner.temp }}/data-update
+      - name: Apply allowlisted data and push when changed
+        env:
+          DATA_PATHS: ${{ inputs.paths }}
+          MESSAGE: ${{ inputs.message }}
+        run: |
+          set -euo pipefail
+          staging="$RUNNER_TEMP/data-update/extracted"
+          mkdir -p "$staging"
+          tar -xzf "$RUNNER_TEMP/data-update/data-update.tgz" -C "$staging" --no-same-owner --no-same-permissions
+          if find "$staging" ! -type f ! -type d | grep -q .; then
+            echo "::error::Data artifact contains links or special files"; exit 1
+          fi
+          for path in $DATA_PATHS; do
+            case "$path" in data/*) ;; *) echo "::error::Refusing non-data path $path"; exit 1 ;; esac
+            case "$path" in *..*) echo "::error::Refusing path $path"; exit 1 ;; esac
+          done
+          # Copy this run's allowlisted data over the work tree and stage it.
+          apply_data() {
+            for path in $DATA_PATHS; do
+              if [ -e "$staging/$path" ]; then
+                rm -rf -- "$path"
+                mkdir -p -- "$(dirname -- "$path")"
+                cp -R -- "$staging/$path" "$path"
+              fi
+            done
+            # shellcheck disable=SC2086 # intentional word splitting of the allowlist
+            git add -A -- $DATA_PATHS
+          }
+          apply_data
+          if git diff --cached --quiet; then echo "Data unchanged; nothing to commit"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "$MESSAGE"
+          # Several update workflows can push at once. Replay the data commit on
+          # the latest branch and push, at most 3 times with a random wait. On a
+          # conflict this run's data wins, for the allowlisted paths only; every
+          # other file keeps the branch's latest content.
+          for attempt in 1 2 3; do
+            if ! git pull --rebase -X theirs origin "${GITHUB_REF_NAME}"; then
+              git rebase --abort || true
+              git reset --hard FETCH_HEAD
+            fi
+            apply_data
+            if ! git diff --cached --quiet; then
+              if [ "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)" ]; then git commit -m "$MESSAGE"; else git commit --amend --no-edit; fi
+            fi
+            if [ "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)" ]; then echo "Branch already holds this data"; exit 0; fi
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then exit 0; fi
+            echo "::warning::Push attempt $attempt was rejected; retrying"
+            sleep $((RANDOM % 6 + 2))
+          done
+          echo "::error::Data could not be pushed after 3 attempts"; exit 1

@@ -1,0 +1,81 @@
+/* Midnight Ink inside tool shadow roots (patterns, bubbles, ETF, savings, the
+   tools rail). Appended last in each shadow root by style-ready.js; every rule
+   is scoped to :host([data-ox-midnight]), so it is inert in other themes.
+   Palette identical to midnight-ink.css. */
+:host([data-ox-midnight]) {
+  --mi-page:#0A0E16; --mi-s1:#0F1520; --mi-s2:#151C29; --mi-raised:#1B2433;
+  --mi-line:rgba(226,232,240,.08); --mi-line-strong:rgba(226,232,240,.16);
+  --mi-text:#ECE7DE; --mi-sub:#A9B0BC; --mi-weak:#6E7685;
+  --mi-accent:#D9C79A; --mi-accent-wash:rgba(217,199,154,.14);
+  color:var(--mi-text);
+}
+:host([data-ox-midnight]) :is(button,a,input,select,textarea,summary,[role="button"],[role="tab"],[tabindex]):focus-visible {
+  outline:2px solid var(--mi-accent)!important; outline-offset:2px!important;
+}
+:host([data-ox-midnight]) :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  background-color:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:none!important;
+}
+:host([data-ox-midnight]) :is(input,textarea)::placeholder { color:var(--mi-weak)!important; }
+:host([data-ox-midnight]) :is(input[type="range"],input[type="checkbox"],input[type="radio"]) { accent-color:var(--mi-accent); }
+:host([data-ox-midnight]) .ox-loading { color:var(--mi-sub)!important; }
+:host([data-ox-midnight]) .ox-loading-ring { border-color:rgba(226,232,240,.12)!important; border-top-color:var(--mi-accent)!important; }
+
+/* Tools rail (radar-ui.css in a shadow root) */
+:host([data-ox-midnight]) .tw-radar-root .twr-mode-rail { background:var(--mi-s1)!important; border:1px solid var(--mi-line)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .tw-radar-root .twr-mode-indicator { background:var(--mi-accent-wash)!important; border:1px solid rgba(217,199,154,.7)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .tw-radar-root .twr-mode-rail button { color:var(--mi-sub)!important; }
+:host([data-ox-midnight]) .tw-radar-root .twr-mode-rail button.active { color:var(--mi-text)!important; }
+
+/* Pattern board (px) */
+:host([data-ox-midnight]) .px-board { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; box-shadow:inset 0 1px 0 rgba(226,232,240,.04)!important; }
+:host([data-ox-midnight]) .px-board:focus-within { border-color:rgba(217,199,154,.55)!important; }
+:host([data-ox-midnight]) .px-control { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .px-card { background:linear-gradient(165deg,rgba(27,36,51,.5),rgba(15,21,32,.96) 46%),#0F1520!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .px-card[data-tier="1"] { border-color:rgba(217,199,154,.42)!important; }
+:host([data-ox-midnight]) .px-card:hover { border-color:rgba(217,199,154,.55)!important; }
+:host([data-ox-midnight]) .px-tier-badge { border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; background:transparent!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .px-card[data-tier="1"] .px-tier-badge { border-color:var(--mi-accent)!important; color:var(--mi-accent)!important; }
+:host([data-ox-midnight]) :is(.px-frame-option,.px-modes button,.px-detail-frames button,.px-tier-filters button) { border-color:var(--mi-line-strong)!important; color:var(--mi-sub)!important; background:transparent!important; box-shadow:none!important; text-shadow:none!important; }
+:host([data-ox-midnight]) :is(.px-frame-option[aria-pressed=true],.px-modes button[aria-pressed=true],.px-detail-frames button[aria-pressed=true],.px-tier-filters button[aria-pressed=true]) { border-color:var(--mi-accent)!important; color:var(--mi-text)!important; background:var(--mi-accent-wash)!important; }
+:host([data-ox-midnight]) .px-dialog { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; box-shadow:0 26px 70px rgba(2,4,9,.7)!important; }
+:host([data-ox-midnight]) .px-dialog::backdrop { background:rgba(4,6,11,.72)!important; }
+:host([data-ox-midnight]) .px-search { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; }
+:host([data-ox-midnight]) .px-setting select { background:var(--mi-s2)!important; }
+:host([data-ox-midnight]) .px-detail-loading { background:rgba(15,21,32,.88)!important; }
+:host([data-ox-midnight]) .px-mode-toggle { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .px-refresh-pill { background:var(--mi-raised)!important; border:1px solid rgba(217,199,154,.55)!important; color:var(--mi-text)!important; box-shadow:0 6px 18px rgba(2,4,9,.55)!important; }
+:host([data-ox-midnight]) .px-to-radar { border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; background:var(--mi-s2)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) :is(.px-hint,.px-card small,.px-meta,.px-section-title small) { color:var(--mi-sub)!important; }
+
+/* Bubbles (oxb) */
+:host([data-ox-midnight]) :is(.oxb,.oxb-assets) { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .oxb-stage { background:radial-gradient(ellipse at 50% 40%,#131b29,#0A0E16 85%)!important; }
+:host([data-ox-midnight]) :is(.oxb-scope,.oxb-metric-toggle,.oxb-zoom button,.oxb-zoom select) { border-color:var(--mi-line-strong)!important; background:var(--mi-s2)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) :is(.oxb-scope[aria-pressed=true],.oxb-metric-toggle[aria-expanded=true]) { border-color:var(--mi-accent)!important; background:var(--mi-accent-wash)!important; }
+:host([data-ox-midnight]) .oxb-menu { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; box-shadow:0 14px 34px rgba(2,4,9,.6)!important; }
+:host([data-ox-midnight]) .oxb-asset-grid button { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; }
+:host([data-ox-midnight]) .oxb-asset-grid button:is(:hover,:focus-visible) { border-color:rgba(217,199,154,.55)!important; }
+:host([data-ox-midnight]) .oxb-dialog { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:host([data-ox-midnight]) .oxb-dialog::backdrop { background:rgba(4,6,11,.72)!important; }
+:host([data-ox-midnight]) .oxb-radar { border-color:rgba(217,199,154,.55)!important; background:var(--mi-raised)!important; box-shadow:0 6px 18px rgba(2,4,9,.55)!important; }
+
+/* ETF and savings */
+:host([data-ox-midnight]) button:hover { border-color:var(--mi-line-strong); }
+:host([data-ox-midnight]) .search { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; }
+:host([data-ox-midnight]) .card { background:linear-gradient(165deg,rgba(27,36,51,.5),rgba(15,21,32,.96) 46%),#0F1520!important; border-color:var(--mi-line)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) .fund-card { background:var(--mi-s1)!important; border-color:var(--mi-line)!important; }
+:host([data-ox-midnight]) .etf-table th { background:var(--mi-s2)!important; color:var(--mi-sub)!important; }
+:host([data-ox-midnight]) :is(.etf-table th:first-child,.etf-table td:first-child) { background:var(--mi-s1)!important; }
+:host([data-ox-midnight]) .etf-table tr:hover td { background:var(--mi-raised)!important; }
+:host([data-ox-midnight]) :is(.input-unit,select,.disclosure input,.disclosure textarea,textarea) { background:var(--mi-s2)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:host([data-ox-midnight]) .strategy.active { border-color:var(--mi-accent)!important; background:var(--mi-accent-wash)!important; }
+:host([data-ox-midnight]) .donut:before { background:var(--mi-s1)!important; }
+:host([data-ox-midnight]) :is(.detail-dialog,.detail-dialog header) { background:var(--mi-s1)!important; border-color:var(--mi-line-strong)!important; color:var(--mi-text)!important; }
+:host([data-ox-midnight]) .detail-dialog::backdrop { background:rgba(4,6,11,.78)!important; }
+:host([data-ox-midnight]) .mobile-calculator-nav [aria-pressed=true] { border-color:var(--mi-accent)!important; background:var(--mi-accent-wash)!important; }
+:host([data-ox-midnight]) :is(.filters button.active,.primary) { background:var(--mi-accent-wash)!important; border-color:var(--mi-accent)!important; color:var(--mi-text)!important; box-shadow:none!important; }
+:host([data-ox-midnight]) :is(.px-match span,.px-frame,.px-energy span) { color:var(--mi-sub)!important; }
+/* 畫板「載入全市場」progress pill: quiet while loading, brighter when it is an action. */
+:host([data-ox-midnight]) .px-market-pill { color:var(--mi-sub)!important; border-color:var(--mi-line-strong)!important; background:rgba(226,232,240,.03)!important; }
+:host([data-ox-midnight]) .px-market-pill:not(:disabled) { color:var(--mi-text)!important; border-color:rgba(226,232,240,.32)!important; }
+:host([data-ox-midnight]) .px-market-pill .ox-loading-ring { border-color:rgba(226,232,240,.14)!important; border-top-color:var(--mi-accent)!important; }

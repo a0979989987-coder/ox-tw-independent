@@ -1,4 +1,15 @@
-export const HOME_GROUPS=[['us','美國股市'],['asia','亞洲市場'],['indicators','市場指標'],['commodities','商品市場'],['fx','外匯市場'],['yields','美國公債殖利率']];
+// Homepage sections. The US-equity and FX sections were removed; S&P 500,
+// SOX, TSM ADR and USD/TWD are still collected (groups us/fx) only as inputs
+// of the pre-market summary and are not rendered as homepage sections.
+export const HOME_GROUPS=[['asia','亞洲市場'],['indicators','市場指標'],['commodities','商品市場'],['yields','美國公債殖利率']];
+const BRIEFING_GROUPS=new Set([...HOME_GROUPS.map(([group])=>group),'us','fx']);
+// Quotes no longer collected; snapshots saved before the removal drop them.
+export const RETIRED_BRIEFING_IDS=Object.freeze(['^DJI','^IXIC','EURUSD=X','JPY=X','CNY=X','DX-Y.NYB']);
+export function currentBriefing(r){
+ if(!r||!Array.isArray(r.rows)||!r.rows.some(row=>RETIRED_BRIEFING_IDS.includes(row?.id)))return r;
+ const rows=r.rows.filter(row=>!RETIRED_BRIEFING_IDS.includes(row?.id));
+ return {...r,rows,complete:rows.every(row=>row.status==='ok')};
+}
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s+'T12:00:00Z'))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;
 const close=(a,b)=>finite(a)&&finite(b)&&Math.abs(a-b)<1e-6;
@@ -20,12 +31,13 @@ export function validNight(r,now=Date.now()){
  return !!r&&/^\d{6}$/.test(r.contract||'')&&validDate(r.tradeDate)&&/T15:00:00\+08:00$/.test(r.sessionStart||'')&&/T05:00:00\+08:00$/.test(r.sessionEnd||'')&&Date.parse(r.sessionEnd)-Date.parse(r.sessionStart)===14*3600000&&Date.parse(r.sessionEnd)<=now&&r.sessionEnd.slice(0,10)<=r.tradeDate&&r.close>0&&r.low>0&&r.high>=r.low&&r.close>=r.low&&r.close<=r.high&&Number.isInteger(r.volume)&&r.volume>0&&finite(r.change)&&finite(r.changePct)&&Number.isFinite(Date.parse(r.collectedAt));
 }
 export function validBriefing(r){
- const expected=r?.rows?.some(row=>row.id==='TSM')?22:21;
- return !!r&&validDate(r.date)&&Array.isArray(r.rows)&&r.rows.length===expected&&new Set(r.rows.map(row=>row.id)).size===expected&&r.rows.every(row=>HOME_GROUPS.some(([group])=>group===row.group)&&(!finite(row.value)||validDate(row.marketDate))&&(row.group!=='asia'||!finite(row.value)||row.marketDate<r.date&&row.quoteKind==='previous-close'));
+ const expected=r?.rows?.some(row=>row.id==='TSM')?16:15;
+ return !!r&&validDate(r.date)&&Array.isArray(r.rows)&&r.rows.length===expected&&new Set(r.rows.map(row=>row.id)).size===expected&&r.rows.every(row=>BRIEFING_GROUPS.has(row.group)&&!RETIRED_BRIEFING_IDS.includes(row.id)&&(!finite(row.value)||validDate(row.marketDate))&&(row.group!=='asia'||!finite(row.value)||row.marketDate<r.date&&row.quoteKind==='previous-close'));
 }
 // The official, validated cash close also supplies the morning Taiwan row.
 // Never substitute the report day's close or replace a newer source date.
 export function withOfficialTaiwanClose(briefing,core){
+ briefing=currentBriefing(briefing);
  if(!validBriefing(briefing)||!validCloseReport(core)||core.date>=briefing.date)return briefing;
  const row=briefing.rows.find(r=>r.id==='^TWII');
  if(!row||row.marketDate>core.date)return briefing;
@@ -36,6 +48,7 @@ export function withOfficialTaiwanClose(briefing,core){
 }
 export function acceptHomeSection(section,value){
  if(value==null)return null;
+ if(section==='briefing')value=currentBriefing(value);
  if(section==='core'&&!validCloseReport(value)||section==='night'&&value.status!=='unavailable'&&!validNight(value)||section==='briefing'&&!validBriefing(value))throw Error('資料日期或完整性驗證失敗，保留上次有效資料');
  if(section==='core'&&value.institutional){
   const r=value.institutional,markets=['TWSE','TPEX'].map(key=>r.markets?.[key]);
