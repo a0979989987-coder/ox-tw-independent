@@ -2,6 +2,11 @@ import {
   getOfficialTWRadar
 } from "./radar.js";
 
+import {
+  loadPublishedUniverse,
+  UNIVERSE_SNAPSHOT_SOURCE
+} from "./universe-snapshot.js";
+
 
 /*
  * OX v4.0 Modular
@@ -285,43 +290,14 @@ function finiteNumber(
 /* Radar universe                                                             */
 /* ========================================================================== */
 
-// Quotes and candles only need market membership and the latest verified daily
-// close. The independently published data/tw-radar.json already holds both, so
-// the six-source live rebuild runs only when that snapshot is missing or
-// incomplete. The Worker provides the reader (GitHub first, bundled copy second).
-const SNAPSHOT_PATH = "data/tw-radar.json";
-const SNAPSHOT_MAX_AGE_MS = 7 * 86400000;
-const snapshotUniverses = new WeakMap();
-
-export function quoteUniverseFromSnapshot(saved, now = Date.now()) {
-  const data = saved?.data, rows = Array.isArray(data?.radar) ? data.radar : [];
-  const sources = data?.meta?.sources || {};
-  if (!Number.isFinite(saved?.savedAt) || saved.savedAt > now + 60000 || now - saved.savedAt > SNAPSHOT_MAX_AGE_MS) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data?.dataDate || "") || data.meta?.partial !== false) return null;
-  if (sources.TWSE !== "ready" || sources.TPEX !== "ready") return null;
-  if (!rows.some(row => row?.market === "TWSE") || !rows.some(row => row?.market === "TPEX")) return null;
-  return {
-    rows, dataDate: data.dataDate, updatedAt: data.updatedAt || null,
-    meta: { ...data.meta, universeSource: "independent-verified-snapshot", snapshotUpdatedAt: new Date(saved.savedAt).toISOString() }
-  };
-}
-
-async function loadSnapshotUniverse(read) {
-  try {
-    // The reader memoizes bytes for a minute; parse each published copy once.
-    const bytes = await read(SNAPSHOT_PATH);
-    if (!snapshotUniverses.has(bytes)) snapshotUniverses.set(bytes, quoteUniverseFromSnapshot(JSON.parse(new TextDecoder().decode(bytes))));
-    return snapshotUniverses.get(bytes);
-  } catch {
-    return null;
-  }
-}
+// Quotes and candles read the published list first (see universe-snapshot.js).
+export { universeFromSnapshot as quoteUniverseFromSnapshot } from "./universe-snapshot.js";
 
 async function loadQuoteUniverse(progress = {}) {
 
   if (typeof globalThis.__twReadAsset === "function") {
-    progress.source = "GitHub data/tw-radar.json";
-    const snapshot = await loadSnapshotUniverse(globalThis.__twReadAsset);
+    progress.source = UNIVERSE_SNAPSHOT_SOURCE;
+    const snapshot = await loadPublishedUniverse();
     if (snapshot) return snapshot;
   }
 

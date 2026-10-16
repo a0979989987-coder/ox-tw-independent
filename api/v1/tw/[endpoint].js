@@ -86,6 +86,13 @@ import {
 const DEFAULT_ALLOWED_ORIGINS = Object.freeze([]);
 
 
+const INCOMPLETE_UNIVERSE_MESSAGES = Object.freeze({
+  TW_QUOTE_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法判斷此股票",
+  TW_THEME_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法計算產業排行",
+  TW_INDICATORS_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法計算市場指標"
+});
+
+
 /* ========================================================================== */
 /* Response helpers                                                           */
 /* ========================================================================== */
@@ -1748,14 +1755,15 @@ export async function handleTWRequest(
 
 
     /*
-     * Only one exchange answered. Absence from that list proves nothing.
+     * Only one exchange answered. Absence from that list proves nothing, and
+     * rankings or totals built from it would leave out the other market.
      */
-    if (errorCode === "TW_QUOTE_UNIVERSE_INCOMPLETE") {
+    if (Object.hasOwn(INCOMPLETE_UNIVERSE_MESSAGES, errorCode)) {
       return fail(
         res,
         503,
         errorCode,
-        "台股全市場清單來源不完整，暫時無法判斷此股票",
+        INCOMPLETE_UNIVERSE_MESSAGES[errorCode],
         {endpoint,dataDate:error.details?.dataDate||null,sources:error.details?.sources||null,elapsedMs:Date.now()-requestStarted}
       );
     }
