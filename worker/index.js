@@ -1,5 +1,5 @@
 import handler from '../api/v1/tw/[endpoint].js';
-import {readSnapshotAsset,snapshotEndpoint} from './snapshots.js';
+import {readSnapshotAsset,snapshotAssetResponse,snapshotEndpoint} from './snapshots.js';
 const cache=new Map();
 export default {
  async fetch(request,env,ctx){
@@ -30,6 +30,10 @@ export default {
     if(request.method==='GET'&&status===200&&endpoint!=='outlook'){if(cache.size>60)cache.delete(cache.keys().next().value);cache.set(key,{body:result,status,headers:responseHeaders,time:Date.now()});}
     return new Response(result||null,{status,headers:responseHeaders});
   }
+  // The K-line pack is rebuilt daily in the repository; the deployed copy is
+  // only the fallback, so the site no longer freezes at its deployment date.
+  const pattern=request.method==='GET'&&url.pathname.match(/^(?:\/[A-Za-z0-9_.-]+)?\/(data\/tw-patterns\/[A-Za-z0-9_.-]+\.json(?:\.gz)?)$/);
+  if(pattern)try{return await snapshotAssetResponse(pattern[1],request,env.ASSETS);}catch(error){console.warn('Pattern snapshot fallback',pattern[1],error.message);}
   if(!env.ASSETS)return new Response('Site assets unavailable',{status:503});
   return env.ASSETS.fetch(request);
  }

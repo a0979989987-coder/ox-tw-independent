@@ -184,6 +184,32 @@ function fail(
 
 
 /* ========================================================================== */
+/* Deadline                                                                   */
+/* ========================================================================== */
+
+// Quote and candle requests answer with JSON before the hosting platform cuts
+// the connection. The provider records the source it is waiting on so the
+// timeout says which official feed was slow. The browser waits longer (25 s).
+export const LIVE_REQUEST_DEADLINE_MS = 20000;
+
+export async function withRequestDeadline(work, timeoutMs = LIVE_REQUEST_DEADLINE_MS) {
+  const progress = { source: "" };
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(
+      new Error(`Taiwan market data did not finish within ${timeoutMs / 1000} seconds.`),
+      { code: "TW_UPSTREAM_TIMEOUT", source: progress.source || "official-tw", timeoutMs }
+    )), timeoutMs);
+  });
+  try {
+    return await Promise.race([work(progress), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
+/* ========================================================================== */
 /* CORS                                                                       */
 /* ========================================================================== */
 
@@ -1019,8 +1045,12 @@ async function handleQuote(
 
 
   const data =
-    await getOfficialTWQuote(
-      symbol
+    await withRequestDeadline(
+      progress =>
+        getOfficialTWQuote(
+          symbol,
+          { progress }
+        )
     );
 
 
@@ -1301,24 +1331,28 @@ async function handleCandles(
 
 
   const data =
-    await getOfficialTWCandles(
-      symbol,
-      {
-        interval,
-        range,
+    await withRequestDeadline(
+      progress =>
+        getOfficialTWCandles(
+          symbol,
+          {
+            interval,
+            range,
 
-        from:
-          from ||
-          null,
+            from:
+              from ||
+              null,
 
-        to:
-          to ||
-          null,
+            to:
+              to ||
+              null,
 
-        limit,
-        adjusted,
-        history: booleanParam(req.query.history,false)
-      }
+            limit,
+            adjusted,
+            history: booleanParam(req.query.history,false),
+            progress
+          }
+        )
     );
 
 
@@ -1695,6 +1729,34 @@ export async function handleTWRequest(
         errorCode,
         error?.message ||
         "Invalid Taiwan market request."
+      );
+    }
+
+
+    /*
+     * The request deadline expired while an official feed was pending.
+     */
+    if (errorCode === "TW_UPSTREAM_TIMEOUT") {
+      return fail(
+        res,
+        504,
+        errorCode,
+        `台股官方來源逾時：${error.source}`,
+        {endpoint,source:String(error.source).slice(0,120),timeoutMs:error.timeoutMs,elapsedMs:Date.now()-requestStarted}
+      );
+    }
+
+
+    /*
+     * Only one exchange answered. Absence from that list proves nothing.
+     */
+    if (errorCode === "TW_QUOTE_UNIVERSE_INCOMPLETE") {
+      return fail(
+        res,
+        503,
+        errorCode,
+        "台股全市場清單來源不完整，暫時無法判斷此股票",
+        {endpoint,dataDate:error.details?.dataDate||null,sources:error.details?.sources||null,elapsedMs:Date.now()-requestStarted}
       );
     }
 

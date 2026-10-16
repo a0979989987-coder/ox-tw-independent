@@ -1484,7 +1484,10 @@ export async function getOfficialTWCandles(
     adjusted =
       true,
 
-    history = false
+    history = false,
+
+    // Shared with the API deadline so a timeout can name the pending source.
+    progress = {}
   } = {}
 ) {
 
@@ -1512,7 +1515,8 @@ export async function getOfficialTWCandles(
    */
   const quote =
     await getOfficialTWQuote(
-      normalizedSymbol
+      normalizedSymbol,
+      { progress }
     );
 
 
@@ -1579,6 +1583,13 @@ export async function getOfficialTWCandles(
             normalizedSymbol,
             month
           );
+
+
+  progress.source =
+    market ===
+      "TWSE"
+      ? "TWSE-STOCK-DAY"
+      : "TPEX-ST43";
 
 
   let candles =

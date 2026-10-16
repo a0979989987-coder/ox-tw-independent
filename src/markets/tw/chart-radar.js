@@ -9,7 +9,7 @@ import { bundleState, bundleEntry, bundleClassification, subscribeBundle, preloa
 import { fetchSeries } from './patterns/source.js?v=20261002-rank8';
 import { CHART_FRAMES, aggregateChartCandles, stockDetails, chartTickFormatter } from './chart-data.js?v=20261001-loading1';
 import { radarPart, attachRadarStyles } from '../../components/radar/market-workspace.js';
-import { chartHistory, loadHistoryPage, preserveHistoryViewport, mergeDailyHistory } from './chart-history.js?v=20261001-tiercomb1';
+import { chartHistory, loadHistoryPage, preserveHistoryViewport, mergeDailyHistory, atHistoryEdge } from './chart-history.js?v=20261001-tiercomb1';
 const UP='#f16a70',DOWN='#48b78e';
 const num=n=>Number.isFinite(n)?n.toLocaleString('zh-TW',{maximumFractionDigits:2}):'—';
 const change=n=>Number.isFinite(n)?`${n>=0?'+':''}${n.toFixed(2)}%`:'—';
@@ -210,18 +210,30 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   refreshRange();levels();drawings?.sync();
   const span=candles.length?`${candles[0].date} ～ ${candles.at(-1).lastDate||candles.at(-1).date}`:'尚無已完成 K 線';
   $('[data-series-note]').textContent=`${CHART_FRAMES[frame]} K · ${candles.length} 根${frame==='1D'?'':'已完成 K 線'} · ${span} · 未復權`;
-  $('[data-history-status]').textContent=record.error?'歷史載入暫停，已載入資料保留':record.complete?'官方可取得歷史已全部載入':`正在補載歷史 · 已查至 ${record.coverageStart}`;
+  $('[data-history-status]').textContent=record.error?'歷史載入暫停，已載入資料保留':record.complete?'官方可取得歷史已全部載入':historyJob?`正在載入更早 K 線 · 已查至 ${record.coverageStart}`:`捲到最左邊載入更早 K 線 · 已查至 ${record.coverageStart}`;
   $('[data-history-status]').title=record.error?.message||'';
   $('[data-action="history-retry"]').hidden=!record.error;
   status(candles.length?'':record.complete?'官方來源沒有此級別的已完成 K 線':'正在載入更早的官方 K 線');
+  // A frame with no completed bar yet cannot be scrolled; fetch a few pages.
+  if(!candles.length&&!record.complete&&!record.error&&(record.autoPages||0)<3){record.autoPages=(record.autoPages||0)+1;loadOlderHistory();}
  }
- async function fillHistory(){
-  const run=serial,record=historyRecord,signal=controller.signal;if(!record||record.complete)return;
+ // One official page per request. Pages load only when the reader reaches the
+ // first loaded bar, never in a loop back to 2010 / 1994.
+ async function loadOlderHistory(){
+  const run=serial,record=historyRecord,signal=controller.signal;if(!record||record.complete||record.error)return;
   if(historyJob?.run===run)return historyJob.promise;
-  const promise=(async()=>{try{while(!record.complete){await loadHistoryPage(record,signal);if(run!==serial||life.signal.aborted)return;renderHistory();}}
-   catch(error){if(run===serial&&!life.signal.aborted&&error.name!=='AbortError')renderHistory();}
+  const promise=(async()=>{try{await loadHistoryPage(record,signal);}
+   catch(error){if(error.name==='AbortError')return;}
    finally{if(historyJob?.run===run)historyJob=null;}
-  })();historyJob={run,promise};return promise;
+   if(run===serial&&!life.signal.aborted)renderHistory();
+  })();historyJob={run,promise};
+  $('[data-history-status]').textContent=`正在載入更早 K 線 · 已查至 ${record.coverageStart}`;
+  return promise;
+ }
+ let gestureRange=null;
+ function loadOlderAtEdge(){
+  const range=state.chart?.timeScale().getVisibleLogicalRange();
+  if(atHistoryEdge(range))loadOlderHistory();
  }
  async function openSymbol(next){
   if(!/^\d{4}$/.test(next)||life.signal.aborted)return;
@@ -242,7 +254,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
    const data=base&&latest?.asOf===asOf?{...base,dataDate:asOf,candles:mergeDailyHistory(base.candles,latest.daily,asOf)}:await fetchSeries(next,'1D',controller.signal,asOf,{minimum:1});if(run!==serial||life.signal.aborted)return;
    status('正在開啟歷史 K 線');const record=await chartHistory(next,universe().find(r=>r.symbol===next)?.market,snapshot()?.date,data.candles,controller.signal);if(run!==serial||life.signal.aborted)return;
    historyRecord=record;renderHistory(true);const viewport=viewports.get(`${next}:${frame}`);if(viewport?.logical){fitAll=false;const index=state.candleData.findIndex(c=>c.time===viewport.anchorTime),shift=index<0?0:index-viewport.anchorIndex;state.chart.timeScale().setVisibleLogicalRange({from:viewport.logical.from+shift,to:viewport.logical.to+shift});state.chartPriceViewport=viewport.price;refreshRange();}
-   fillHistory();refreshSelectedCandle().catch(()=>{});
+   refreshSelectedCandle().catch(()=>{});
   }catch(error){if(run===serial&&!life.signal.aborted&&error.name!=='AbortError'){console.warn('Taiwan chart load failed',error);$('[data-history-status]').title=error.message;status('官方 K 線暫時無法取得，請稍後重試');$('[data-history-status]').textContent='歷史資料暫時無法取得';$('[data-action="history-retry"]').hidden=false;}}
  }
  async function refreshSelectedCandle(){
@@ -255,7 +267,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   if(run!==serial||life.signal.aborted)return;
   if(old.coverageStart<record.coverageStart){record.coverageStart=old.coverageStart;record.cursor=old.cursor;record.complete=old.complete;}
   serial++;controller.abort();controller=new AbortController();historyJob=null;historyRecord=record;
-  renderHistory();fillHistory();
+  renderHistory();
  }
  function setFocus(value){focus=value;document.body.classList.toggle('tw-chart-focus',value);root.classList.toggle('is-focused',value);$('[data-action="exit"]').hidden=!value;$('[data-action="focus"]').hidden=value;drawings?.sync();requestAnimationFrame(()=>{if(!life.signal.aborted)state.chart?.resize(el.clientWidth,el.clientHeight);});}
  const all=$('[data-twcr-tab="all"]');const menu=value=>{const m=$('.twcr-tier-menu'),r=all.getBoundingClientRect();m.style.left=`${Math.min(r.left,innerWidth-110)}px`;m.style.top=`${r.bottom+5}px`;m.hidden=!value;all.setAttribute('aria-expanded',String(value));};
@@ -284,11 +296,15 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   if(b.dataset.twcrTab){if(b.dataset.twcrTab==='all'){if(held){held=false;return;}if(tab==='all'){const options=['all','T1','T2','T3'];tier=options[(options.indexOf(tier)+1)%options.length];}tab='all';}else tab=b.dataset.twcrTab;menu(false);renderList();return;}
   if(b.dataset.symbol){openSymbol(b.dataset.symbol);return;}
   if(b.dataset.favorite){const value=b.dataset.favorite;watchlist.has(value)?watchlist.delete(value):watchlist.add(value);try{localStorage.setItem('ox-tw-independent:ox-tw-radar-watchlist-v1',JSON.stringify([...watchlist]));}catch{}renderList();return;}
-  if(b.dataset.action==='history-retry'){if(historyRecord){historyRecord.error=null;historyJob=null;renderHistory();fillHistory();}else if(symbol)openSymbol(symbol);return;}
+  if(b.dataset.action==='history-retry'){if(historyRecord){historyRecord.error=null;historyJob=null;renderHistory();loadOlderHistory();}else if(symbol)openSymbol(symbol);return;}
   switch(b.dataset.action){case 'search':{renderSearch();$('.twcr-search-dialog').showModal();b.setAttribute('aria-expanded','true');$('.twcr-search-dialog input').focus();break;}case 'search-close':closeSearch();break;case 'indicators':tools('indicators');break;case 'tools-close':closeTools();break;case 'frames-save':{const checked=[...host.querySelectorAll('.chart-timeframe-preferences input:checked')].map(n=>n.value);host.querySelectorAll('[data-twcr-frame]').forEach(n=>n.hidden=!checked.includes(n.dataset.twcrFrame)&&n.dataset.twcrFrame!==frame);closeTools();marker();break;}case 'side':side=side==='long'?'short':'long';renderList();break;case 'fold':folded=!folded;root.classList.toggle('is-folded',folded);b.setAttribute('aria-expanded',String(!folded));b.setAttribute('aria-label',folded?'展開候選列表':'收合候選列表');break;case 'focus':setFocus(true);break;case 'native-fullscreen':closeTools();setFocus(true);box.requestFullscreen?.().catch(()=>{});break;case 'exit':if(document.fullscreenElement===box)document.exitFullscreen();setFocus(false);break;case 'reset':state.chartPriceViewport=null;refreshRange();state.chart?.timeScale().fitContent();break;}
  });
  listen($('[data-levels]'),'change',levels);
- listen(el,'pointerdown',()=>{fitAll=false;},{passive:true});listen(el,'wheel',()=>{fitAll=false;},{passive:true});
+ listen(el,'pointerdown',()=>{fitAll=false;gestureRange=state.chart?.timeScale().getVisibleLogicalRange();},{passive:true});
+ listen(el,'wheel',()=>{fitAll=false;requestAnimationFrame(loadOlderAtEdge);},{passive:true});
+ // A drag that ends with the first loaded bar on screen asks for one more page;
+ // a plain tap that did not move the chart does not.
+ listen(el,'pointerup',()=>{const range=state.chart?.timeScale().getVisibleLogicalRange(),moved=gestureRange&&range&&(range.from!==gestureRange.from||range.to!==gestureRange.to);gestureRange=null;if(moved)loadOlderAtEdge();},{passive:true});
  listen($('[data-volume]'),'change',event=>state.volumeSeries?.applyOptions({visible:event.target.checked}));
  listen(host,'keydown',event=>{if((event.key==='Enter'||event.key===' ')&&event.target.matches('[data-stock]')){event.preventDefault();openSymbol(event.target.dataset.stock);}if(event.key==='Tab'&&$('.twcr-tools').classList.contains('is-open')){const nodes=[...$('.chart-tools-dialog').querySelectorAll('button,input')].filter(n=>!n.closest('[hidden]'));if(event.shiftKey&&document.activeElement===nodes[0]){event.preventDefault();nodes.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===nodes.at(-1)){event.preventDefault();nodes[0].focus();}}});
  listen($('.twcr-search-dialog input'),'input',renderSearch);

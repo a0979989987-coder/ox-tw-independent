@@ -60,7 +60,7 @@ test('an official same-day classification revision reloads chunks instead of ret
   const manifest=JSON.parse(await readFile(new URL('../data/tw-patterns/manifest.json',import.meta.url),'utf8'));
   const payload=JSON.parse(gunzipSync(await readFile(new URL('../data/tw-patterns/'+manifest.chunks[0].file,import.meta.url))).toString());
   const entry=structuredClone(payload.entries[0]);let version=1,chunks=0;
-  globalThis.fetch=async url=>String(url).includes('manifest.json')?{ok:true,json:async()=>({...manifest,updatedAt:'revision-'+version,classified:1,total:1,chunks:[{file:'daily-00.json',count:1}]})}:{ok:true,headers:{get:()=>null},json:async()=>{chunks++;return {date:manifest.date,algorithmVersion:5,entries:[{...entry,data:{...entry.data,revision:version},matches:{revision:version}}]};}};
+  globalThis.fetch=async url=>String(url).includes('manifest.json')?{ok:true,json:async()=>({...manifest,updatedAt:'revision-'+version,classified:1,total:1,chunks:[{file:'daily-00.json',count:1}]})}:(chunks++,new Response(JSON.stringify({date:manifest.date,algorithmVersion:5,entries:[{...entry,data:{...entry.data,revision:version},matches:{revision:version}}]})));
   try{
     const module=await import('../src/markets/tw/patterns/bundle.js?revision-test');
     await module.preloadBundle({force:true,silent:true});assert.equal(chunks,1);
