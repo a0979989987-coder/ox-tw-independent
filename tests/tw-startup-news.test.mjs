@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,readdir} from 'node:fs/promises';
 import vm from 'node:vm';
 import {TOOL_STYLES,newsAssets} from '../scripts/client-assets.mjs';
 import {createStyleLoader} from '../src/components/style-resource.js';
@@ -72,25 +72,34 @@ test('runtime starts independently of a failed chart vendor and exposes a bounde
   let imported=0,chartAttempts=0;
   const context=vm.createContext({URL,Error,Promise,Date,setTimeout,clearTimeout,location:new URL('https://example.test/ox-tw-independent/'),
     document:{currentScript:{src},getElementById:()=>host,createElement:()=>({setAttribute(){},remove(){}}),head:{append(script){chartAttempts++;assert.match(script.src,/\/ox-tw-independent\/src\/vendor\/lightweight-charts/);queueMicrotask(()=>script.onerror());}}},
-    __import:async url=>{imported++;assert.match(url,/\/ox-tw-independent\/src\/generated\/runtime.js/);return {ready:true};}});
+    __import:async url=>{imported++;assert.match(url,/\/ox-tw-independent\/src\/generated\/app\/runtime.js/);return {ready:true};}});
   vm.runInContext(code,context);
   assert.deepEqual(await context.OXRuntimeReady,{ready:true});assert.equal(imported,1);assert(!attributes.has('aria-busy'));
   await assert.rejects(context.OXEnsureChart());assert(chartAttempts<=4);
   }
 });
 
-test('published boot/runtime versions match and core tool CSS is embedded',async()=>{
+test('published boot/runtime versions match; first screen is small and tool CSS is a lazy chunk',async()=>{
   const html=await readFile(new URL('../dist/client/index.html',import.meta.url),'utf8');
   const boot=await readFile(new URL('../dist/client/src/app/module-boot.js',import.meta.url),'utf8');
   const version=boot.match(/const version='([a-f0-9]{12})'/)?.[1];assert(version);
-  assert(html.includes('runtime.js?v='+version));assert(html.includes("const version='"+version+"'"));
+  assert(html.includes(`runtime-${version}.js?v=`+version));assert(html.includes("const version='"+version+"'"));
   assert(!/<script[^>]+src=/.test(html),'HTML must not wait for separate bootstrap/helper scripts');
   assert(!html.includes('<script src="src/vendor/lightweight-charts'));
   assert(!html.includes('src="src/components/news/center.js"'));
-  const runtime=await readFile(new URL('../dist/client/src/generated/runtime.js',import.meta.url),'utf8');
-  assert(runtime.includes('if(!globalThis.__OXTWRuntimeStarted)'));
-  assert(runtime.includes('globalThis.OXStyleTexts='));
-  for(const path of TOOL_STYLES)assert(runtime.includes('/'+path));
+  const runtime=await readFile(new URL(`../dist/client/src/generated/app/runtime-${version}.js`,import.meta.url),'utf8');
+  // The entry only imports the shared app chunk: retrying it cannot start the app twice.
+  assert(runtime.length<4000);assert(!runtime.includes('switchAppView'));
+  const preloads=[...html.matchAll(/<link rel="modulepreload" href="([^"?]+)/g)].map(m=>m[1]);
+  let firstScreen=0;
+  for(const path of preloads)firstScreen+=(await readFile(new URL('../dist/client/'+path,import.meta.url))).length;
+  assert(firstScreen<450000,`first-screen JavaScript is ${firstScreen} bytes`);
+  const chunks=await readdir(new URL('../dist/client/src/generated/app/chunks/',import.meta.url));
+  const styleChunk=chunks.find(name=>name.startsWith('tool-styles-'));assert(styleChunk);
+  assert(!preloads.some(path=>path.endsWith(styleChunk)),'tool CSS is not downloaded for the first screen');
+  const styleText=await readFile(new URL('../dist/client/src/generated/app/chunks/'+styleChunk,import.meta.url),'utf8');
+  for(const path of TOOL_STYLES)assert(styleText.includes('/'+path));
+  for(const tool of ['workspace-','chart-radar-','savings-'])assert(chunks.some(name=>name.startsWith(tool))&&!preloads.some(path=>path.includes('/'+tool)),tool);
 });
 
 test('critical news and styled-content reveal cannot be parked behind a paused animation frame',async()=>{

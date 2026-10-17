@@ -96,3 +96,6 @@
 :host([data-ox-theme="light"]) .chart>path[stroke="#e5e9e8"]{stroke:#8d712e}
 
 :host([data-ox-theme="light"]) :is(.ox-loading-label,.ox-loading-count,.ox-loading-detail){color:#616d7c!important}
+:host([data-ox-theme="light"]) .px-market-pill {border:1px solid rgba(156,169,185,0.565)!important;background:rgba(148,163,184,0.013)!important;color:#616d7c!important}
+:host([data-ox-theme="light"]) .px-market-pill:not(:disabled) {color:#374151!important;border-color:rgba(156,169,185,0.671)!important}
+:host([data-ox-theme="light"]) .px-market-pill .ox-loading-ring {border-color:rgba(100,116,139,0.22)!important;border-top-color:#616d7c!important}

@@ -34,9 +34,25 @@ jobs:
           node-version: '22'
           cache: npm
       - uses: actions/configure-pages@v5
+        id: pages
       - run: npm ci
       - run: npm run build:pages
+        env:
+          # Absolute URL for link previews (Open Graph image).
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+      # Tests check the artifact just built (absolute link-preview URLs). If
+      # pretest has to rebuild, it keeps the same site URL.
       - run: npm test
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+      # Pages caches HTML for 10 minutes and tabs stay open for days; keep the
+      # hashed CSS/JS chunks of every build version live within the last 7 days
+      # (at least the previous two) so an older page never loses its assets.
+      # Data-only commits keep the build version.
+      - name: Retain previous build assets
+        run: node scripts/retain-previous-assets.mjs
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/client

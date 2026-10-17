@@ -21,10 +21,18 @@ export async function readIndex(frames) {
   });
   return [...memory.values()].filter(entry => frames.includes(entry.data.frame) && entryCurrent(entry));
 }
+// While a whole market streams in, writes share a transaction per slice of
+// 20 stocks (one slice per task) instead of one transaction per stock.
+const writes = new Map(); let flushTimer = 0;
+async function flush() {
+  const batch = [...writes.values()].slice(0, 20); for (const entry of batch) writes.delete(entry.key);
+  flushTimer = writes.size ? setTimeout(flush, 0) : 0;
+  const db = await database(); if (!db || !batch.length) return;
+  try { const tx = db.transaction('series', 'readwrite'), store = tx.objectStore('series'); for (const entry of batch) store.put(entry); tx.onerror = () => {}; } catch {}
+}
 export async function saveIndex(data, matches) {
   const entry = { key: data.symbol + ':' + data.frame, data, matches, version: INDEX_VERSION, savedAt: Date.now() }; memory.set(entry.key, entry);
-  const db = await database(); if (!db) return;
-  try { const tx = db.transaction('series', 'readwrite'); tx.objectStore('series').put(entry); tx.onerror = () => {}; } catch {}
+  writes.set(entry.key, entry); flushTimer ||= setTimeout(flush, 400);
 }
 export async function pruneIndex() {
   for (const [key, entry] of memory) if (!entryCurrent(entry)) memory.delete(key);

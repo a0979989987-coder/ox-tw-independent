@@ -35,3 +35,19 @@ test('a later download timestamp cannot replace a newer verified trading date in
  const older={...published,savedAt:Date.now(),data:{...published.data,dataDate:date,modesMeta:{...published.data.modesMeta,asOf:date}}};
  assert(validRadarSnapshot(older));assert.equal(saveRadarSnapshot(older,storage),false);assert.equal(savedRadarSnapshot(storage).data.dataDate,published.data.dataDate);
 });
+
+test('blocked site storage cannot reject the first-screen cache or the saved snapshot',async t=>{
+ // Browsers with site data blocked throw on merely reading localStorage.
+ const denied=()=>{throw new DOMException('The operation is insecure.','SecurityError');};
+ const saved=Object.fromEntries(['localStorage','indexedDB'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+ for(const name of Object.keys(saved))Object.defineProperty(globalThis,name,{configurable:true,get:denied});
+ const unhandled=[],record=error=>unhandled.push(error);process.on('unhandledRejection',record);
+ t.after(()=>{process.off('unhandledRejection',record);for(const [name,descriptor]of Object.entries(saved))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];});
+ const blocked=await import('../src/markets/tw/radar-snapshot.js?blocked-storage');
+ assert.equal(await blocked.readCachedRadar(),null);
+ assert.equal(blocked.savedRadarSnapshot(),null);
+ assert.equal(blocked.saveRadarSnapshot({...published,savedAt:Date.now()}),false,'nothing was saved');
+ assert.equal(await blocked.writeCachedRadar({...published,savedAt:Date.now()}),false);
+ await new Promise(resolve=>setTimeout(resolve,10));
+ assert.deepEqual(unhandled,[]);
+});

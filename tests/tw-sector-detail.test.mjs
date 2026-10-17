@@ -41,13 +41,15 @@ test('replay constituents retain the quote date and theme membership, with marke
 });
 
 test('stock K overview preserves true OHLC, rejects invalid/future bars and uses completed multi-day candles', () => {
-  const daily=['2026-09-28','2026-09-29','2026-09-30'].map((date,i)=>({date,open:10+i,high:12+i,low:9+i,close:11+i,volume:100}));
-  const rows=[...daily,{...daily[0],date:'2026-09-27',low:20}];
-  const bars=stockDetailCandles(rows,'1D','2026-09-29');assert.equal(bars.length,2);
-  const merged=stockDetailCandles(rows,'2D','2026-09-29');assert.equal(merged.length,1);
+  // Real TWSE sessions (2026-09-28 was a market holiday): 09-29 and 09-30
+  // form one 2-session bar on the fixed session numbering.
+  const daily=['2026-09-29','2026-09-30','2026-10-01'].map((date,i)=>({date,open:10+i,high:12+i,low:9+i,close:11+i,volume:100}));
+  const rows=[...daily,{...daily[0],date:'2026-09-28',low:20}];
+  const bars=stockDetailCandles(rows,'1D','2026-09-30');assert.equal(bars.length,2);
+  const merged=stockDetailCandles(rows,'2D','2026-09-30');assert.equal(merged.length,1);
   assert.equal(merged[0].open,10);assert.equal(merged[0].close,12);assert.equal(merged[0].volume,200);
   const chart=stockDetailChart(bars,'測試<script>');
-  assert.match(chart,/2026-09-28/);assert.match(chart,/2026-09-29/);assert.ok(!chart.includes('2026-09-30'));
+  assert.match(chart,/2026-09-29/);assert.match(chart,/2026-09-30/);assert.ok(!chart.includes('2026-10-01'));
   assert.ok(!chart.includes('<script>'));assert.ok(!chart.includes('NaN'));assert.match(chart,/官方 K 線，2 根/);
   assert.equal(stockDetailChart([]),'');
 });

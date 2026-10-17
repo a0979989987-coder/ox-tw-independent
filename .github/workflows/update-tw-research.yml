@@ -12,17 +12,24 @@ on:
     - cron: '40 7 * * 1-5'
     - cron: '35 10 * * 1-5'
     - cron: '35 12 * * 1-5'
-permissions:
-  contents: write
+permissions: {}
 concurrency:
   group: tw-research-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  collect:
+  quotes:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      radar: ${{ steps.radar.outcome }}
+      research: ${{ steps.research.outcome }}
+      changed: ${{ steps.package.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -45,28 +52,97 @@ jobs:
           exit 1
         id: research
         continue-on-error: true
-      - name: Publish verified closing quotes before pattern classification
+      - name: Package verified closing quotes
+        id: package
+        env:
+          DATA_PATHS: data/tw-radar.json data/tw-research.json data/tw-research-history.json
         run: |
-          git add data/tw-radar.json data/tw-research.json data/tw-research-history.json
-          if git diff --cached --quiet; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data(tw): update verified closing quotes and institutional data"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # shellcheck disable=SC2086
+          if [ -z "$(git status --porcelain -- $DATA_PATHS)" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # shellcheck disable=SC2086
+          tar -czf "$RUNNER_TEMP/data-update.tgz" -- $DATA_PATHS
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.package.outputs.changed == 'true'
+        with:
+          name: tw-quotes-data
+          path: ${{ runner.temp }}/data-update.tgz
+          retention-days: 1
+          if-no-files-found: error
+  # Verified closing quotes are published before pattern classification.
+  publish-quotes:
+    needs: quotes
+    if: needs.quotes.outputs.changed == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/commit-data.yml
+    with:
+      artifact: tw-quotes-data
+      paths: data/tw-radar.json data/tw-research.json data/tw-research-history.json
+      message: 'data(tw): update verified closing quotes and institutional data'
+  patterns:
+    needs: quotes
+    if: needs.quotes.outputs.research == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      patterns: ${{ steps.patterns.outcome }}
+      changed: ${{ steps.package.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        if: needs.quotes.outputs.changed == 'true'
+        with:
+          name: tw-quotes-data
+          path: ${{ runner.temp }}/quotes
+      - name: Use this run's verified research snapshot
+        if: needs.quotes.outputs.changed == 'true'
+        run: tar -xzf "$RUNNER_TEMP/quotes/data-update.tgz" --no-same-owner --no-same-permissions data/tw-research.json
       - run: node scripts/collect-tw-patterns.mjs --curl
         id: patterns
-        if: steps.research.outcome == 'success'
         continue-on-error: true
-      - name: Save verified snapshot
+      - name: Package verified pattern snapshot
+        id: package
+        env:
+          DATA_PATHS: data/tw-patterns
         run: |
-          git add data/tw-patterns
-          if git diff --cached --quiet; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data(tw): update official research snapshot"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # shellcheck disable=SC2086
+          if [ -z "$(git status --porcelain -- $DATA_PATHS)" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # shellcheck disable=SC2086
+          tar -czf "$RUNNER_TEMP/data-update.tgz" -- $DATA_PATHS
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.package.outputs.changed == 'true'
+        with:
+          name: tw-patterns-data
+          path: ${{ runner.temp }}/data-update.tgz
+          retention-days: 1
+          if-no-files-found: error
+  publish-patterns:
+    needs: [patterns, publish-quotes]
+    if: ${{ !cancelled() && needs.patterns.outputs.changed == 'true' && needs.publish-quotes.result != 'failure' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/commit-data.yml
+    with:
+      artifact: tw-patterns-data
+      paths: data/tw-patterns
+      message: 'data(tw): update official research snapshot'
+  report:
+    needs: [quotes, patterns]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
       - name: Report incomplete sources after preserving successful data
-        if: steps.radar.outcome == 'failure' || steps.research.outcome == 'failure' || steps.patterns.outcome == 'failure'
+        if: needs.quotes.outputs.radar == 'failure' || needs.quotes.outputs.research == 'failure' || needs.patterns.outputs.patterns == 'failure'
         run: exit 1
+      - run: echo "All sources collected"

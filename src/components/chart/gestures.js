@@ -118,5 +118,8 @@ window.OXChartGestures = function({container,state,getRange,setRange,refreshRang
   listen('touchend',end,{passive:false,capture:true});
   listen('touchcancel',()=>{clearTimeout(inspectTimer);container.oxDrawingController?.cancel();drawingGesture=false;gesture=null;waitForRelease=false;},{passive:true,capture:true});
   listen('dblclick',event=>{if(zone(event.target)==='price'){state.chartPriceViewport=null;refreshRange();}},true);
+  // iOS Safari also pinch-zooms the page through its own gesture events, even
+  // when the touches are handled above: two fingers belong to the chart.
+  for(const type of ['gesturestart','gesturechange','gestureend'])listen(type,event=>event.preventDefault(),{passive:false});
   return {destroy(){life.abort();clearTimeout(inspectTimer);gesture=null;}};
 };

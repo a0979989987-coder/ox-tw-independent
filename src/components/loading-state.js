@@ -3,6 +3,9 @@
 (() => {
  const tasks=new Map(),regions=new Map();let timer;
  const css=`.ox-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#dcded7;font:11px/1.4 Inter,system-ui,sans-serif;text-align:center}.ox-loading-ring{display:block;flex:none;width:18px;height:18px;border:2px solid #ffffff24;border-top-color:#eceee8;border-radius:50%;will-change:transform;animation:ox-loading-turn .85s linear infinite;backface-visibility:hidden}.ox-loading-count{font-size:10px;font-variant-numeric:tabular-nums;color:#b5beb8}.ox-loading-label{max-width:190px}.ox-region-loading{grid-column:1/-1;min-width:0;position:static;display:grid;place-items:center;padding:8px;pointer-events:none}.ox-region-loading[hidden],.ox-tool-loading[hidden]{display:none}.ox-tool-loading{min-height:220px;display:grid;place-items:center}@keyframes ox-loading-turn{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.ox-loading-ring{animation-duration:2s}}`;
+ // Skeletons: the placeholder shape of a tool page while its code or data
+ // arrives, matching the radar's first-screen skeleton cards in every theme.
+ const skeletonCss=`.ox-skeleton{--ox-skel-a:#ffffff0d;--ox-skel-b:#ffffff1f;--ox-skel-card:#ffffff08;--ox-skel-line:#ffffff1a;display:grid;align-content:start;gap:8px;min-width:0;width:100%;padding:2px 0}body.theme-light .ox-skeleton,:host([data-ox-theme=light]) .ox-skeleton{--ox-skel-a:#0f172a0b;--ox-skel-b:#0f172a17;--ox-skel-card:#0f172a05;--ox-skel-line:#0f172a12}body.theme-midnight .ox-skeleton,:host([data-ox-midnight]) .ox-skeleton{--ox-skel-a:#e2e8f00b;--ox-skel-b:#e2e8f01c;--ox-skel-card:#0f1520;--ox-skel-line:#e2e8f014}.ox-skeleton-row{display:flex;gap:6px}.ox-skeleton-row i{flex:0 0 64px;height:30px!important;border-radius:999px!important}.ox-skeleton-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.ox-skeleton-card{display:flex;flex-direction:column;gap:10px;min-height:118px;padding:12px;border-radius:12px;background:var(--ox-skel-card);box-shadow:inset 0 0 0 1px var(--ox-skel-line)}.ox-skeleton-card.is-wide{min-height:clamp(200px,42vh,400px)}.ox-skeleton i{display:block;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--ox-skel-a) 0,var(--ox-skel-b) 40%,var(--ox-skel-a) 80%);background-size:240% 100%;animation:ox-skeleton 1.4s ease-in-out infinite}.ox-skeleton-card i:first-child{width:55%;height:14px}.ox-skeleton-card i:nth-child(2){width:80%}.ox-skeleton-card i:last-child{width:40%;margin-top:auto}.ox-skeleton-status{display:flex;align-items:center;justify-content:center;gap:6px;padding:4px 0;font:11px/1.4 Inter,system-ui,sans-serif;opacity:.72}.ox-skeleton-status .ox-loading-ring{width:12px;height:12px;border-width:1.5px}@keyframes ox-skeleton{from{background-position:100% 0}to{background-position:-40% 0}}@media(prefers-reduced-motion:reduce){.ox-skeleton i{animation:none}}`;
  const escape=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const count=(done,total)=>`${Math.max(0,Math.min(total,done||0))}/${total}`;
  const markup=(label='資料載入中',done,total)=>`<span class="ox-loading" role="status"><i class="ox-loading-ring" aria-hidden="true"></i><span class="ox-loading-count"${Number.isFinite(total)&&total>0?'':' hidden'}>${Number.isFinite(total)&&total>0?count(done,total):''}</span><span class="ox-loading-label">${escape(label)}</span></span>`;
@@ -13,7 +16,11 @@
   if(text.textContent!==String(label))text.textContent=label;
   counter.hidden=!(Number.isFinite(total)&&total>0);const next=counter.hidden?'':count(done,total);if(counter.textContent!==next)counter.textContent=next;
  }
- const style=document.createElement('style');style.textContent=css;document.head.append(style);
+ const card='<div class="ox-skeleton-card"><i></i><i></i><i></i></div>';
+ // variant: 'cards' (controls + card grid) or 'chart' (controls + one wide panel).
+ const skeletonMarkup=(label='資料載入中',variant='cards')=>`<div class="ox-skeleton" role="status" aria-busy="true" aria-label="${escape(label)}"><div class="ox-skeleton-row" aria-hidden="true"><i></i><i></i><i></i></div>${variant==='chart'?'<div class="ox-skeleton-card is-wide" aria-hidden="true"><i></i><i></i><i></i></div>':''}<div class="ox-skeleton-grid" aria-hidden="true">${card.repeat(variant==='chart'?2:4)}</div><span class="ox-skeleton-status" aria-hidden="true"><i class="ox-loading-ring"></i>${escape(label)}</span></div>`;
+ const skeleton=(target,label,variant)=>{if(target)target.innerHTML=skeletonMarkup(label,variant);};
+ const style=document.createElement('style');style.textContent=css+skeletonCss;document.head.append(style);
  function defaultTarget(market,view){
   // Radar lists publish available rows during scans. Background data tasks
   // must not append a loading animation to those lists.
@@ -40,7 +47,7 @@
   }
  }
  function schedule(){if(!timer)timer=setTimeout(paint,80);}
- window.OXLoading=Object.freeze({css,markup,render,
+ window.OXLoading=Object.freeze({css:css+skeletonCss,markup,render,skeletonMarkup,skeleton,
   begin(market,label,options={}){
    const token=Symbol(label),task={market,label,at:Date.now(),...options};tasks.set(token,task);schedule();
    const finish=()=>{tasks.delete(token);options.signal?.removeEventListener('abort',finish);schedule();};

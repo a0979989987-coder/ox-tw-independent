@@ -1,0 +1,15 @@
+/* Phones: backdrop-filter blur re-composites on every scroll frame. Use solid,
+   slightly translucent surfaces instead; visually close, much cheaper.
+   Selectors outrank the earlier !important glass rules (e.g. body.ox-terminal .app-dock.glass-nav). */
+@media (hover: none), (max-width: 767px) {
+  :root body *, :root body *::before, :root body *::after,
+  :root body.ox-terminal :is(.app-dock.glass-nav, .dock-radar-orb.glass-orb, .ox-live-strip, .twr-scan-button, .twr-panel, .chart-loading-overlay) {
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  }
+  :root body.ox-terminal .app-dock.glass-nav { background-color: rgba(14, 16, 19, .9) !important; }
+  :root body.ox-terminal .ox-live-strip { background-color: rgba(14, 16, 19, .86) !important; }
+  :root body.ox-terminal .dock-radar-orb.glass-orb { background-color: rgba(34, 37, 41, .92) !important; }
+  :root body.ox-terminal.theme-light .app-dock.glass-nav { background-color: rgba(244, 244, 245, .94) !important; }
+  :root body.ox-terminal.theme-light .ox-live-strip { background-color: rgba(244, 244, 245, .9) !important; }
+  :root body.ox-terminal.theme-light .dock-radar-orb.glass-orb { background-color: rgba(255, 255, 255, .94) !important; }
+}

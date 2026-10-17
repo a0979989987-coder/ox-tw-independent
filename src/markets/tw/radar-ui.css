@@ -9,7 +9,7 @@ body.ox-terminal #market-unavailable-card.tw-radar-root { margin-top: 16px !impo
 .tw-stock-announcement { font-size: 12px; line-height: 1.7; }
 .tw-stock-announcement a { color: #ede9df; }
 .tw-stock-announcement details p { white-space: pre-line; }
-.tw-radar-root .twr-shell { max-width: 1440px; margin-inline: auto; gap: 8px; padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
+.tw-radar-root .twr-shell { max-width: 1440px; margin-inline: auto; gap: 8px; padding-bottom: 0; }
 .tw-radar-root .twr-header { padding: 0 3px; }
 .tw-radar-root .twr-header p { max-width: 52ch; }
 .tw-radar-root .twr-mode-viewport { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -109,7 +109,7 @@ body.ox-terminal #market-unavailable-card.tw-radar-root { margin-top: 16px !impo
 .tw-stock-detail-chart { display: grid; place-items: center; min-height: 210px; color: rgba(245,242,236,.55); }
 .tw-stock-detail-chart svg { width: 100%; max-height: 330px; }
 @media (max-width: 1000px) { .tw-radar-root .twr-list { grid-template-columns: repeat(3,minmax(0,1fr)); } }
-@media (max-width: 700px) { .tw-radar-root .twr-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; } .tw-radar-root .twr-panel { padding: 9px; } .tw-radar-root .tw-stock-card { min-height: 168px; padding: 8px; border-radius: var(--ox-radius-sm,12px); } .tw-radar-root .twr-mode-rail button { padding: 7px 3px; } }
+@media (max-width: 700px) { .tw-radar-root .twr-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; } .tw-radar-root .twr-panel { padding: 9px; } .tw-radar-root .tw-stock-card { min-height: 0; padding: 7px 8px; border-radius: var(--ox-radius-sm,12px); } .tw-radar-root .twr-mode-rail button { padding: 7px 3px; } }
 @media (max-width: 700px) { body.ox-terminal #market-unavailable-card.tw-radar-root { margin-top: 15px !important; } }
 @media (max-width: 360px) { .tw-radar-root .twr-list { gap: 5px; } .tw-radar-root .tw-stock-card { padding: 8px; }  }
 @media (prefers-reduced-motion: reduce) { .tw-radar-root .twr-mode-indicator,.tw-radar-root .tw-stock-card,.tw-stock-detail,.tw-stock-detail-panel { transition-duration: .01ms; } }
@@ -175,3 +175,15 @@ dialog.tw-stock-detail::backdrop { background:#040507c9; backdrop-filter:blur(3p
 
 /* Widen phone tiles into the existing side gutters; vertical sizing stays intact. */
 @media(max-width:700px){.tw-radar-root .twr-results-panel{margin-inline:-8px;padding-inline:0}.tw-radar-root .twr-list{column-gap:6px}.tw-radar-root .tw-stock-quote{margin-block:7px}}
+/* Loading placeholders: same grid and card height as the real list, no error copy. */
+.tw-radar-root .twr-skeleton { display: contents; }
+.tw-radar-root .twr-skeleton-card { display: flex; flex-direction: column; gap: 10px; min-height: 120px; padding: 10px; border-radius: var(--ox-radius-sm,12px); background: linear-gradient(115deg,#ffffff0d,#ffffff05); box-shadow: inset 0 1px #ffffff1c; }
+.tw-radar-root .twr-skeleton-card i { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg,#ffffff0d 0,#ffffff1f 40%,#ffffff0d 80%); background-size: 240% 100%; animation: twr-skeleton 1.4s ease-in-out infinite; }
+.tw-radar-root .twr-skeleton-card i:first-child { width: 55%; height: 15px; }
+.tw-radar-root .twr-skeleton-card i:nth-child(2) { width: 80%; }
+.tw-radar-root .twr-skeleton-card i:last-child { width: 40%; margin-top: auto; }
+body.theme-light .tw-radar-root .twr-skeleton-card { background: #0000000a; box-shadow: inset 0 1px #ffffffb0; }
+body.theme-light .tw-radar-root .twr-skeleton-card i { background-image: linear-gradient(90deg,#0000000d 0,#0000001a 40%,#0000000d 80%); }
+.tw-radar-root .twr-retry { justify-self: center; margin-top: 8px; min-height: 34px; padding: 6px 16px; color: inherit; font: inherit; font-size: 12px; background: transparent; border: 1px solid currentColor; border-radius: 9px; cursor: pointer; }
+@keyframes twr-skeleton { from { background-position: 100% 0; } to { background-position: -40% 0; } }
+@media (prefers-reduced-motion: reduce) { .tw-radar-root .twr-skeleton-card i { animation: none; } }

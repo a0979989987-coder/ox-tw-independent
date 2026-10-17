@@ -6,7 +6,8 @@ import { escape, number, pct, money, direction, segments, mountResearch, stockRo
 import { bubbleChart, bubblePoints, bubbleLayout, zoomBubbleLayout, drawBubbleAxes, MIN_BUBBLE_FLOW, meetsBubbleFlow, wheelChartViewport } from './research-bubbles.js?v=20261006-compact-zoom';
 import { SECTOR_DEFINITIONS, SECTOR_TAXONOMY_VERSION } from './sector-taxonomy.js';
 import { sectorPicker, sectorPickerList } from './sector-picker.js';
-import { replayHistory, replayFrames, replayFrameAt, replaySectorAt, drawReplayFrame, createReplayPlayer } from './research-replay.js?v=20261006-replay';
+import { replayHistory, replayFrames, replayFrameAt, replaySectorAt, drawReplayFrame, createReplayPlayer, replayWindow, zoomReplayFrames } from './research-replay.js?v=20261006-replay';
+import { attachBubbleGestures } from './research-gestures.js';
 import { closeResearchDetails, showSector, showStock, watchClick, showHomeHighlights, updateHomeHighlights } from './research-detail.js?v=20261005-briefingdate';
 import { sectorDetailSnapshot } from './research-detail-model.js';
 import { settingsButton, trailIcon, showRotationSettings } from './research-settings.js';
@@ -104,7 +105,13 @@ function mountReplay(s, resume) {
   s.visibleReplayIndex = null;
   s.player = createReplayPlayer({ length: frames.length, position: prefs.replayIndex, speed: prefs.replaySpeed,
     isActive: () => current(s) && !document.hidden,
-    render(position) { if (svg) drawReplayFrame(svg, replayFrameAt(frames, position, {trails:prefs.trails}), mode); },
+    render(position) {
+      if (!svg) return;
+      // Frames entering the window catch up with a zoom/pan made while playing.
+      const [from, to] = replayWindow(position, frames.length);
+      zoomReplayFrames(frames, prefs, from, to);
+      drawReplayFrame(svg, replayFrameAt(frames, position, {trails:prefs.trails}), mode);
+    },
     onState({ position, playing }) {
       if (session !== s || s.rebuilding) return;
       prefs.replayIndex = position;
@@ -173,14 +180,18 @@ function results() {
   const sorted = [...sectors].filter(s => Number.isFinite(s[sortKey])).sort((a, b) => sign * (a[sortKey] - b[sortKey]));
   return `<div class="twx-ranking">${sorted.map((s, index) => `<button type="button" class="twx-rank" data-sector="${escape(s.name)}"><span class="twx-rank-number">${index + 1}</span><span><b>${escape(s.name)}</b><small>${s.buyCount} / ${s.covered} 檔買超</small></span><span class="${direction(s.changePct)}">${pct(s.changePct)}</span><strong class="${direction(s[sortKey])}">${['up', 'down'].includes(prefs.sort) ? money(s.flow) : money(s[sortKey])}</strong></button>`).join('') || '<div class="twx-empty">沒有符合條件的產業</div>'}</div>`;
 }
-function updateChartViewport(s) {
+function updateChartViewport(s, { partial = false } = {}) {
   const svg = s.root.querySelector('.twx-bubbles'); if (!svg) return;
   let layout;
   if (prefs.replayIndex !== null && s.replayFrames?.length) {
-    // The player retains this array, so keep it while moving every dated frame.
-    s.replayFrames.forEach((frame, index) => { s.replayFrames[index] = zoomBubbleLayout(frame, prefs); });
+    // The player retains this array; frames are re-zoomed in place. During a
+    // gesture only the frames on screen move, the rest when it settles.
+    const [from, to] = partial ? replayWindow(prefs.replayIndex, s.replayFrames.length) : [0, s.replayFrames.length - 1];
+    zoomReplayFrames(s.replayFrames, prefs, from, to);
     layout = s.replayFrames[Math.floor(prefs.replayIndex)];
-    drawReplayFrame(svg, replayFrameAt(s.replayFrames, prefs.replayIndex, {trails:prefs.trails}), chartMode());
+    // A playing replay draws this frame from its own clock; drawing here too
+    // would render every frame twice.
+    if (!s.player?.playing) drawReplayFrame(svg, replayFrameAt(s.replayFrames, prefs.replayIndex, {trails:prefs.trails}), chartMode());
   } else if (s.staticFrames?.length) {
     s.staticFrames = s.staticFrames.map(frame => zoomBubbleLayout(frame, prefs));
     layout = s.chartLayout = s.staticFrames.at(-1);
@@ -288,6 +299,8 @@ export async function preloadResearch({force=false}={}) {
   if (session && current(session) && prefs.replayIndex === null) paint(session);
   return result;
 }
+// Whether indicators/home research has been opened or fetched in this page.
+export function researchInUse() { return !!session || lastFetch > 0; }
 export async function refreshTWResearch() {
   return Promise.allSettled([refreshHome(session,true),preloadResearch({force:true})]);
 }
@@ -378,91 +391,19 @@ if (button.hasAttribute('data-help')) { prefs.help = !prefs.help; paint(s); retu
   }, { signal: s.controller.signal });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pauseReplay(s); }, { signal: s.controller.signal });
   root.addEventListener('keydown', event => { if (event.target.matches('[data-sector]') && ['Enter', ' '].includes(event.key)) { event.preventDefault(); event.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }, { signal: s.controller.signal });
-  let drag = null, pinch = null, frame = 0;
-  const touches = new Map();
-  const draw = () => {
+  let frame = 0, partialFrame = true;
+  // One animation frame per burst of gesture events. While a gesture moves,
+  // only the replay frames on screen are re-zoomed; settle() re-zooms the rest.
+  const draw = ({ partial = false } = {}) => {
+    partialFrame = frame ? partialFrame && partial : partial;
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = 0; if (!current(s)) return;
-      updateChartViewport(s);
+      updateChartViewport(s, { partial: partialFrame });
     });
   };
-  root.addEventListener('wheel', event => {
-    const chart = event.target.closest('.twx-bubbles');
-    if (!chart || event.deltaY === 0) return;
-    const rect = chart.getBoundingClientRect(), box = chart.viewBox.baseVal;
-    const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
-    Object.assign(prefs, wheelChartViewport(prefs, {
-      x: (event.clientX - rect.left) * box.width / rect.width,
-      y: (event.clientY - rect.top) * box.height / rect.height,
-      width: box.width, height: box.height, delta: pixels, minimum: minChartZoom()
-    }));
-    event.preventDefault(); draw();
-  }, {passive:false, signal:s.controller.signal});
-  const beginPinch = () => {
-    const [a, b] = [...touches.values()];
-    const chart = root.querySelector('.twx-bubbles'); if (!a || !b || !chart) return;
-    const rect = chart.getBoundingClientRect();
-    const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    const point = { x: (center.x - rect.left) * chart.viewBox.baseVal.width / rect.width, y: (center.y - rect.top) * chart.viewBox.baseVal.height / rect.height };
-    pinch = { distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), zoom: prefs.zoom,
-      x: (point.x - chart.viewBox.baseVal.width / 2 - prefs.panX) / prefs.zoom, y: (point.y - (chart.viewBox.baseVal.height - 6) / 2 - prefs.panY) / prefs.zoom };
-    drag = null;
-    s.interacting = true;
-    for (const id of touches.keys()) if (!root.hasPointerCapture(id)) root.setPointerCapture(id);
-  };
-  root.addEventListener('pointerdown', event => {
-    const chart = event.target.closest('.twx-bubbles'); if (!chart || (event.pointerType !== 'touch' && event.button !== 0)) return;
-    // Snapshot a moving bubble for detail taps without stopping the clock.
-    const bubble = event.target.closest('.twx-bubble[data-sector]');
-    s.pressedSector = bubble && prefs.replayIndex !== null
-      ? replaySectorAt(s.replayFrames, prefs.replayIndex, bubble.dataset.sector) : null;
-    if (event.pointerType === 'touch') {
-      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
-      if (touches.size === 2) { beginPinch(); return; }
-    }
-    if (prefs.zoom <= 1) return;
-    const rect = chart.getBoundingClientRect();
-    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: prefs.panX, panY: prefs.panY, scale: chart.viewBox.baseVal.width / rect.width, moved: false };
-  }, { signal: s.controller.signal });
-  root.addEventListener('pointermove', event => {
-    if (touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (pinch && touches.size >= 2) {
-      const [a, b] = [...touches.values()];
-      const chart = root.querySelector('.twx-bubbles'); if (!chart) return;
-      const rect = chart.getBoundingClientRect();
-      const distance = Math.hypot(a.x - b.x, a.y - b.y);
-      const x = ((a.x + b.x) / 2 - rect.left) * chart.viewBox.baseVal.width / rect.width;
-      const y = ((a.y + b.y) / 2 - rect.top) * chart.viewBox.baseVal.height / rect.height;
-      prefs.zoom = Math.max(minChartZoom(), Math.min(8, pinch.zoom * distance / pinch.distance));
-      const bound = prefs.zoom * 170;
-      prefs.panX = Math.max(-bound, Math.min(bound, x - chart.viewBox.baseVal.width / 2 - pinch.x * prefs.zoom));
-      prefs.panY = Math.max(-bound, Math.min(bound, y - (chart.viewBox.baseVal.height - 6) / 2 - pinch.y * prefs.zoom));
-      event.preventDefault(); draw(); return;
-    }
-    if (!drag || drag.id !== event.pointerId) return;
-    const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
-    if (Math.abs(dx) + Math.abs(dy) < 5 && !drag.moved) return;
-    if (!drag.moved) { s.interacting = true; }
-    drag.moved = true; event.preventDefault();
-    if (!root.hasPointerCapture(event.pointerId)) root.setPointerCapture(event.pointerId);
-    const bound = prefs.zoom * 170;
-    prefs.panX = Math.max(-bound, Math.min(bound, drag.panX + dx * drag.scale));
-    prefs.panY = Math.max(-bound, Math.min(bound, drag.panY + dy * drag.scale));
-    draw();
-  }, { signal: s.controller.signal });
-  const finishDrag = event => {
-    if (touches.has(event.pointerId)) touches.delete(event.pointerId);
-    if (pinch || s.interacting) { s.suppressClickUntil = Date.now() + 600; if (touches.size < 2) { pinch = null; drag = null; } }
-    if (drag?.id === event.pointerId) { if (drag.moved) s.suppressClickUntil = Date.now() + 600; drag = null; }
-    if (root.hasPointerCapture(event.pointerId)) root.releasePointerCapture(event.pointerId);
-    if (!touches.size && !drag && !pinch) {
-      s.interacting = false;
-      if (s.pendingPaint) { s.pendingPaint = false; paint(s); }
-    }
-  };
-  root.addEventListener('pointerup', finishDrag, { signal: s.controller.signal });
-  root.addEventListener('pointercancel', finishDrag, { signal: s.controller.signal });
+  attachBubbleGestures(root, { session: s, prefs, minZoom: minChartZoom, draw, signal: s.controller.signal,
+    settle: () => { if (current(s)) draw(); }, repaint: () => paint(s) });
   s.controller.signal.addEventListener('abort', () => { if (frame) cancelAnimationFrame(frame); s.player?.destroy(); }, { once: true });
   if (Date.now() - lastFetch > 300000) refresh(s, false);
   return root;

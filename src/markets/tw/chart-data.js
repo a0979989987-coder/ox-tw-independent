@@ -1,4 +1,4 @@
-import { TIMEFRAMES, FRAME_LABELS, aggregateCandles } from './patterns/model.js';
+import { TIMEFRAMES, FRAME_LABELS, aggregateCandles, monthClosed } from './patterns/model.js';
 
 export const CHART_FRAMES = {...FRAME_LABELS,'1Q':'季'};
 export const chartTickFormatter = frame => time => {
@@ -29,7 +29,7 @@ export function aggregateChartCandles(daily, frame, asOf, options={}) {
   if(frame==='1Q')return quarterlyCandles(daily, asOf, options);
   if(frame==='1M'&&options.coverageStart){
     const months=new Map();for(const c of daily){const date=c.date.slice(0,7)+'-01',d=new Date(date+'T00:00:00Z'),end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);
-      if(date<options.coverageStart||c.date>asOf||end>asOf)continue;
+      if(date<options.coverageStart||c.date>asOf||end>asOf&&!(date.slice(0,7)===asOf.slice(0,7)&&monthClosed(asOf)))continue;
       if(!months.has(date))months.set(date,[]);months.get(date).push(c);
     }
     return [...months].map(([date,bars])=>({date,time:Date.parse(date+'T00:00:00+08:00')/1000,lastDate:bars.at(-1).date,open:bars[0].open,high:Math.max(...bars.map(c=>c.high)),low:Math.min(...bars.map(c=>c.low)),close:bars.at(-1).close,volume:bars.reduce((sum,c)=>sum+c.volume,0),quoteVolume:bars.every(c=>Number.isFinite(c.quoteVolume))?bars.reduce((sum,c)=>sum+c.quoteVolume,0):null}));
