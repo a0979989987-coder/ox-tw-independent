@@ -1215,12 +1215,16 @@ async function handleSearch(
 
 
   const data =
-    await searchOfficialTWSymbols(
-      query,
-      {
-        market,
-        limit
-      }
+    await withRequestDeadline(
+      progress =>
+        searchOfficialTWSymbols(
+          query,
+          {
+            market,
+            limit,
+            progress
+          }
+        )
     );
 
 

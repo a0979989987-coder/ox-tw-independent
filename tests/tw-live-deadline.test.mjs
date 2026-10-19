@@ -21,6 +21,7 @@ test('a hung official feed is reported as JSON 504 naming that feed at the 20 s 
  const env={ASSETS:{fetch:async()=>new Response('missing',{status:404})}};
  const cases=[
   [false,'quote?symbol=2330',/official-tw universe/],
+  [false,'search?q=2330',/official-tw universe/],
   [true,'candles?symbol=8299&from=2026-09-01&to=2026-10-16',/^TPEX-ST43$/],
   [true,'candles?symbol=2330&from=2026-09-01&to=2026-10-16',/^TWSE-STOCK-DAY$/]
  ];

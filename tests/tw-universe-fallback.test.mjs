@@ -39,9 +39,9 @@ test('without a published list, a one-market live list is reported, not ranked o
  await assert.rejects(getOfficialTWThemes(),incomplete('TW_THEME_UNIVERSE_INCOMPLETE'));
  await assert.rejects(getOfficialTWIndicators(),incomplete('TW_INDICATORS_UNIVERSE_INCOMPLETE'));
  await assert.rejects(searchOfficialTWSymbols('半導體'),incomplete('TW_SEARCH_UNIVERSE_INCOMPLETE'));
+ // A market filter does not make a one-market live list searchable.
  await assert.rejects(searchOfficialTWSymbols('8299',{market:'TPEX'}),incomplete('TW_SEARCH_UNIVERSE_INCOMPLETE'));
- // A TWSE-only query misses nothing when only TPEx failed.
- assert.deepEqual((await searchOfficialTWSymbols('半導體',{market:'TWSE'})).map(found=>found.symbol),['2303','2330']);
+ await assert.rejects(searchOfficialTWSymbols('2330',{market:'TWSE'}),incomplete('TW_SEARCH_UNIVERSE_INCOMPLETE'));
  assert(requested.some(url=>url.includes('tpex.org.tw')),'TPEx was attempted');
 });
 

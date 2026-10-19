@@ -3,7 +3,8 @@ import {
 } from "./radar.js";
 
 import {
-  loadPublishedUniverse
+  loadPublishedUniverse,
+  UNIVERSE_SNAPSHOT_SOURCE
 } from "./universe-snapshot.js";
 
 
@@ -417,8 +418,11 @@ function normalizeSearchResult(
 // and, in the Worker, loads no K-line pack. The live rebuild runs only when
 // that copy is missing, stale, partial or one-market.
 async function loadSearchRows(
-  requestedMarket
+  requestedMarket,
+  progress = {}
 ) {
+
+  progress.source = UNIVERSE_SNAPSHOT_SOURCE;
 
   const published =
     await loadPublishedUniverse();
@@ -429,6 +433,8 @@ async function loadSearchRows(
       : published.rows.filter(row => row?.market === requestedMarket);
   }
 
+
+  progress.source = "official-tw universe (TWSE MI_INDEX / STOCK_DAY_ALL, TPEx daily close / openapi)";
 
   let source;
 
@@ -470,19 +476,11 @@ async function loadSearchRows(
 
 
   /*
-   * A list without one exchange would silently leave its stocks out of the
-   * results. Report the missing source for every market the query covers.
+   * A one-exchange list is not the Taiwan market: its results would silently
+   * leave out the other exchange's stocks. Report the incomplete source.
    */
-  const sources =
-    source?.meta?.sources || {};
-
-  const covered =
-    requestedMarket === "ALL"
-      ? ["TWSE", "TPEX"]
-      : [requestedMarket];
-
   if (
-    covered.some(market => sources[market] !== "ready")
+    source?.meta?.partial !== false
   ) {
 
     throw new TWSearchProviderError(
@@ -519,7 +517,11 @@ export async function searchOfficialTWSymbols(
       "ALL",
 
     limit =
-      20
+      20,
+
+    // Shared with the request deadline: names the source still pending.
+    progress =
+      {}
   } = {}
 ) {
 
@@ -552,7 +554,8 @@ export async function searchOfficialTWSymbols(
 
   const rows =
     await loadSearchRows(
-      requestedMarket
+      requestedMarket,
+      progress
     );
 
 
