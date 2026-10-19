@@ -89,7 +89,8 @@ const DEFAULT_ALLOWED_ORIGINS = Object.freeze([]);
 const INCOMPLETE_UNIVERSE_MESSAGES = Object.freeze({
   TW_QUOTE_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法判斷此股票",
   TW_THEME_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法計算產業排行",
-  TW_INDICATORS_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法計算市場指標"
+  TW_INDICATORS_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法計算市場指標",
+  TW_SEARCH_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法完整搜尋股票"
 });
 
 

@@ -2,6 +2,10 @@ import {
   getOfficialTWRadar
 } from "./radar.js";
 
+import {
+  loadPublishedUniverse
+} from "./universe-snapshot.js";
+
 
 /*
  * OX v4.0 Modular
@@ -9,7 +13,10 @@ import {
  *
  * Search source:
  *
- * Official TW Radar universe
+ * Published list first: data/tw-radar.json holds both exchanges' symbols,
+ * names and industries for one trading day (see universe-snapshot.js).
+ *
+ * Live fallback: Official TW Radar universe
  *
  * Supports:
  *
@@ -403,45 +410,24 @@ function normalizeSearchResult(
 
 
 /* ========================================================================== */
-/* Search                                                                     */
+/* Universe                                                                   */
 /* ========================================================================== */
 
-export async function searchOfficialTWSymbols(
-  query,
-  {
-    market =
-      "ALL",
-
-    limit =
-      20
-  } = {}
+// With a valid published list a search makes no official market-list request
+// and, in the Worker, loads no K-line pack. The live rebuild runs only when
+// that copy is missing, stale, partial or one-market.
+async function loadSearchRows(
+  requestedMarket
 ) {
 
-  const normalizedQuery =
-    normalizeSearchText(
-      query
-    );
+  const published =
+    await loadPublishedUniverse();
 
-
-  if (
-    !normalizedQuery
-  ) {
-
-    return Object.freeze([]);
+  if (published) {
+    return requestedMarket === "ALL"
+      ? published.rows
+      : published.rows.filter(row => row?.market === requestedMarket);
   }
-
-
-  const requestedMarket =
-    normalizeMarket(
-      market
-    );
-
-
-  const requestedLimit =
-    normalizeLimit(
-      limit,
-      20
-    );
 
 
   let source;
@@ -483,12 +469,91 @@ export async function searchOfficialTWSymbols(
   }
 
 
+  /*
+   * A list without one exchange would silently leave its stocks out of the
+   * results. Report the missing source for every market the query covers.
+   */
+  const sources =
+    source?.meta?.sources || {};
+
+  const covered =
+    requestedMarket === "ALL"
+      ? ["TWSE", "TPEX"]
+      : [requestedMarket];
+
+  if (
+    covered.some(market => sources[market] !== "ready")
+  ) {
+
+    throw new TWSearchProviderError(
+      "Taiwan symbol search universe is incomplete.",
+      {
+        code:
+          "TW_SEARCH_UNIVERSE_INCOMPLETE",
+
+        details: {
+          dataDate: source?.dataDate || null,
+          sources: source?.meta?.sources || null
+        }
+      }
+    );
+  }
+
+
+  return Array.isArray(
+    source?.radar
+  )
+    ? source.radar
+    : [];
+}
+
+
+/* ========================================================================== */
+/* Search                                                                     */
+/* ========================================================================== */
+
+export async function searchOfficialTWSymbols(
+  query,
+  {
+    market =
+      "ALL",
+
+    limit =
+      20
+  } = {}
+) {
+
+  const normalizedQuery =
+    normalizeSearchText(
+      query
+    );
+
+
+  if (
+    !normalizedQuery
+  ) {
+
+    return Object.freeze([]);
+  }
+
+
+  const requestedMarket =
+    normalizeMarket(
+      market
+    );
+
+
+  const requestedLimit =
+    normalizeLimit(
+      limit,
+      20
+    );
+
+
   const rows =
-    Array.isArray(
-      source?.radar
-    )
-      ? source.radar
-      : [];
+    await loadSearchRows(
+      requestedMarket
+    );
 
 
   if (

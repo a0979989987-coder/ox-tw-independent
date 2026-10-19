@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import worker from '../worker/index.js';
 import {getOfficialTWThemes} from '../api/v1/tw/providers/themes.js';
 import {getOfficialTWIndicators} from '../api/v1/tw/providers/indicators.js';
+import {searchOfficialTWSymbols} from '../api/v1/tw/providers/search.js';
 
 // Nothing in this file may reach a real host, including work that outlives a test.
 globalThis.fetch=async input=>{throw Error('network disabled in tests: '+String(input?.url??input));};
@@ -37,6 +38,10 @@ test('without a published list, a one-market live list is reported, not ranked o
  assert.equal(globalThis.__twReadAsset,undefined);
  await assert.rejects(getOfficialTWThemes(),incomplete('TW_THEME_UNIVERSE_INCOMPLETE'));
  await assert.rejects(getOfficialTWIndicators(),incomplete('TW_INDICATORS_UNIVERSE_INCOMPLETE'));
+ await assert.rejects(searchOfficialTWSymbols('半導體'),incomplete('TW_SEARCH_UNIVERSE_INCOMPLETE'));
+ await assert.rejects(searchOfficialTWSymbols('8299',{market:'TPEX'}),incomplete('TW_SEARCH_UNIVERSE_INCOMPLETE'));
+ // A TWSE-only query misses nothing when only TPEx failed.
+ assert.deepEqual((await searchOfficialTWSymbols('半導體',{market:'TWSE'})).map(found=>found.symbol),['2303','2330']);
  assert(requested.some(url=>url.includes('tpex.org.tw')),'TPEx was attempted');
 });
 
@@ -51,6 +56,7 @@ test('a published list without TPEx industries cannot rank themes but still feed
  const indicators=await getOfficialTWIndicators();
  assert.equal(indicators.meta.universeSource,'independent-verified-snapshot');
  assert.equal(indicators.indicators.rapidRise.value,1);
+ assert.deepEqual((await searchOfficialTWSymbols('8299')).map(found=>[found.symbol,found.market]),[['8299','TPEX']],'search reads the published list too');
  assert.deepEqual(requested.filter(url=>UNIVERSE.test(url)),[]);
 });
 
@@ -58,7 +64,7 @@ test('in the Worker, a partial published list falls back live and a one-market r
  const requested=[];t.mock.method(globalThis,'fetch',tpexDown(requested));
  published=snapshot({partial:true});
  const env={ASSETS:{fetch:async()=>new Response('missing',{status:404})}};
- for(const [path,code]of [['themes','TW_THEME_UNIVERSE_INCOMPLETE'],['indicators','TW_INDICATORS_UNIVERSE_INCOMPLETE']]){
+ for(const [path,code]of [['themes','TW_THEME_UNIVERSE_INCOMPLETE'],['indicators','TW_INDICATORS_UNIVERSE_INCOMPLETE'],['search?q=半導體','TW_SEARCH_UNIVERSE_INCOMPLETE']]){
   const response=await worker.fetch(new Request('https://ox.test/api/v1/tw/'+path),env,{});
   const body=await response.json();
   assert.equal(response.status,503,path);assert.equal(body.ok,false);assert.equal(body.error.code,code);

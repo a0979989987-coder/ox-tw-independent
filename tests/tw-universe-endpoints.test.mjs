@@ -27,6 +27,8 @@ function officialMonth(url){
   return {stat:'ok',tables:[{data:[[`${y-1911}/${m}/15`,'1','2','100.00','110.00','95.00','105.00','5.00','10']]}]};}
  return null;
 }
+const env={ASSETS:{fetch:async()=>new Response('missing',{status:404})}};
+const get=async path=>{const response=await worker.fetch(new Request('https://ox.test/api/v1/tw/'+path),env,{});return [response.status,await response.json()];};
 
 test('themes and indicators read the published list: zero market-list requests, no K-line pack',async t=>{
  let requested=[];
@@ -37,8 +39,6 @@ test('themes and indicators read the published list: zero market-list requests, 
   // Breadth, market pulse and money flow are separate official feeds; unavailable here.
   return new Response('unavailable',{status:503});
  });
- const env={ASSETS:{fetch:async()=>new Response('missing',{status:404})}};
- const get=async path=>{const response=await worker.fetch(new Request('https://ox.test/api/v1/tw/'+path),env,{});return [response.status,await response.json()];};
 
  const [themesStatus,themes]=await get('themes');
  assert.equal(themesStatus,200);assert.equal(themes.ok,true);
@@ -67,4 +67,23 @@ test('themes and indicators read the published list: zero market-list requests, 
  assert.deepEqual(requested.filter(url=>UNIVERSE.test(url)),[],'no market-list source was requested');
  assert.deepEqual(requested.filter(url=>url.includes('tw-patterns')),[],'the classic evaluation did not load the K-line pack');
  assert.equal(requested.filter(url=>url===REPO+'data/tw-radar.json').length,0,'the published bytes are memoized across endpoints');
+});
+
+test('search reads the published list: both exchanges, zero market-list requests, no K-line pack',async t=>{
+ const requested=[];
+ t.mock.method(globalThis,'fetch',async input=>{
+  const url=new URL(String(input?.url??input));requested.push(url.href);
+  if(url.href===REPO+'data/tw-radar.json')return new Response(snapshot);
+  return new Response('unavailable',{status:503});
+ });
+ const symbols=async path=>{const [status,body]=await get(path);assert.equal(status,200,path);assert.equal(body.ok,true,path);return body.data.map(found=>found.symbol+' '+found.market);};
+
+ assert.deepEqual(await symbols('search?q=半導體'),['2303 TWSE','2330 TWSE','8299 TPEX'],'an industry search spans both exchanges');
+ assert.deepEqual(await symbols('search?q=半導體&market=TPEX'),['8299 TPEX']);
+ assert.deepEqual(await symbols('search?q=慶生'),['6210 TPEX']);
+ assert.deepEqual(await symbols('search?q=3105'),['3105 TPEX'],'a stock without an industry is still found');
+ const [,exact]=await get('search?q=8299');
+ assert.deepEqual([exact.data[0].name,exact.data[0].price,exact.data[0].changePct,exact.data[0].updatedAt],['群聯',1890,6,'2026-10-16']);
+
+ assert.deepEqual(requested.filter(url=>url!==REPO+'data/tw-radar.json'),[],'search made no official request and did not load the K-line pack');
 });
