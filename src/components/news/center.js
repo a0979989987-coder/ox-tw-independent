@@ -1,7 +1,9 @@
-import {mountNewsWorkspace} from './workspace.js';
 import {mergeMacroResults} from './macro.js';
-import {loadNewsSnapshot} from './snapshot-request.js';
+import {loadNewsSnapshot,loadNewsFeedIndex,loadNewsFeedPage,loadFullNewsFeed} from './snapshot-request.js';
+import {mergeFeedPage} from './feed-pages.js';
 import {withDeadline} from '../resource-deadline.js';
+import {loadChunk} from '../load-tool-module.js?v=20261005-recovery20';
+import {needsReload,reloadOnce} from '../tool-load-error.js?v=20261005-recovery20';
 (() => {
   'use strict';
   const SAVED_KEY = 'ox-tw-independent:ox-news-preferences-v1';
@@ -37,16 +39,51 @@ import {withDeadline} from '../resource-deadline.js';
       .finally(() => { state.pending = null; render(); });
     render(); return state.pending;
   }
+  // Key news loads the feed index and its newest page first (instead of the
+  // 5.9 MB complete feed); ensureFeedRange adds older pages when the selected
+  // dates need them. The complete feed is only a fallback.
+  async function loadFeed(force) {
+    try {
+      const index=await loadNewsFeedIndex('data/news-feed-index.json',{force});
+      const first=index.pages.length?await loadNewsFeedPage('data/'+index.pages[0].file,{force}):{news:[]};
+      const calendar=state.snapshot||await loadNewsSnapshot('data/news-calendar.json',{force});
+      return mergeFeedPage({...calendar,generatedAt:index.generatedAt,news:[],pendingNews:index.pendingNews,feedComplete:true,feedPaging:{index,loaded:0}},first.news);
+    } catch(error) {
+      if(error?.status!==404)throw error;
+      return loadFullNewsFeed('data/news-feed.json',{force});
+    }
+  }
   function ensureFeed(force=false) {
     if(state.feedPending)return state.feedPending;
     if(state.snapshot?.feedComplete&&!force)return Promise.resolve(state.snapshot);
     state.feedError=null;
-    state.feedPending=loadNewsSnapshot('data/news-feed.json',{force}).then(data=>{
+    state.feedPending=loadFeed(force).then(data=>{
       if(!state.snapshot?.feedComplete || data.generatedAt===state.snapshot.generatedAt){state.snapshot=data;state.candidate=null;}
       else state.candidate=data;
       refreshMacro(force);return data;
     }).catch(error=>{state.feedError=error;return state.snapshot;}).finally(()=>{state.feedPending=null;render();});
     render();return state.feedPending;
+  }
+  let rangeJob=null,rangeTarget=Infinity;
+  function ensureFeedRange(from) {
+    const paging=state.snapshot?.feedPaging;
+    if(!paging||!(from<Infinity))return Promise.resolve(state.snapshot);
+    rangeTarget=Math.min(rangeTarget,from);
+    if(rangeJob)return rangeJob;
+    rangeJob=(async()=>{
+      for(;;){
+        const current=state.snapshot?.feedPaging;if(!current)break;
+        const {index,loaded}=current;
+        if(loaded>=index.pages.length||Date.parse(index.pages[loaded-1]?.oldest)<=rangeTarget)break;
+        const page=await loadNewsFeedPage('data/'+index.pages[loaded].file);
+        // A refresh may have replaced the feed meanwhile; only extend the same one.
+        if(state.snapshot?.feedPaging!==current)continue;
+        state.snapshot=mergeFeedPage(state.snapshot,page.news);
+        render();
+      }
+      return state.snapshot;
+    })().catch(error=>{state.feedError=error;render();return state.snapshot;}).finally(()=>{rangeJob=null;rangeTarget=Infinity;});
+    return rangeJob;
   }
   let macroPending = false;
   async function refreshMacro(force) {
@@ -67,6 +104,12 @@ import {withDeadline} from '../resource-deadline.js';
     // restoring an in-app/background tab. Coalesce work, not visibility.
     queueMicrotask(()=>{renderQueued=false;renderNow();});
   }
+  // The news workspace UI is its own chunk, downloaded when news first opens.
+  let workspaceModule = null, workspaceJob = null;
+  function loadWorkspace() {
+    return workspaceJob ??= loadChunk(new URL('./workspace.js', import.meta.url), () => import('./workspace.js')).then(module => { workspaceModule = module; return module; })
+      .catch(error => { workspaceJob = null; throw error; });
+  }
   function renderNow() {
     const view = document.querySelector('.app-view.active')?.dataset.appView;
     if (!['news', 'data'].includes(view)) { state.workspace?.suspend(); return; }
@@ -75,9 +118,29 @@ import {withDeadline} from '../resource-deadline.js';
     const host = document.querySelector(`[data-news-surface="${scope === 'all' ? 'all' : 'market'}"]`);
     if (!host) return;
     if (!host.isConnected) return;
+    if (!workspaceModule) {
+      if (!host.firstChild || host.dataset.oxnLoading === 'error') {
+        host.replaceChildren(); host.dataset.oxnLoading = '1';
+        if (window.OXLoading) window.OXLoading.render(host, '載入新聞與事件'); else host.textContent = '載入新聞與事件…';
+      }
+      if (!workspaceJob) loadWorkspace().then(render, error => {
+        console.warn('News workspace failed to load', error);
+        host.replaceChildren(); host.dataset.oxnLoading = 'error';
+        const box = document.createElement('div'); box.className = 'oxn-empty'; box.setAttribute('role', 'status');
+        // Only a new page can fetch a chunk that failed under a fresh URL too.
+        const reload = needsReload(error);
+        if (reload && reloadOnce()) { box.textContent = '正在重新載入…'; host.append(box); return; }
+        box.textContent = '新聞介面暫時無法載入。';
+        const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'oxn-action'; retry.textContent = reload ? '重新載入' : '重試'; retry.onclick = reload ? () => location.reload() : render;
+        box.append(retry); host.append(box);
+      });
+      return;
+    }
+    const { mountNewsWorkspace } = workspaceModule;
+    if (host.dataset.oxnLoading) { host.replaceChildren(); delete host.dataset.oxnLoading; }
     if (state.scope !== scope || state.workspace?.host !== host) {
       state.workspace?.destroy(); state.scope = scope;
-      state.workspace = mountNewsWorkspace(host, { scope, preferences, save, navigate, back: detailBack, exit: scope === 'all' ? () => close({ useHistory: true }) : exitMarket, refresh: () => refresh(true), ensureFeed, applyUpdate() { state.snapshot = state.candidate; state.candidate = null; render(); }, unlockCountdown });
+      state.workspace = mountNewsWorkspace(host, { scope, preferences, save, navigate, back: detailBack, exit: scope === 'all' ? () => close({ useHistory: true }) : exitMarket, refresh: () => refresh(true), ensureFeed, ensureFeedRange, applyUpdate() { state.snapshot = state.candidate; state.candidate = null; render(); }, unlockCountdown });
     }
     state.workspace.update({ snapshot: state.snapshot, error: state.lastError, feedError:state.feedError, pending: Boolean(state.pending), candidate: Boolean(state.candidate), route: state.route });
   }

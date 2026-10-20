@@ -812,9 +812,44 @@ function unwrapPayload(
 /* Request                                                                    */
 /* ========================================================================== */
 
-function request(endpoint, options = {}) {
+function requestWithRetry(endpoint, options = {}) {
   const started=Date.now(),budget=options.params?.history?45000:28000;
-  return retryTWRequest(() => requestOnce(endpoint, {...options,timeoutMs:Math.max(1000,Math.min(options.timeoutMs||DEFAULT_TIMEOUT_MS,budget-(Date.now()-started)))}), { signal: options.signal, ...(options.params?.history ? {delays:[2000,5000,10000]} : {}), budgetMs:budget });
+  const delays=options.retryDelays??(options.params?.history?[2000,5000,10000]:undefined);
+  return retryTWRequest(() => requestOnce(endpoint, {...options,timeoutMs:Math.max(1000,Math.min(options.timeoutMs||DEFAULT_TIMEOUT_MS,budget-(Date.now()-started)))}), { signal: options.signal, ...(delays ? {delays} : {}), budgetMs:budget });
+}
+
+// One endpoint (same URL) has at most one request in flight. Concurrent callers
+// share it; the shared request is cancelled only when every caller cancelled.
+const inflight = new Map();
+function request(endpoint, options = {}) {
+  let key;
+  try { key = buildURL(endpoint, options.params).toString(); } catch { return requestWithRetry(endpoint, options); }
+  let entry = inflight.get(key);
+  if (!entry) {
+    const controller = new AbortController();
+    entry = { users: 0, controller };
+    entry.promise = requestWithRetry(endpoint, { ...options, signal: controller.signal });
+    const current = entry;
+    entry.promise.then(() => {}, () => {}).finally(() => { if (inflight.get(key) === current) inflight.delete(key); });
+    inflight.set(key, entry);
+  }
+  const shared = entry, signal = options.signal;
+  shared.users++;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const leave = () => { if (--shared.users === 0 && inflight.get(key) === shared) { inflight.delete(key); shared.controller.abort(); } };
+    const onAbort = () => {
+      if (settled) return; settled = true; leave();
+      reject(new TWDataProviderError("TW market data request was cancelled.", { code: "TW_DATA_ABORTED" }));
+    };
+    if (signal?.aborted) { onAbort(); return; }
+    signal?.addEventListener("abort", onAbort, { once: true });
+    shared.promise.then(value => {
+      if (settled) return; settled = true; shared.users--; signal?.removeEventListener("abort", onAbort); resolve(value);
+    }, error => {
+      if (settled) return; settled = true; shared.users--; signal?.removeEventListener("abort", onAbort); reject(error);
+    });
+  });
 }
 
 async function requestOnce(
@@ -1308,7 +1343,8 @@ function getMarketPulse(
       null,
 
     timeoutMs =
-      DEFAULT_TIMEOUT_MS
+      DEFAULT_TIMEOUT_MS,
+    retryDelays
   } = {}
 ) {
 
@@ -1316,7 +1352,8 @@ function getMarketPulse(
     "market-pulse",
     {
       signal,
-      timeoutMs
+      timeoutMs,
+      retryDelays
     }
   );
 }
@@ -1331,7 +1368,8 @@ function getBreadth(
       null,
 
     timeoutMs =
-      DEFAULT_TIMEOUT_MS
+      DEFAULT_TIMEOUT_MS,
+    retryDelays
   } = {}
 ) {
 
@@ -1340,6 +1378,7 @@ function getBreadth(
     {
       signal,
       timeoutMs,
+      retryDelays,
 
       params: {
         market
@@ -1358,7 +1397,8 @@ function getMoneyFlow(
       null,
 
     timeoutMs =
-      DEFAULT_TIMEOUT_MS
+      DEFAULT_TIMEOUT_MS,
+    retryDelays
   } = {}
 ) {
 
@@ -1367,6 +1407,7 @@ function getMoneyFlow(
     {
       signal,
       timeoutMs,
+      retryDelays,
 
       params: {
         market
@@ -1385,7 +1426,8 @@ function getThemes(
       null,
 
     timeoutMs =
-      DEFAULT_TIMEOUT_MS
+      DEFAULT_TIMEOUT_MS,
+    retryDelays
   } = {}
 ) {
 
@@ -1394,6 +1436,7 @@ function getThemes(
     {
       signal,
       timeoutMs,
+      retryDelays,
 
       params: {
 
@@ -1432,7 +1475,8 @@ function getRadar(
       null,
 
     timeoutMs =
-      DEFAULT_TIMEOUT_MS
+      DEFAULT_TIMEOUT_MS,
+    retryDelays
   } = {}
 ) {
 
@@ -1441,6 +1485,7 @@ function getRadar(
     {
       signal,
       timeoutMs,
+      retryDelays,
 
       params: {
 
@@ -1479,7 +1524,8 @@ function getIndicators(
       null,
 
     timeoutMs =
-      DEFAULT_TIMEOUT_MS
+      DEFAULT_TIMEOUT_MS,
+    retryDelays
   } = {}
 ) {
 
@@ -1488,6 +1534,7 @@ function getIndicators(
     {
       signal,
       timeoutMs,
+      retryDelays,
 
       params: {
 

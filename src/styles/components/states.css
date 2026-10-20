@@ -1,0 +1,35 @@
+/* One look for the four data states across radar, tools and news:
+   loading (skeleton or ring, see loading-state.js), empty, error with retry,
+   and stale data (shown with the last verified snapshot). */
+
+/* Empty: quiet centred text in the secondary colour. */
+body.ox-terminal :is(.twcr-empty,.twx-empty,.tws-empty,.oxn-empty,.turnover-empty) {
+  padding:24px 16px; box-sizing:border-box;
+  color:var(--muted)!important; font-size:12px; line-height:1.6; text-align:center; overflow-wrap:anywhere;
+}
+body.ox-terminal .tw-chart-radar .twcr-empty { padding:20px 10px; }
+
+/* Error + retry: the same small pill everywhere. */
+body.ox-terminal :is(.twr-retry,.twcr-history-retry,.ox-tool-error button) {
+  min-height:36px; padding:6px 16px; border:1px solid var(--line)!important; border-radius:999px!important;
+  background:transparent; color:var(--ink); font-size:12px; line-height:1.4; cursor:pointer; touch-action:manipulation;
+}
+body.ox-terminal .ox-tool-error { color:var(--muted); font-size:12px; }
+body.ox-terminal .ox-tool-error p:first-child { color:var(--ink); font-size:13px; }
+body.ox-terminal .ox-tool-error summary { color:var(--muted); font-size:11px; }
+
+/* Stale data: a small notice led by a dot, in the accent colour of each theme. */
+.tw-radar-root .twr-source-notice:not([hidden]) { display:flex; align-items:baseline; gap:6px; line-height:1.5; }
+.tw-radar-root .twr-source-notice::before { content:""; flex:none; width:6px; height:6px; border-radius:50%; background:currentColor; transform:translateY(-1px); }
+
+/* Page and tool switches: a short opacity fade (no movement, no layout shift). */
+@media (prefers-reduced-motion:no-preference) {
+  body.ox-terminal :is(#ox-tw-patterns,#ox-tw-sector-tools):not([hidden]) { animation:ox-view-in 160ms ease-out both; }
+}
+@keyframes ox-view-in { from { opacity:.55; } to { opacity:1; } }
+
+/* Long lists render only what is near the viewport. Remembered sizes (auto)
+   keep scroll positions stable once a row has been seen. */
+.tw-radar-root .twr-list>.tw-stock-card { content-visibility:auto; contain-intrinsic-size:auto 172px; }
+@media (max-width:700px) { .tw-radar-root .twr-list>.tw-stock-card { contain-intrinsic-size:auto 124px; } }
+.oxn-root details.oxn-news-row { content-visibility:auto; contain-intrinsic-size:auto 78px; }

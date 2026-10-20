@@ -1,0 +1,43 @@
+/* Interaction baseline shared by every theme: no double-tap zoom delay on
+   controls, one press feedback, one focus ring, finger-sized hit areas and
+   input text large enough that iOS does not zoom the page on focus.
+   Zero-specificity :where() keeps every component's own states in charge. */
+body.ox-terminal :where(summary,select,label,[role="button"],[role="tab"],[role="menuitemradio"],.tw-stock-card,.twcr-card) { touch-action:manipulation; }
+
+/* Press feedback: a short brightness step, applied while the pointer is down. */
+body.ox-terminal :where(button,[role="button"],[role="tab"],[role="menuitemradio"],summary,a.ox-control-row,.dock-btn):where(:not(:disabled,[aria-disabled="true"])):active { filter:brightness(1.18); }
+body.ox-terminal.theme-light :where(button,[role="button"],[role="tab"],[role="menuitemradio"],summary,a.ox-control-row,.dock-btn):where(:not(:disabled,[aria-disabled="true"])):active { filter:brightness(.93); }
+
+/* Focus ring: the same 2px ring for custom controls as for native ones. */
+body.ox-terminal :where([role="button"],[role="tab"],[role="menuitemradio"],[tabindex]:not([tabindex="-1"])):focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+body.ox-terminal :is(.twx,.twx-dialog) :is(button,input,select):focus-visible,
+body.ox-terminal .twx-bubble:focus-visible { outline-color:var(--ink)!important; }
+
+/* iOS zooms into inputs below 16px; keep text inputs and selects at 16px on phones. */
+@media (max-width:700px), (pointer:coarse) {
+  body.ox-terminal :where(input:not([type="checkbox"],[type="radio"],[type="range"],[type="color"]),select,textarea) { font-size:max(16px,1em)!important; }
+  body.ox-terminal .ox-feature-search-box input { font-size:16px!important; }
+}
+
+/* Coarse pointers: invisible hit areas of at least 40-44px around small
+   controls; the visible control is unchanged. inset:min(0px, 50% - 22px)
+   grows only the dimensions below 44px. Controls in tight rows grow only
+   vertically, so neighbours keep their own area. */
+@media (pointer:coarse) {
+  .tw-radar-root .tw-stock-watch,
+  .twx .twx-chart-tools [data-replay],
+  .twx .twx-chart-actions :is(.twx-expand,.twx-help),
+  .oxn-root .oxn-month-arrow,
+  .twx :is(.twx-segments button,.twx-refresh,.twx-session-toggle,.twx-highlights-button,.twx-section-head button,.twx-sector-picker-wrap>button,.twx-contribution-list button),
+  .oxn-root .oxn-text-button { position:relative; inset:auto; }
+  .tw-radar-root .tw-stock-watch::after,
+  #market-unavailable-card .twcr-search-open::after,
+  .tw-radar-root .twr-scan-button::after,
+  .twx .twx-chart-tools [data-replay]::after,
+  .twx .twx-chart-actions :is(.twx-expand,.twx-help)::after,
+  .oxn-root .oxn-month-arrow::after { content:""; position:absolute; inset:min(0px,calc(50% - 22px)); }
+  .twx :is(.twx-segments button,.twx-refresh,.twx-session-toggle,.twx-highlights-button,.twx-section-head button,.twx-sector-picker-wrap>button)::after,
+  .oxn-root .oxn-text-button::after { content:""; position:absolute; left:0; right:0; top:min(0px,calc(50% - 20px)); bottom:min(0px,calc(50% - 20px)); }
+  /* Index-contribution rows are 31px apart: fill the row, not beyond it. */
+  .twx .twx-contribution-list button::after { content:""; position:absolute; left:0; right:0; top:-7px; bottom:-7px; }
+}

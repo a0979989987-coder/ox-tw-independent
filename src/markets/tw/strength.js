@@ -32,7 +32,7 @@ async function show(s) {
   if (selected === 'rotation') { renderResearch('strength', s.state, { host: s.research }); return; }
   if(['etf','savings'].includes(selected)){
 
-    if(window.OXLoading)OXLoading.render(s.host,selected==='etf'?'載入 ETF 精選':'載入存股計算');
+    if(window.OXLoading?.skeleton)OXLoading.skeleton(s.host,selected==='etf'?'載入 ETF 精選':'載入存股計算','cards');
     else s.host.textContent='介面載入中…';
     try{
       const tool=selected;
@@ -44,7 +44,7 @@ async function show(s) {
     }catch(error){if(session===s&&generation===s.generation)showToolLoadError(s.host,error,()=>show(s));}
     return;
   }
-  if(window.OXLoading)OXLoading.render(s.host,selected==='bubbles'?'載入泡泡圖':'載入型態畫板');else s.host.textContent='介面載入中…';
+  if(window.OXLoading?.skeleton)OXLoading.skeleton(s.host,selected==='bubbles'?'載入泡泡圖':'載入型態畫板','chart');else s.host.textContent='介面載入中…';
   try {
     // A bubble view must not wait for the separate pattern engine to download.
     const loaded = selected==='bubbles' ? [null,null,null,await load('./bubbles/view.js?v=20261005-stable18')] :

@@ -1,4 +1,4 @@
-import { bubblePoints, bubbleLayout, flowScale, meetsBubbleFlow, REPLAY_TRAIL_PIECES } from './research-bubbles.js';
+import { bubblePoints, bubbleLayout, flowScale, meetsBubbleFlow, REPLAY_TRAIL_PIECES, zoomBubbleLayout, bubbleViewMatches } from './research-bubbles.js';
 import { money, pct } from './research-ui.js';
 import { quadrant } from './research-data.js';
 
@@ -232,4 +232,18 @@ export function createReplayPlayer({ length, render, onState = () => {}, isActiv
     setSpeed(speed) { if (Number.isFinite(speed) && speed > 0) rate = speed; },
     destroy() { pause(); destroyed = true; }
   };
+}
+
+// Frames replayFrameAt reads for one position (trail history and the next date).
+export function replayWindow(position, length) {
+  const index = Math.floor(clamp(position, 0, Math.max(0, length - 1)));
+  return [Math.max(0, index - 4), Math.min(length - 1, index + 2)];
+}
+// Bring frames [from, to] to the current zoom/pan in place. During a gesture
+// only the on-screen window is moved; the rest catch up when it settles.
+export function zoomReplayFrames(frames, view, from = 0, to = frames.length - 1) {
+  let moved = 0;
+  for (let i = Math.max(0, from); i <= Math.min(frames.length - 1, to); i++)
+    if (!bubbleViewMatches(frames[i], view)) { frames[i] = zoomBubbleLayout(frames[i], view); moved++; }
+  return moved;
 }

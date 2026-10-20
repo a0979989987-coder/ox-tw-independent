@@ -3,7 +3,7 @@ import { bundleClassification, subscribeBundle } from './patterns/bundle.js?v=20
 import {
   twProvider
 } from "./api.js?v=20261005-recovery20";
-import {validRadarSnapshot,completeRadarMembership} from './radar-snapshot.js?v=20261005-recovery20';
+import {validRadarSnapshot,completeRadarMembership,validFirstScreenSnapshot} from './radar-snapshot.js?v=20261005-recovery20';
 
 
 /*
@@ -1089,7 +1089,9 @@ export function normalizeTWRadar(
   return Object.freeze(
     source
       .map(
-        item=>{const row=normalizeRadarItem(item),date=payload?.dataDate||row.dataDate;return classicTWRow(row,bundleClassification(row.symbol,'1D',date),date);}
+        // publishedTier only orders the pattern chunks to download first; the
+        // grade itself is still recomputed from the verified bundle.
+        item=>{const row=normalizeRadarItem(item),date=payload?.dataDate||row.dataDate;return {...classicTWRow(row,bundleClassification(row.symbol,'1D',date),date),publishedTier:row.tier};}
       )
       .filter(
         item =>
@@ -1586,10 +1588,27 @@ export function createTWMarketState() {
   return currentState;
 }
 
+// A first-screen cache holds only the official mode lists. It may fill an empty
+// state, but never replaces lists that are already on screen.
+function seedTWRadarModes(saved) {
+  const current=currentState.data;
+  if(!validFirstScreenSnapshot(saved)||current?.radarModes&&current?.radarDataDate>=saved.data.dataDate)return currentState;
+  const payload=saved.data;
+  const state=setState({...currentState,status:currentState.status==='loading'?'loading':'partial',data:{
+    ...(current||{}),radarModes:payload.modes,radarModesMeta:payload.modesMeta,
+    radarUpdatedAt:new Date(saved.savedAt).toISOString(),radarDataDate:payload.dataDate,usingCachedRadar:true
+  }});
+  emitState(state);
+  return state;
+}
 export function seedTWRadar(saved) {
+  if(saved?.slim)return seedTWRadarModes(saved);
   if(!validRadarSnapshot(saved))return currentState;
-  const existing=Math.max(Date.parse(currentState.data?.radarUpdatedAt)||0,currentState.data?.radarReceivedAt||0);
-  if(currentState.data?.radarDataDate>saved.data.dataDate||existing>=saved.savedAt)return currentState;
+  const current=currentState.data,existing=Math.max(Date.parse(current?.radarUpdatedAt)||0,current?.radarReceivedAt||0);
+  // The snapshot and the live API load in parallel. A newer verified list wins;
+  // a complete snapshot also replaces a same-day live list missing official modes.
+  const currentComplete=completeRadarMembership({radar:current?.radar,dataDate:current?.radarDataDate,modes:current?.radarModes,modesMeta:current?.radarModesMeta});
+  if(current?.radarDataDate>saved.data.dataDate||Array.isArray(current?.radar)&&existing>=saved.savedAt&&currentComplete)return currentState;
   const payload=saved.data;
   const state=setState({...currentState,status:currentState.status==='loading'?'loading':'partial',data:{
     ...(currentState.data||{}),radar:normalizeTWRadar(payload),radarModes:payload.modes,
@@ -1614,7 +1633,10 @@ export async function refreshTWMarketState(
       false,
 
     onRadarReady =
-      null
+      null,
+    // Background recovery already backs off between attempts; it passes []
+    // so one recovery attempt is one request per endpoint.
+    retryDelays
   } = {}
 ) {
 
@@ -1711,7 +1733,8 @@ export async function refreshTWMarketState(
     limit: 2000,
     sort: "oxScore",
     timeoutMs: 20000,
-    signal
+    signal,
+    retryDelays
   }).then(payload => {
     if(payload?.dataDate<currentState.data?.radarDataDate)throw Object.assign(Error("較舊交易日資料已忽略"),{code:"TW_RADAR_OLDER_DATE"});
     const previous=currentState.data;
@@ -1745,17 +1768,20 @@ export async function refreshTWMarketState(
 
         twProvider
           .getMarketPulse({
-            signal
+            signal,
+            retryDelays
           }),
 
         twProvider
           .getBreadth({
-            signal
+            signal,
+            retryDelays
           }),
 
         twProvider
           .getMoneyFlow({
-            signal
+            signal,
+            retryDelays
           }),
 
         twProvider
@@ -1763,14 +1789,16 @@ export async function refreshTWMarketState(
             limit:
               30,
 
-            signal
+            signal,
+            retryDelays
           }),
 
         radarRequest,
 
         twProvider
           .getIndicators({
-            signal
+            signal,
+            retryDelays
           })
 
       ])

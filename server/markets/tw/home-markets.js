@@ -2,12 +2,13 @@
 // remain explicit; null quotes never become zero and Asia excludes report day.
 import {XMLParser} from 'fast-xml-parser';
 export const MARKETS=[
- ['us','道瓊','^DJI',2,''],['us','S&P 500','^GSPC',2,''],['us','NASDAQ','^IXIC',2,''],['us','費城半導體','^SOX',2,''],
+ // us/fx rows feed the pre-market summary only (not homepage sections).
+ ['us','S&P 500','^GSPC',2,''],['us','費城半導體','^SOX',2,''],
  ['us','台積電 ADR','TSM',2,'USD'],
  ['asia','台灣加權','^TWII',2,''],['asia','日經 225','^N225',2,''],['asia','韓國 KOSPI','^KS11',2,''],['asia','上海綜合','000001.SS',2,''],
  ['indicators','VIX','^VIX',2,''],['indicators','歐洲 STOXX 50','^STOXX50E',2,''],
  ['commodities','黃金期貨','GC=F',2,'USD/盎司'],['commodities','白銀期貨','SI=F',3,'USD/盎司'],['commodities','WTI 原油期貨','CL=F',2,'USD/桶'],['commodities','布蘭特原油期貨','BZ=F',2,'USD/桶'],
- ['fx','EUR/USD','EURUSD=X',5,''],['fx','USD/JPY','JPY=X',3,''],['fx','USD/CNY','CNY=X',4,''],['fx','USD/TWD','TWD=X',4,''],['fx','美元指數 DXY','DX-Y.NYB',2,'']
+ ['fx','USD/TWD','TWD=X',4,'']
 ];
 export const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const price=value=>finite(value)&&value>0;

@@ -1331,211 +1331,51 @@ function sma(
 }
 
 
-function emaSeries(
-  values,
-  period
-) {
-
-  if (
-    !values.length
-  ) {
-
-    return [];
+// Standard EMA: seeded with the SMA of the first `period` values. Earlier
+// positions have no defined value (null) instead of one biased by values[0].
+function emaSeries(values, period) {
+  const output = values.map(() => null);
+  if (values.length < period) {
+    return output;
   }
-
-
-  const multiplier =
-    2 /
-    (
-      period +
-      1
-    );
-
-
-  const output =
-    [];
-
-  let current =
-    values[0];
-
-
-  output.push(
-    current
-  );
-
-
-  for (
-    let index =
-      1;
-    index <
-      values.length;
-    index +=
-      1
-  ) {
-
-    current =
-      (
-        values[index] *
-        multiplier
-      ) +
-      (
-        current *
-        (
-          1 -
-          multiplier
-        )
-      );
-
-
-    output.push(
-      current
-    );
+  const multiplier = 2 / (period + 1);
+  let current = average(values.slice(0, period));
+  output[period - 1] = current;
+  for (let index = period; index < values.length; index += 1) {
+    current = values[index] * multiplier + current * (1 - multiplier);
+    output[index] = current;
   }
-
-
   return output;
 }
 
 
-function calculateRSI(
-  closes,
-  period =
-    14
-) {
-
-  if (
-    closes.length <=
-      period
-  ) {
-
+// Wilder RSI. A completely flat series has no gains and no losses: 50
+// (neutral), not 100.
+function calculateRSI(closes, period = 14) {
+  if (closes.length <= period) {
     return null;
   }
-
-
-  let gains =
-    0;
-
-  let losses =
-    0;
-
-
-  for (
-    let index =
-      1;
-    index <=
-      period;
-    index +=
-      1
-  ) {
-
-    const change =
-      closes[index] -
-      closes[index - 1];
-
-
-    if (
-      change >
-        0
-    ) {
-
-      gains +=
-        change;
-
-    } else {
-
-      losses +=
-        Math.abs(
-          change
-        );
-    }
+  let gains = 0;
+  let losses = 0;
+  for (let index = 1; index <= period; index += 1) {
+    const change = closes[index] - closes[index - 1];
+    if (change > 0) gains += change;
+    else losses += Math.abs(change);
   }
-
-
-  let averageGain =
-    gains /
-    period;
-
-  let averageLoss =
-    losses /
-    period;
-
-
-  for (
-    let index =
-      period +
-      1;
-    index <
-      closes.length;
-    index +=
-      1
-  ) {
-
-    const change =
-      closes[index] -
-      closes[index - 1];
-
-
-    const gain =
-      Math.max(
-        change,
-        0
-      );
-
-
-    const loss =
-      Math.max(
-        -change,
-        0
-      );
-
-
-    averageGain =
-      (
-        averageGain *
-        (
-          period -
-          1
-        ) +
-        gain
-      ) /
-      period;
-
-
-    averageLoss =
-      (
-        averageLoss *
-        (
-          period -
-          1
-        ) +
-        loss
-      ) /
-      period;
+  let averageGain = gains / period;
+  let averageLoss = losses / period;
+  for (let index = period + 1; index < closes.length; index += 1) {
+    const change = closes[index] - closes[index - 1];
+    averageGain = (averageGain * (period - 1) + Math.max(change, 0)) / period;
+    averageLoss = (averageLoss * (period - 1) + Math.max(-change, 0)) / period;
   }
-
-
-  if (
-    averageLoss ===
-      0
-  ) {
-
+  if (averageGain === 0 && averageLoss === 0) {
+    return 50;
+  }
+  if (averageLoss === 0) {
     return 100;
   }
-
-
-  const relativeStrength =
-    averageGain /
-    averageLoss;
-
-
-  return 100 -
-    (
-      100 /
-      (
-        1 +
-        relativeStrength
-      )
-    );
+  return 100 - 100 / (1 + averageGain / averageLoss);
 }
 
 
@@ -1701,177 +1541,50 @@ function calculateKD(
 }
 
 
-function calculateMACD(
-  closes
-) {
-
-  if (
-    closes.length <
-      26
-  ) {
-
+// MACD 12/26/9. DIF exists from the 26th close and the signal needs nine DIF
+// values (SMA seed), so fewer than 26 + 9 closes yield null (not displayed).
+const MACD_MIN_CLOSES = 26 + 9;
+function calculateMACD(closes) {
+  if (closes.length < MACD_MIN_CLOSES) {
     return null;
   }
-
-
-  const ema12 =
-    emaSeries(
-      closes,
-      12
-    );
-
-
-  const ema26 =
-    emaSeries(
-      closes,
-      26
-    );
-
-
-  const dif =
-    closes.map(
-      (
-        value,
-        index
-      ) =>
-        ema12[index] -
-        ema26[index]
-    );
-
-
-  const signal =
-    emaSeries(
-      dif,
-      9
-    );
-
-
-  const lastIndex =
-    closes.length -
-    1;
-
-
-  return {
-
-    dif:
-      dif[
-        lastIndex
-      ],
-
-    signal:
-      signal[
-        lastIndex
-      ],
-
-    histogram:
-      dif[
-        lastIndex
-      ] -
-      signal[
-        lastIndex
-      ]
-
-  };
+  const ema12 = emaSeries(closes, 12);
+  const ema26 = emaSeries(closes, 26);
+  const start = 26 - 1;
+  const dif = closes.slice(start).map((value, index) => ema12[start + index] - ema26[start + index]);
+  const signal = emaSeries(dif, 9);
+  const last = dif.length - 1;
+  if (!Number.isFinite(dif[last]) || !Number.isFinite(signal[last])) {
+    return null;
+  }
+  return { dif: dif[last], signal: signal[last], histogram: dif[last] - signal[last] };
 }
 
 
-function calculateATR(
-  candles,
-  period =
-    14
-) {
-
-  if (
-    candles.length <=
-      period
-  ) {
-
+// ATR with Wilder smoothing (as TradingView): the first value is the SMA of
+// the first `period` true ranges, then ATR = (previous * (period - 1) + TR) / period.
+function calculateATR(candles, period = 14) {
+  if (candles.length <= period) {
     return null;
   }
-
-
-  const trueRanges =
-    [];
-
-
-  for (
-    let index =
-      1;
-    index <
-      candles.length;
-    index +=
-      1
-  ) {
-
-    const high =
-      finiteNumber(
-        candles[index]
-          .high
-      );
-
-
-    const low =
-      finiteNumber(
-        candles[index]
-          .low
-      );
-
-
-    const previousClose =
-      finiteNumber(
-        candles[index - 1]
-          .close
-      );
-
-
-    if (
-      high ===
-        null ||
-      low ===
-        null ||
-      previousClose ===
-        null
-    ) {
-
+  const trueRanges = [];
+  for (let index = 1; index < candles.length; index += 1) {
+    const high = finiteNumber(candles[index].high);
+    const low = finiteNumber(candles[index].low);
+    const previousClose = finiteNumber(candles[index - 1].close);
+    if (high === null || low === null || previousClose === null) {
       continue;
     }
-
-
-    trueRanges.push(
-      Math.max(
-
-        high -
-        low,
-
-        Math.abs(
-          high -
-          previousClose
-        ),
-
-        Math.abs(
-          low -
-          previousClose
-        )
-
-      )
-    );
+    trueRanges.push(Math.max(high - low, Math.abs(high - previousClose), Math.abs(low - previousClose)));
   }
-
-
-  if (
-    trueRanges.length <
-      period
-  ) {
-
+  if (trueRanges.length < period) {
     return null;
   }
-
-
-  return average(
-    trueRanges.slice(
-      -period
-    )
-  );
+  let value = average(trueRanges.slice(0, period));
+  for (let index = period; index < trueRanges.length; index += 1) {
+    value = (value * (period - 1) + trueRanges[index]) / period;
+  }
+  return value;
 }
 
 
@@ -3062,6 +2775,10 @@ export async function getOfficialTWIndicators(
 /* ========================================================================== */
 /* Provider descriptor                                                        */
 /* ========================================================================== */
+
+// Pure calculations, exported for verification.
+export { emaSeries, calculateRSI, calculateMACD, calculateATR };
+
 
 export const officialTWIndicatorProvider =
   Object.freeze({

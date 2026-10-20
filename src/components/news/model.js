@@ -79,12 +79,22 @@ export function dedupe(items) {
   }
   return groups;
 }
-export function newsBase(snapshot, scope, state, prefs = {}, now = Date.now()) {
-  const hidden = new Set(prefs.hidden || []), muted = new Set(prefs.mutedSources || []);
+export function newsRanges(state, now = Date.now()) {
   const windows = (state.times || []).map(Number).filter(h => h > 0 && h <= 720);
   const ranges = windows.map(hours => [now - hours * 3600000, now + 60000]);
   if (state.times?.includes('week')) { const monday = new Date(`${taipeiDay(now)}T00:00:00+08:00`); const weekday = new Date(`${taipeiDay(now)}T12:00:00Z`).getUTCDay(); monday.setUTCDate(monday.getUTCDate() - (weekday + 6) % 7); ranges.push([monday.getTime(), now + 60000]); }
   if (state.times?.includes('custom') && validDate(state.customTime?.from) && validDate(state.customTime?.to) && state.customTime.from <= state.customTime.to) ranges.push([Date.parse(`${state.customTime.from}T00:00:00+08:00`), Date.parse(`${state.customTime.to}T00:00:00+08:00`) + 86400000 - 1]);
+  return ranges;
+}
+// Earliest publication time the current filters can show; paged feeds load
+// pages until they reach it.
+export function newsRangeStart(state, now = Date.now()) {
+  const ranges = newsRanges(state, now);
+  return ranges.length ? Math.min(...ranges.map(([from]) => from)) : Infinity;
+}
+export function newsBase(snapshot, scope, state, prefs = {}, now = Date.now()) {
+  const hidden = new Set(prefs.hidden || []), muted = new Set(prefs.mutedSources || []);
+  const ranges = newsRanges(state, now);
   if (!ranges.length) return [];
   return dedupe([...(snapshot?.news || []), ...(snapshot?.pendingNews || [])].filter(item => {
     const published = Date.parse(item.publishedAt);
