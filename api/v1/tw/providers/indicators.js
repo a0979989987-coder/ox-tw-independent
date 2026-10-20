@@ -628,6 +628,21 @@ function applyBreadthIndicators(
     );
 
 
+  // One exchange's counts are not the market's counts: label them on screen.
+  const partial =
+    breadth.complete === false;
+
+  const scope =
+    partial
+      ? `${breadth.coverageLabel || "來源不完整"} · `
+      : "";
+
+  const scopeNote =
+    partial
+      ? `${breadth.coverageLabel || "來源不完整"}（另一市場來源失敗，不是全市場）`
+      : "";
+
+
   if (
     advancers !==
       null ||
@@ -645,7 +660,7 @@ function applyBreadthIndicators(
           decliners ??
           0
         ),
-        `${
+        `${scope}${
           formatNumber(
             advancers,
             0
@@ -666,6 +681,7 @@ function applyBreadthIndicators(
               } 平`
             : ""
         }`,
+        scopeNote ||
         "上市＋上櫃股票廣度"
       );
   }
@@ -687,9 +703,11 @@ function applyBreadthIndicators(
     readings.advanceDeclineRatio =
       reading(
         ratio,
+        scope +
         ratio.toFixed(
           2
         ),
+        scopeNote ||
         "上漲家數 ÷ 下跌家數"
       );
   }
@@ -712,7 +730,7 @@ function applyBreadthIndicators(
           limitDown ??
           0
         ),
-        `${
+        `${scope}${
           formatNumber(
             limitUp,
             0
@@ -723,6 +741,7 @@ function applyBreadthIndicators(
             0
           )
         } 跌停`,
+        scopeNote ||
         "官方市場漲跌停家數"
       );
   }

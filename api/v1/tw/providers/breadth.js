@@ -1624,8 +1624,22 @@ async function loadOfficialTWBreadth() {
   }
 
 
+  // When one exchange failed the totals cover the other one only. Say so on
+  // the figures themselves so no reader takes them for the whole market.
+  const coverage =
+    twse && tpex ? "ALL" : twse ? "TWSE" : "TPEX";
+
+
   const breadth =
     Object.freeze({
+
+      coverage,
+
+      complete:
+        coverage === "ALL",
+
+      coverageLabel:
+        { ALL: "全市場", TWSE: "只含上市", TPEX: "只含上櫃" }[coverage],
 
       advancers:
         addNullable([
