@@ -1,3 +1,8 @@
+import {
+  shareRecentResult
+} from "./shared-result.js";
+
+
 /*
  * OX v4.0 Modular
  * Taiwan Market Breadth Provider
@@ -938,6 +943,11 @@ async function getTwseBreadthFromMiIndex() {
    * - weekends
    * - holidays
    * - after-midnight edge cases
+   *
+   * Only TWSE's own "no data for this date" answer moves to the day before.
+   * A failed, timed-out or unreadable request stops the search: asking the
+   * same failing host about ten earlier dates only multiplies the requests.
+   * The caller then falls back to the OpenAPI summary.
    */
   for (
     let offset =
@@ -971,39 +981,52 @@ async function getTwseBreadthFromMiIndex() {
       }&type=MS&response=json`;
 
 
-    try {
-
-      const payload =
-        await requestJSON(
-          url,
-          {
-            source:
-              "TWSE-MI_INDEX"
-          }
-        );
+    const payload =
+      await requestJSON(
+        url,
+        {
+          source:
+            "TWSE-MI_INDEX"
+        }
+      );
 
 
-      const normalized =
-        normalizeTwseMiIndex(
-          payload,
-          isoDate
-        );
+    const normalized =
+      normalizeTwseMiIndex(
+        payload,
+        isoDate
+      );
 
 
-      if (
-        normalized
-      ) {
-
-        return normalized;
-      }
-
-    } catch (
-      error
+    if (
+      normalized
     ) {
 
-      /*
-       * Continue to prior trading day.
-       */
+      return normalized;
+    }
+
+
+    /*
+     * A trading-day answer that cannot be read will not read better for an
+     * earlier date.
+     */
+    if (
+      textValue(
+        payload?.stat
+      ).toUpperCase() ===
+        "OK"
+    ) {
+
+      throw new TWBreadthProviderError(
+        "TWSE MI_INDEX breadth table could not be normalized.",
+        {
+          code:
+            "TWSE_BREADTH_PARSE_ERROR",
+
+          source:
+            "TWSE-MI_INDEX"
+        }
+      );
     }
   }
 
@@ -1531,7 +1554,15 @@ function errorSummary(
 /* Public API                                                                 */
 /* ========================================================================== */
 
-export async function getOfficialTWBreadth() {
+// Indicators asks for the same breadth the home page requests directly at the
+// same moment; both share one set of official requests (see shared-result.js).
+export const getOfficialTWBreadth =
+  shareRecentResult(
+    loadOfficialTWBreadth
+  );
+
+
+async function loadOfficialTWBreadth() {
 
   const [
     twseResult,

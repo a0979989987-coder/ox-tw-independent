@@ -1,3 +1,8 @@
+import {
+  shareRecentResult
+} from "./shared-result.js";
+
+
 /*
  * OX v4.0 Modular
  * Taiwan Official Market Provider
@@ -1443,7 +1448,15 @@ function errorSummary(
 }
 
 
-export async function getOfficialTWMarketPulse() {
+// Indicators asks for the same pulse the home page requests directly at the
+// same moment; both share one set of official requests (see shared-result.js).
+export const getOfficialTWMarketPulse =
+  shareRecentResult(
+    loadOfficialTWMarketPulse
+  );
+
+
+async function loadOfficialTWMarketPulse() {
 
   const [
     taiexResult,
