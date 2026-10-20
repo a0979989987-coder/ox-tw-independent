@@ -3,6 +3,7 @@ import {readFile,writeFile,mkdir,cp,rm} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {resolve,relative,dirname} from 'node:path';
 import {TOOL_STYLES,newsAssets} from './client-assets.mjs';
+import {withPagesRedirect} from './site-redirect.mjs';
 const root=resolve(import.meta.dirname,'..');
 const basePath=process.env.SITE_BASE_PATH||'';
 if(basePath&&!/^\/[a-zA-Z0-9_.-]+$/.test(basePath))throw Error('Invalid site base path');
@@ -51,6 +52,8 @@ for(const [index,match]of groups.entries()){
  html=html.replace(match[0],`<link rel="stylesheet" href="${file}">`);
 }
 html=html.replace('<head>',`<head><meta name="ox-site-base-path" content="${basePath}">${apiBase?`<meta name="ox-tw-data-api-base" content="${apiBase}">`:''}`).replace('href="/favicon.svg"',`href="${basePath}/favicon.svg"`);
+// Without a base path this is the Sites build: its page forwards to GitHub Pages.
+if(!basePath)html=withPagesRedirect(html);
 await writeFile(resolve(root,'dist/client/index.html'),html);
 await writeFile(resolve(root,'dist/client/.nojekyll'),'');
 const fsShim={name:'worker-assets',setup(b){
