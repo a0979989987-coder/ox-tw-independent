@@ -2,6 +2,7 @@ import {
   getOfficialTWQuote
 } from "./quotes.js";
 import { readPackCandles } from "./candle-pack.js";
+import { loadTWTradingCalendar } from "../../../../server/markets/tw/surveillance.js";
 
 
 /*
@@ -63,9 +64,16 @@ const REQUEST_CONCURRENCY =
 // A pack this far behind the requested end is treated as stale and skipped.
 const PACK_MAX_LAG_DAYS = 14;
 
-// Trading days after the pack date are tried from the official feed for at
-// most this long; on failure or timeout only the pack is returned.
+// Closed trading days after the pack date are tried from the official feed for
+// at most this long; on failure or timeout only the pack is returned.
 const AFTER_PACK_TIMEOUT_MS = 5000;
+
+// A failed, timed-out or empty attempt is not repeated for the same symbol
+// within this window.
+const AFTER_PACK_RETRY_MS = 300000;
+
+const TAIPEI_CLOSE_MINUTES = 13 * 60 + 30;
+const afterPackMisses = new Map();
 
 // The exchanges publish daily OHLC from these dates. Completion means the
 // published range has been checked, not that pre-publication prices exist.
@@ -1442,20 +1450,61 @@ async function runMonthBatch(
   return { candles, failures };
 }
 
-async function officialAfterPack(packDate, end, loadMonth) {
-  const months = buildMonths(new Date(Date.parse(packDate) + 86400000), end), endISO = formatISODate(end);
+function taipeiClock(now) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+  }).formatToParts(now).map(part => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+}
+
+const nextISODate = date => formatISODate(new Date(Date.parse(date) + 86400000));
+
+// Weekdays after the pack date whose session has closed: days before today,
+// plus today once Taipei time has passed 13:30. Holidays are checked later
+// against the official calendar, only when such a weekday exists.
+function closedWeekdaysAfter(packDate, endISO, now) {
+  const clock = taipeiClock(now);
+  const yesterday = formatISODate(new Date(Date.parse(clock.date) - 86400000));
+  const last = [endISO, clock.minutes >= TAIPEI_CLOSE_MINUTES ? clock.date : yesterday].sort()[0];
+  const days = [];
+  for (let date = nextISODate(packDate), guard = 0; date <= last && guard < 400; date = nextISODate(date), guard++) {
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) days.push(date);
+  }
+  return days;
+}
+
+async function officialAfterPack(key, packDate, endISO, loadMonth, now) {
+  const weekdays = closedWeekdaysAfter(packDate, endISO, now);
+  if (!weekdays.length) return [];
+  const missedAt = afterPackMisses.get(key);
+  if (missedAt !== undefined && now.getTime() - missedAt < AFTER_PACK_RETRY_MS) return [];
+  const last = weekdays.at(-1);
   let timer;
   const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(null), AFTER_PACK_TIMEOUT_MS); });
+  const attempt = (async () => {
+    // The calendar only removes holidays; without it the weekdays are tried.
+    const calendar = await loadTWTradingCalendar().catch(() => null);
+    if (calendar && weekdays.every(date => calendar.isOpen(date) === false)) return { candles: [], failures: [], holiday: true };
+    return runMonthBatch(buildMonths(dateOnly(weekdays[0]), dateOnly(last)), loadMonth);
+  })();
+  let candles = [];
   try {
-    const result = await Promise.race([runMonthBatch(months, loadMonth), timeout]);
+    const result = await Promise.race([attempt, timeout]);
+    if (result?.holiday) return [];
     // A missing month would leave a gap after the pack, so all or nothing.
-    if (!result || result.failures.length) return [];
-    return result.candles.filter(candle => candle.date > packDate && candle.date <= endISO);
+    if (result && !result.failures.length) candles = result.candles.filter(candle => candle.date > packDate && candle.date <= last);
   } catch {
-    return [];
+    candles = [];
   } finally {
     clearTimeout(timer);
   }
+  if (candles.length) afterPackMisses.delete(key);
+  else {
+    if (afterPackMisses.size > 2048) afterPackMisses.delete(afterPackMisses.keys().next().value);
+    afterPackMisses.set(key, now.getTime());
+  }
+  return candles;
 }
 
 function partialFailure(failures) {
@@ -1491,6 +1540,9 @@ export async function getOfficialTWCandles(
       true,
 
     history = false,
+
+    // Injected by tests; decides which sessions after the pack have closed.
+    now = new Date(),
 
     // Shared with the API deadline so a timeout can name the pending source.
     progress = {}
@@ -1639,7 +1691,7 @@ export async function getOfficialTWCandles(
     : { candles: [], failures: [] };
 
   const afterPack = pack && endISO > pack.date
-    ? await officialAfterPack(pack.date, resolved.end, loadMonth)
+    ? await officialAfterPack(`${market}:${normalizedSymbol}:${pack.date}`, pack.date, endISO, loadMonth, now)
     : [];
 
   const source = !pack
