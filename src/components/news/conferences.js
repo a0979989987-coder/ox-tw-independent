@@ -16,7 +16,7 @@ function load() {
   loading ??= Promise.all([
     fetch(DATA, { cache: 'no-cache' }).then(response => { if (!response.ok) throw Error(`HTTP ${response.status}`); return response.json(); }),
     fetch(RADAR, { cache: 'no-cache' }).then(response => response.ok ? response.json() : null).catch(() => null)
-  ]).then(([data, radar]) => ({ data, radar: new Set((radar?.data?.radar || []).filter(row => /^T[123]$/.test(row.tier)).map(row => row.symbol)) }))
+  ]).then(([data, radar]) => ({ data, radar: new Map((radar?.data?.radar || []).filter(row => /^T[123]$/.test(row.tier)).map(row => [row.symbol, row.tier])) }))
     .catch(error => { loading = null; throw error; });
   return loading;
 }
@@ -72,14 +72,24 @@ function reactionBody(item, now) {
   return body;
 }
 
-function card(item, state, now) {
+// Opens the radar tab chart for this stock, as the news asset detail does.
+function openRadar(symbol) {
+  window.OXMarketController?.setMarket('tw'); window.switchAppView?.('radar');
+  document.dispatchEvent(new CustomEvent('ox:tw-chart-symbol', { detail: { symbol } }));
+}
+
+function card(item, state, now, radar) {
   const article = node('article', 'oxc-card'), top = node('div', 'oxc-top'), title = node('div', 'oxc-name');
   title.append(node('strong', '', item.name), node('span', 'oxc-symbol', item.symbol), node('small', 'oxc-market', item.market === 'TPEX' ? '上櫃' : '上市'));
+  const tier = radar.get(item.symbol);
+  if (tier) { const tag = node('span', 'oxc-tier', tier); tag.dataset.tier = tier; tag.title = `雷達 ${tier}`; title.append(tag); }
   const links = node('div', 'oxc-links'); links.append(slideLink('簡報', item.zhUrl, item.slideNote), slideLink('Deck', item.enUrl, item.slideNote));
   top.append(title, links);
   const when = node('p', 'oxc-when', `${day(item.date)}${item.endDate ? `～${day(item.endDate)}` : ''} ${item.time || '時間未提供'}`);
   if (item.location) when.append(node('span', 'oxc-place', item.location));
-  article.append(top, when);
+  const line = node('div', 'oxc-line'); line.append(when);
+  if (/^\d{4}$/.test(item.symbol)) line.append(button('看雷達', `在雷達查看 ${item.symbol} ${item.name}`, () => openRadar(item.symbol), 'oxc-radar'));
+  article.append(top, line);
   if (item.summary) { const s = node('p', 'oxc-summary', item.summary); s.title = item.summary; article.append(s); }
   const details = node('details', 'oxc-reaction'), summary = node('summary', '', '股價反應');
   details.open = Boolean(state.open[item.id]);
@@ -153,7 +163,7 @@ export function mountConferences(host, { signal } = {}) {
     meta.textContent = `${items.length} 場・資料來源：公開資訊觀測站法人說明會一覽表，更新 ${new Date(data.generatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}`;
     if (state.radarOnly && !radar.size) list.append(node('p', 'oxc-empty', '雷達名單尚未取得。'));
     else if (!items.length) list.append(node('p', 'oxc-empty', state.view === 'held' ? '沒有符合條件的已舉行法說會。' : '未來 14 天沒有符合條件的法說會。'));
-    for (const item of items.slice(0, 300)) list.append(card(item, state, now));
+    for (const item of items.slice(0, 300)) list.append(card(item, state, now, radar));
   }
   function start() { failed = null; render(); load().then(value => { loaded = value; render(); }, error => { failed = error; render(); }); }
   start();
