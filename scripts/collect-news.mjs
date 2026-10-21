@@ -244,6 +244,9 @@ export async function collect() {
       if (id === 'twse-holidays') { const year = items[0]?.date.slice(0, 4); if (year) eventCoverage.push({ sourceId: id, category: 'holiday', markets: ['tw'], from: `${year}-01-01`, to: `${year}-12-31`, complete: true }); }
     } else sources.push({ ...old?.sources?.find(s => s.id === id), id, status: 'error', lastAttemptAt: stamp, message: String(result.reason?.message || '來源請求失敗').slice(0, 100) });
   });
+  // Cash payment dates are kept from the previous month on; older payments are
+  // past and would make the calendar boot several times larger.
+  for (const [key, item] of events) if (item.sourceId === 'mops-payments' && eventDay(item) < monthStart(today, -1)) events.delete(key);
   // The MOPS list holds every conference; the TWSE venue table repeats some of them.
   const mopsConferenceDays = new Set([...events.values()].filter(item => item.sourceId === 'mops-conferences').map(item => `${item.symbol}:${eventDay(item)}`));
   for (const [key, item] of events) if (item.sourceId === 'twse-conferences' && mopsConferenceDays.has(`${item.symbol}:${eventDay(item)}`)) events.delete(key);

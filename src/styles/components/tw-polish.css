@@ -18,3 +18,24 @@ html:root body[data-view="radar"][data-view] .app-dock.glass-nav > span.ox-dock-
 html body .app-dock .dock-btn .dock-icon,html body .app-dock .dock-btn .dock-radar-orb{transition:scale 320ms cubic-bezier(.32,.72,0,1),filter 200ms ease,opacity 200ms ease}
 html body .app-dock .dock-btn:active .dock-icon{scale:.88}
 @media(prefers-reduced-motion:reduce){html body .app-dock .ox-dock-indicator,html body .app-dock .dock-btn .dock-icon{transition:none!important}}
+
+/* Radar logo: the dark half turns light on the dark theme so it stays visible. */
+body:not(.theme-light) .dock-radar-logo .ox-logo-dark{fill:#e9edf2}
+
+/* Control panel close tab: attached to the panel's left edge in both themes.
+   It is a child of the panel (shell.js), so it moves and hides with it. */
+html body .ox-control-panel{overflow:visible!important}
+html body .ox-control-panel>.ox-control-edge-close{
+ position:absolute!important;left:-24px!important;right:auto!important;top:50%!important;
+ transform:translateY(-50%)!important;width:24px!important;height:52px!important;min-height:52px!important;margin:0!important;
+ opacity:1!important;visibility:inherit!important;border-right:0!important;border-radius:12px 0 0 12px!important
+}
+
+/* Swiping between dock views (swipe-views.js): the new view slides in from the swipe side. */
+@keyframes oxSwipeInNext{from{opacity:.55;transform:translate3d(28px,0,0)}to{opacity:1;transform:none}}
+@keyframes oxSwipeInPrev{from{opacity:.55;transform:translate3d(-28px,0,0)}to{opacity:1;transform:none}}
+main.ox-swipe-in-next{animation:oxSwipeInNext 340ms cubic-bezier(.32,.72,0,1) both}
+main.ox-swipe-in-prev{animation:oxSwipeInPrev 340ms cubic-bezier(.32,.72,0,1) both}
+/* The old trigram's white glow turns the two-tone logo into a pale tile; use a faint blue glow. */
+html body .app-dock .dock-radar .dock-radar-logo{filter:none!important}
+html body:not(.theme-light) .app-dock .dock-radar.active .dock-radar-logo{filter:drop-shadow(0 0 5px rgba(153,200,226,.35))!important}
