@@ -71,3 +71,10 @@ html body #market-unavailable-card.tw-radar-root .tw-chart-radar .twcr-quote>.ma
 /* Phone calendar (workspace.js): one month grid; collapsed it shows the selected week. */
 .oxn-month-viewport{overflow:hidden;will-change:height}
 .oxn-month-viewport .oxn-calendar-grid{will-change:transform}
+
+/* News day list and detail: vertical scrolling only, no sideways drift on iPhone. */
+html body .oxn-modal{overflow-x:hidden!important;overflow-y:auto!important;touch-action:pan-y;overscroll-behavior:contain}
+html body .oxn-modal-content{max-width:100%;overflow-x:hidden}
+
+/* Radar list: no classification/quote date note above the list. */
+html body .twcr-classification-note{display:none!important}

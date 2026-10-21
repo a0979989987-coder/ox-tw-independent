@@ -6,7 +6,9 @@
 const ORDER = ['home', 'strength', 'radar', 'data'];
 const TOP_ZONE = 0.35, EDGE = 20, DIRECTION_RATIO = 1.6;
 const FLICK_DISTANCE = 60, FLICK_SPEED = 0.3, DRAG_DISTANCE = 120, MAX_TIME = 900;
-const OWN_GESTURES = 'input,textarea,select,[contenteditable],canvas,.chart-container,dialog,.oxc-sheet,.ox-control-overlay';
+const OWN_GESTURES = 'input,textarea,select,[contenteditable],canvas,.chart-container,dialog,[role="dialog"],.oxn-modal-backdrop,.oxn-popover,.oxc-sheet,.ox-control-overlay';
+// Layers drawn over the page (news day list, filters) keep every swipe to themselves.
+const OVERLAYS = 'dialog[open],.oxn-modal-backdrop,.oxn-popover.is-open,.oxc-sheet-backdrop';
 
 function handlesOwnGesture(path) {
   for (const node of path) {
@@ -65,7 +67,7 @@ let start = null;
 if (typeof document !== 'undefined') {
   document.addEventListener('touchstart', event => {
     start = null;
-    if (event.touches.length !== 1 || document.body.classList.contains('ox-control-open') || document.querySelector('dialog[open]')) return;
+    if (event.touches.length !== 1 || document.body.classList.contains('ox-control-open') || document.querySelector(OVERLAYS)) return;
     const touch = event.touches[0];
     // Screen edges belong to the browser's back and forward gestures.
     if (touch.clientX < EDGE || touch.clientX > innerWidth - EDGE) return;
