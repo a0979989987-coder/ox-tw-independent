@@ -75,7 +75,8 @@ body.ox-terminal #market-unavailable-card.tw-radar-root { margin-top: 16px !impo
 .tw-radar-root .tw-stock-bottom { margin-top:auto; padding-top:8px; min-height:22px; text-align:center; font-size:clamp(9px,6.1cqw,13px); font-weight:680; color:#f2ede1c4; overflow-wrap:anywhere; }
 /* Match the Crypto scanner's white-glass material and 350ms damped slide. */
 .tw-radar-root .twr-mode-rail { border:1px solid #ffffff38; border-radius:var(--ox-radius-sm,12px); background:linear-gradient(160deg,#ffffff16,#ffffff06); box-shadow:inset 0 1px #ffffff27,0 2px 8px #0003; }
-.tw-radar-root .twr-mode-indicator { border:1px solid #ffffff8a; border-radius:var(--ox-radius-xs,6px); background:linear-gradient(155deg,#ffffff35,#ffffff13 50%,#ffffff24); box-shadow:inset 0 1px #ffffffa1,0 2px 8px #0004,0 0 9px #ffffff24; transition:transform 350ms cubic-bezier(.22,.8,.22,1),width 350ms cubic-bezier(.22,.8,.22,1),box-shadow 350ms; }
+.tw-radar-root .twr-mode-indicator { border:1px solid #ffffff8a; border-radius:var(--ox-radius-xs,6px); background:linear-gradient(155deg,#ffffff35,#ffffff13 50%,#ffffff24); box-shadow:inset 0 1px #ffffffa1,0 2px 8px #0004,0 0 9px #ffffff24; transition:transform 460ms cubic-bezier(.32,.72,0,1),width 460ms cubic-bezier(.32,.72,0,1),box-shadow 300ms ease; will-change:transform,width; backface-visibility:hidden; }
+.tw-radar-root .twr-mode-rail button { transition:color 280ms ease; }
 .tw-radar-root .twr-mode-rail button { transition:color 320ms,text-shadow 320ms; }
 .tw-radar-root .twr-mode-rail button.active { color:#fffaf0; text-shadow:0 0 8px #ffffff50; }
 .tw-radar-root .twr-empty { grid-column: 1/-1; min-height: 150px; display: grid; align-content: center; gap: 6px; }

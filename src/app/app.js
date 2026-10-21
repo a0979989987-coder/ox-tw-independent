@@ -4,6 +4,8 @@ import '../components/chart/drawings.js';
 import '../components/radar/timeframe-filters.js';
 import {twModule} from '../markets/tw/index.js';
 import {stopTWStrength} from '../markets/tw/strength.js';
+// iOS Safari ignores user-scalable=no for pinch; its gesture events still allow blocking it.
+for(const type of ['gesturestart','gesturechange'])document.addEventListener(type,event=>event.preventDefault(),{passive:false});
 import {stopTWRadar} from '../markets/tw/radar.js';
 import {stopResearch,refreshTWResearch} from '../markets/tw/research-page.js';
 import {preloadBundle} from '../markets/tw/patterns/bundle.js';

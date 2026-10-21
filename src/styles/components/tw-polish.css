@@ -1,0 +1,20 @@
+/* Loaded last: zoom, dialog focus frame and dock motion. */
+
+/* Phones: no pinch or double-tap zoom (iOS pinch is blocked in app.js). */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+/* Dialog titles take focus for screen readers but are not controls, so no frame. */
+.twx-dialog header strong:focus,.twx-dialog header strong:focus-visible{outline:none!important;box-shadow:none!important}
+
+/* Dock glass tile: one iOS curve on transform and width. On radar it fades
+   instead of being removed, so leaving radar slides rather than pops. */
+html body .app-dock .ox-dock-indicator{
+ transition:transform 480ms cubic-bezier(.32,.72,0,1),width 480ms cubic-bezier(.32,.72,0,1),opacity 260ms ease!important;
+ will-change:transform,width;backface-visibility:hidden;
+ -webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%)
+}
+html:root body[data-view="radar"][data-view] .app-dock.glass-nav > span.ox-dock-indicator.ox-dock-indicator{display:block!important;opacity:0!important}
+.app-dock .dock-btn{-webkit-tap-highlight-color:transparent}
+html body .app-dock .dock-btn .dock-icon,html body .app-dock .dock-btn .dock-radar-orb{transition:scale 320ms cubic-bezier(.32,.72,0,1),filter 200ms ease,opacity 200ms ease}
+html body .app-dock .dock-btn:active .dock-icon{scale:.88}
+@media(prefers-reduced-motion:reduce){html body .app-dock .ox-dock-indicator,html body .app-dock .dock-btn .dock-icon{transition:none!important}}

@@ -128,7 +128,7 @@ function sheet(state, apply) {
 export function mountConferences(host, { signal } = {}) {
   let saved; try { saved = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch {}
   const state = { query: '', market: 'all', range: 'all', sort: 'time', view: 'upcoming', radarOnly: false, open: {}, ...saved };
-  const root = node('section', 'oxc-root'), bar = node('div', 'oxc-bar'), modes = node('div', 'oxc-modes'), list = node('div', 'oxc-list'), meta = node('p', 'oxc-meta');
+  const root = node('section', 'oxc-root'), bar = node('div', 'oxc-bar'), modes = node('div', 'oxc-modes'), list = node('div', 'oxc-list');
   const search = node('input', 'oxc-search'); search.type = 'search'; search.placeholder = '股名或代號'; search.value = state.query; search.setAttribute('aria-label', '搜尋法說會股名或代號');
   const filter = button('', '篩選市場、日期範圍、排序', () => sheet(state, () => { persist(state); render(); }), 'oxc-filter');
   filter.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h4m4 0h8M4 12h10m4 0h2M4 18h2m4 0h10"/><circle cx="10" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/></svg>';
@@ -140,7 +140,7 @@ export function mountConferences(host, { signal } = {}) {
   radarSwitch.append(radarInput, node('span', 'oxc-switch-track'), node('span', 'oxc-switch-label', '只看雷達股'));
   radarInput.addEventListener('change', () => { state.radarOnly = radarInput.checked; persist(state); render(); });
   modes.append(segment, radarSwitch);
-  root.append(bar, modes, meta, list); host.replaceChildren(root);
+  root.append(bar, modes, list); host.replaceChildren(root);
   let timer, loaded = null, failed = null;
   search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { state.query = search.value.trim(); persist(state); render(); }, 120); }, { signal });
 
@@ -149,8 +149,8 @@ export function mountConferences(host, { signal } = {}) {
     views.forEach(b => b.setAttribute('aria-selected', String(b.dataset.view === state.view)));
     filter.classList.toggle('is-filtered', state.market !== 'all' || state.range !== 'all' || state.sort !== 'time');
     list.replaceChildren();
-    if (failed) { meta.textContent = ''; list.append(node('p', 'oxc-empty', '法說會資料暫時無法讀取。'), button('重試', '重新讀取法說會資料', start, 'oxn-action')); return; }
-    if (!loaded) { meta.textContent = ''; list.append(node('p', 'oxc-empty', '正在讀取法說會資料…')); return; }
+    if (failed) { list.append(node('p', 'oxc-empty', '法說會資料暫時無法讀取。'), button('重試', '重新讀取法說會資料', start, 'oxn-action')); return; }
+    if (!loaded) { list.append(node('p', 'oxc-empty', '正在讀取法說會資料…')); return; }
     const { data, radar } = loaded, q = state.query.toLowerCase(), n = Number(state.range);
     let items = data.items.filter(item => (state.view === 'held') === held(item, now)
       && (state.market === 'all' || item.market === state.market)
@@ -160,7 +160,6 @@ export function mountConferences(host, { signal } = {}) {
     const key = item => `${item.date} ${item.time || ''}`;
     items.sort(state.sort === 'symbol' ? (a, b) => a.symbol.localeCompare(b.symbol) || key(a).localeCompare(key(b))
       : (a, b) => (state.view === 'held' ? -1 : 1) * (state.sort === 'time-reverse' ? -1 : 1) * key(a).localeCompare(key(b)));
-    meta.textContent = `${items.length} 場・資料來源：公開資訊觀測站法人說明會一覽表，更新 ${new Date(data.generatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}`;
     if (state.radarOnly && !radar.size) list.append(node('p', 'oxc-empty', '雷達名單尚未取得。'));
     else if (!items.length) list.append(node('p', 'oxc-empty', state.view === 'held' ? '沒有符合條件的已舉行法說會。' : '未來 14 天沒有符合條件的法說會。'));
     for (const item of items.slice(0, 300)) list.append(card(item, state, now, radar));
