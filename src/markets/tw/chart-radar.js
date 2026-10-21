@@ -53,7 +53,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
  controls.querySelector('[id$="-indicator-open"]').dataset.action='indicators';
  controls.querySelector('[id$="-scanner-toggle"]').dataset.action='fold';
  controls.querySelector('[id$="-fullscreen"]').dataset.action='focus';
- chartBox.insertAdjacentHTML('beforeend','<div id="tw-radar-chart" class="chart-container" aria-label="台股 K 線圖"><div class="twcr-status chart-loading-overlay" role="status"></div></div><button type="button" class="twcr-exit chart-tool-icon" data-action="exit" aria-label="退出全螢幕" hidden>'+glyph('close')+'</button>');
+ chartBox.insertAdjacentHTML('beforeend','<div id="tw-radar-chart" class="chart-container" aria-label="台股 K 線圖"><div class="twcr-status chart-loading-overlay" role="status"></div><div class="twcr-loading" role="status" aria-label="K 線載入中" hidden><i class="ox-loading-ring" aria-hidden="true"></i></div></div><button type="button" class="twcr-exit chart-tool-icon" data-action="exit" aria-label="退出全螢幕" hidden>'+glyph('close')+'</button>');
  const scanner=workspace.querySelector('aside');
  scanner.classList.add('twcr-scanner');
  scanner.querySelectorAll(':scope > :not(.scanner-tabs)').forEach(n=>n.remove());
@@ -94,7 +94,11 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
   if(live.at(-1)?.date===liveDate&&(!indexed?.dataDate||liveDate>=indexed.dataDate))return {asOf:liveDate,daily:live};
   return indexed?{asOf:indexed.dataDate,daily:indexed.candles}:null;
  }
- function status(message){const node=$('.twcr-status');if(/載入中|正在載入/.test(message)&&window.OXLoading)OXLoading.render(node,message,0,1);else node.textContent=message;node.classList.toggle('show',!!message);}
+ // Loading is one centred ring, only until this chart first draws K lines;
+ // later symbol, frame and older-history loads show nothing. Text is kept
+ // for messages that are not loading, such as errors.
+ let chartDrawn=false;
+ function status(message){const loading=/載入中|正在/.test(message),node=$('.twcr-status'),text=loading?'':message;$('.twcr-loading').hidden=!loading||chartDrawn;node.textContent=text;node.classList.toggle('show',!!text);}
  const tierFilters=window.OXTierFilters?.mount($('[data-tw-tier-filter]'),{market:'tw',frames:Object.entries(FRAME_LABELS).map(([id,label])=>({id,label})),signal:life.signal});
  listen(document,'ox:timeframe-tier-change',event=>{if(event.detail.market==='tw'){renderList();preloadBundle().catch(()=>{});}});
  const cardNodes=new Map();
@@ -200,7 +204,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
  }
 
  function renderHistory(initial=false){
-  const record=historyRecord;if(!record)return;
+  const record=historyRecord;if(!record)return;chartDrawn=true;
   const previous=state.candleData,range=state.chart.timeScale().getVisibleLogicalRange(),candles=aggregateChartCandles(record.daily,frame,record.asOf,{coverageStart:record.coverageStart});
   state.candleData=candles;state.candleSeries.setData(candles);state.volumeSeries.setData(candles.map(c=>({time:c.time,value:c.volume,color:c.close>=c.open?'#f16a7035':'#48b78e35'})));
   if(fitAll||initial){

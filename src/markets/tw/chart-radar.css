@@ -22,6 +22,10 @@
 .tw-chart-radar .market-line-price label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default}
 .tw-chart-radar .market-line-item strong{font-variant-numeric:tabular-nums}
 .twcr-status{pointer-events:none}.twcr-status:empty{display:none}
+.twcr-loading{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.twcr-loading[hidden]{display:none}
+.twcr-loading .ox-loading-ring{width:22px;height:22px}
+body.theme-light .twcr-loading .ox-loading-ring{border-color:#1118271f;border-top-color:#111827}
 .twcr-pool-info{flex:none;padding:5px 8px;color:var(--muted);font:10px/1.4 system-ui}
 .twcr-scanner{display:flex;flex-direction:column;min-height:0}
 .twcr-results{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
