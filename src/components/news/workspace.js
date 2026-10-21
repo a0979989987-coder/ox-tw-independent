@@ -21,7 +21,7 @@ export function mountNewsWorkspace(host, api) {
   if (saved?.timePresetVersion !== 2) { state.times = ['week']; state.customTime = null; state.timePresetVersion = 2; }
   if (state.importance !== true) state.importance = null;
   if (!Object.hasOwn(MARKET_NAMES, state.market)) state.market = 'all';
-  let monthExpanded = false;
+  let monthExpanded = false, monthGrow = false;
   let data = {}, panel = null, detail = null, detailKey = '', countdown = null, restorePosition = true;
   const root = node('section', 'oxn-root'); root.dataset.scope = api.scope;
   const header = node('div', 'oxn-header'), exit = button('‹', '返回先前頁面', api.exit, 'oxn-close');
@@ -140,18 +140,46 @@ export function mountNewsWorkspace(host, api) {
     positionCalendar();
   }
   function selectedDate() { return state.selectedDay?.slice(0,7) === state.month ? state.selectedDay : taipeiDay().slice(0,7) === state.month ? taipeiDay() : `${state.month}-01`; }
+  // One calendar on phones: the week strip grows into the month and shrinks back
+  // into the week, rather than a second calendar appearing below it.
+  function weekMonthMotion(calendar, selected, grow, done) {
+    const grid = calendar.querySelector('.oxn-calendar-grid'), header = calendar.querySelector('.oxn-weekdays');
+    const cell = grid?.querySelector(`[data-date="${selected}"]`) || grid?.firstElementChild;
+    if (!grid || !cell || matchMedia('(prefers-reduced-motion:reduce)').matches) { done?.(); return; }
+    const measure = () => ({ shift: cell.getBoundingClientRect().top - grid.getBoundingClientRect().top, small: (header?.offsetHeight || 0) + cell.offsetHeight, full: calendar.offsetHeight });
+    const play = ({ shift, small, full }) => {
+      const timing = { duration: grow ? 420 : 320, easing: 'cubic-bezier(.32,.72,0,1)', fill: 'both' };
+      const frames = [[{ height: `${small}px` }, { height: `${full}px` }], [{ transform: `translateY(${-shift}px)` }, { transform: 'none' }]];
+      if (!grow) frames.forEach(list => list.reverse());
+      const box = calendar.animate(frames[0], timing); grid.animate(frames[1], timing);
+      box.finished.then(() => { if (grow) calendar.getAnimations().concat(grid.getAnimations()).forEach(a => a.cancel()); done?.(); }, () => {});
+    };
+    if (!grow) { play(measure()); return; }
+    // The month height is fitted on the next frame (positionCalendar); hold the
+    // week until then so the growth ends exactly at the final size.
+    const first = measure(); calendar.style.height = `${first.small}px`; grid.style.transform = `translateY(${-first.shift}px)`;
+    requestAnimationFrame(() => requestAnimationFrame(() => { calendar.style.height = ''; grid.style.transform = ''; play(measure()); }));
+  }
   function renderMobileCalendar() {
     const selected = selectedDate();
+    if (monthExpanded) {
+      renderCalendar(); content.querySelector('.oxn-day-events')?.remove();
+      const calendar = content.querySelector('.oxn-calendar');
+      const toggle = button('收起行事曆 ▴', '收起完整月份行事曆', () => weekMonthMotion(calendar, selected, false, () => { monthExpanded = false; renderContent(); }), 'oxn-month-expand');
+      toggle.setAttribute('aria-expanded', 'true'); calendar.append(toggle);
+      if (monthGrow) { monthGrow = false; weekMonthMotion(calendar, selected, true); }
+      renderUpcomingEvents(selected, true); return;
+    }
     const shell = node('section', 'oxn-mobile-dates'); shell.setAttribute('aria-label','日期選擇');
     const week = node('div', 'oxn-week-strip');
-    const start = new Date(selected+'T12:00:00Z'); start.setUTCDate(start.getUTCDate() - (start.getUTCDay()+6)%7);
+    // Sunday first, matching the phone month grid, so the week grows into its own row.
+    const start = new Date(selected+'T12:00:00Z'); start.setUTCDate(start.getUTCDate() - start.getUTCDay());
     for (let i=0;i<7;i++) { const d=new Date(start); d.setUTCDate(d.getUTCDate()+i); const day=d.toISOString().slice(0,10);
       const b=button('',day,()=>{state.selectedDay=day;state.month=day.slice(0,7);persist();renderControls();renderContent();},'oxn-week-date');
       if(scope()==='tw'&&(data.snapshot.events||[]).some(e=>eventDay(e)===day&&isTaiwanClosed(e))){b.classList.add('is-market-closed');b.title='台股休市';}
-      b.append(node('small','','一二三四五六日'[i]),node('strong','',String(d.getUTCDate())));b.setAttribute('aria-pressed',String(day===selected));if(day===taipeiDay())b.setAttribute('aria-current','date');week.append(b);
+      b.append(node('small','','日一二三四五六'[i]),node('strong','',String(d.getUTCDate())));b.setAttribute('aria-pressed',String(day===selected));if(day===taipeiDay())b.setAttribute('aria-current','date');week.append(b);
     }
-    const toggle=button(monthExpanded?'收起行事曆 ▴':'展開行事曆 ▾','展開或收起完整月份行事曆',()=>{monthExpanded=!monthExpanded;renderContent();},'oxn-month-expand');toggle.setAttribute('aria-expanded',String(monthExpanded));shell.append(week,toggle);content.append(shell);
-    if(monthExpanded) { renderCalendar(); content.querySelector('.oxn-day-events')?.remove(); }
+    const toggle=button('展開行事曆 ▾','展開完整月份行事曆',()=>{monthExpanded=true;monthGrow=true;renderContent();},'oxn-month-expand');toggle.setAttribute('aria-expanded','false');shell.append(week,toggle);content.append(shell);
     renderUpcomingEvents(selected,true);
   }
   function isTaiwanClosed(item) { return eventCategory(item)==='holiday' && item.sourceId==='twse-holidays' && item.marketClosed!==false && !/開始交易|最後交易/.test(label(item)); }
