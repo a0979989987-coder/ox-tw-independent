@@ -1,4 +1,4 @@
-import { SOURCE_CATALOG, MARKET_CATEGORIES, EVENT_PROVIDERS } from './config.js?v=20261005-calendar11';
+import { SOURCE_CATALOG, MARKET_CATEGORIES, EVENT_PROVIDERS } from './config.js?v=20261021-twevents1';
 export const validDate = value => { if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false; const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value; };
 export const safeLink = value => { try { const u = new URL(value); return u.protocol === 'https:' && !u.username && !u.password ? u.href : null; } catch { return null; } };
 export const plain = value => String(value ?? '').replace(/<[^>]*>/g, '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim();
@@ -46,8 +46,10 @@ export function monthGrid(month) {
 }
 export function shiftMonth(month, delta) { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + delta, 1)).toISOString().slice(0, 7); }
 export function defaultState() { return { tab: 'calendar', calendarView: 'month', month: taipeiDay().slice(0, 7), categories: null, importance: null, times: ['week'], timePresetVersion: 2, customTime: null, sources: null, words: [], query: '', asset: null, limit: 40, scroll: 0, market: 'all' }; }
-export const inMarket = (item, scope) => scope === 'all' || Boolean(item.markets?.includes(scope) &&
-  (!(item.kind === 'event' || item.date || item.occursAt) || !eventCategory(item) || MARKET_CATEGORIES[scope]?.includes(eventCategory(item))));
+// US calendars that older snapshots still carry; the Taiwan calendar never shows them.
+const NON_TAIWAN_EVENT_SOURCES = new Set(['nyse-calendar', 'bls-calendar']);
+export const inMarket = (item, scope) => !NON_TAIWAN_EVENT_SOURCES.has(item.sourceId) && (scope === 'all' || Boolean(item.markets?.includes(scope) &&
+  (!(item.kind === 'event' || item.date || item.occursAt) || !eventCategory(item) || MARKET_CATEGORIES[scope]?.includes(eventCategory(item)))));
 export function upcomingEventDays(snapshot, scope, state, start) {
   const days = Array.from({ length: 8 }, (_, index) => {
     const date = new Date(start + 'T12:00:00Z'); date.setUTCDate(date.getUTCDate() + index);

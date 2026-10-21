@@ -3922,7 +3922,7 @@ export function renderTWRadar(
 
         </div>
 
-        <div id="twr-release-controls" class="twr-release-controls" hidden><span>處置結束範圍</span><nav aria-label="即將出關日期範圍"><button type="button" data-twr-release-range="3" aria-pressed="true">3 交易日內</button><button type="button" data-twr-release-range="5" aria-pressed="false">5 交易日內</button><button type="button" data-twr-release-range="all" aria-pressed="false">全部日期</button></nav><small>依官方處置迄日；恢復一般交易為下一交易日</small></div>
+        <div id="twr-release-controls" class="twr-release-controls" hidden><span>處置結束範圍</span><nav aria-label="即將出關日期範圍"><button type="button" data-twr-release-range="3" aria-pressed="true">3 交易日內</button><button type="button" data-twr-release-range="5" aria-pressed="false">5 交易日內</button><button type="button" data-twr-release-range="all" aria-pressed="false">全部日期</button></nav></div>
         <p id="twr-source-notice" class="twr-source-notice" role="status" hidden></p>
 
 

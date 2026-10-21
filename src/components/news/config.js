@@ -4,7 +4,8 @@ export const CATEGORY_NAMES = {
   'dividend-preview': '除權息預告', payment: '現金發放日', exchange: '交易所事件'
 };
 export const MARKET_CATEGORIES = {
-  tw: ['dividend', 'macro', 'earnings', 'holiday', 'dividend-preview', 'payment', 'exchange'],
+  // Taiwan market events only; US macro releases and NYSE hours are not shown.
+  tw: ['dividend', 'earnings', 'holiday', 'dividend-preview', 'payment'],
   all: Object.keys(CATEGORY_NAMES)
 };
 const source = (id, name, markets, extra = {}) => ({ id, name, markets, status: 'not-connected', ...extra });
@@ -24,9 +25,10 @@ export const SOURCE_CATALOG = [
   source('bls-calendar', '美國勞工統計局・行事曆', ['tw']), source('ecb', '歐洲央行', ['tw']),
   source('twse-dividends', '證交所・除權息預告', ['tw']), source('twse-holidays', '證交所・交易日曆', ['tw']),
   source('tpex-dividends', '櫃買中心・除權息預告', ['tw']), source('tpex-dividends-daily', '櫃買中心・除權息結果', ['tw']),
+  source('twse-dividends-daily', '證交所・除權除息結果', ['tw']),
   source('twse-conferences', '證交所・法說會月表', ['tw']),
-  source('mops-conferences', '公開資訊觀測站・法說會', ['tw']), source('mops-payments', '公開資訊觀測站・配息', ['tw'])
+  source('mops-conferences', '公開資訊觀測站・法說會', ['tw']), source('mops-payments', '公開資訊觀測站・股利發放', ['tw'])
 ];
 export const TIME_CHOICES = [['3', '3 小時'], ['24', '24 小時'], ['168', '1 週'], ['720', '30 日']];
-export const EVENT_PROVIDERS = { macro: ['bls-calendar'], 'dividend-preview': ['twse-dividends','tpex-dividends'], dividend: ['tpex-dividends-daily'], earnings: ['twse-conferences','mops-conferences'], holiday: ['twse-holidays','nyse-calendar'], exchange:['nyse-calendar'], payment: ['mops-payments'] };
+export const EVENT_PROVIDERS = { macro: ['bls-calendar'], 'dividend-preview': ['twse-dividends','tpex-dividends'], dividend: ['tpex-dividends-daily','twse-dividends-daily'], earnings: ['twse-conferences','mops-conferences'], holiday: ['twse-holidays'], exchange:['nyse-calendar'], payment: ['mops-payments'] };
 export function sourceName(item) { return SOURCE_CATALOG.find(s => s.id === (item.sourceId || item.id))?.name || item.source || item.name || item.sourceId || '來源待確認'; }

@@ -61,9 +61,9 @@
 .px-board-bottom>.px-icon{margin-left:0;order:1}
 .px-board-bottom>.px-modes{order:0}
 .px-board-bottom>.px-caption{order:2}
-.px-tier-filters{order:3;margin:0 0 0 auto;min-width:0;max-width:100%;gap:4px;pointer-events:auto}
+.px-tier-filters{order:3;margin:0 2px 0 auto;min-width:0;max-width:100%;gap:4px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end;row-gap:4px;overflow:visible}
 .px-tier-filters button{padding:3px 7px;min-height:25px}
-@media(max-width:600px){.px-controls{min-height:38px;padding:5px 8px 0}.px-board canvas{height:clamp(290px,39svh,450px)}.px-board-bottom{margin:0 7px 6px;width:calc(100% - 14px)}.px-tier-filters{margin:0 0 0 auto;gap:3px}.px-tier-filters button{padding:3px 5px;font-size:9px}.px-board-bottom>.px-caption{display:none}}
+@media(max-width:600px){.px-controls{min-height:38px;padding:5px 8px 0}.px-board canvas{height:clamp(290px,39svh,450px)}.px-board-bottom{margin:0 7px 6px;width:calc(100% - 14px)}.px-tier-filters{margin:0 2px 0 auto;gap:3px}.px-tier-filters button{padding:3px 5px;font-size:9px}.px-board-bottom>.px-caption{display:none}}
 
 /* The board is the drawing surface; controls float over the ink. */
 .px-board{display:block;height:clamp(300px,40dvh,520px);min-width:0}
@@ -74,7 +74,7 @@
 .px-board-bottom>.px-icon{order:initial;margin:0;flex:none}
 .px-mode-toggle{pointer-events:auto;flex:none;display:inline-flex;align-items:center;gap:5px;height:29px;min-width:29px;padding:0 7px;border:1px solid #ffffff50;border-radius:8px;background:linear-gradient(145deg,#41464bcf,#24282de0);color:#f2f3ed;font-size:10px;white-space:nowrap;box-shadow:inset 0 1px #ffffff50,0 0 7px #ffffff22;transition:opacity .45s ease .22s,transform .25s ease}
 .px-mode-toggle:active{transform:scale(.94)}.px-mode-glyph{font-size:18px;line-height:1}
-.px-tier-filters{order:initial;flex:0 1 auto;min-width:0;max-width:calc(100% - 73px);margin:0 0 0 auto;overflow-x:auto;pointer-events:auto}
+.px-tier-filters{order:initial;flex:0 1 auto;min-width:0;max-width:calc(100% - 73px);margin:0 2px 0 auto;overflow:visible;flex-wrap:wrap;justify-content:flex-end;row-gap:4px;pointer-events:auto}
 .px-tier-filters button{min-width:0;padding:3px 6px}
 /* Scan progress lives in the floating control, leaving the board edge quiet. */
 .px-board.is-scanning .px-mode-toggle,.px-board.is-scanning .px-tier-filters{opacity:0;visibility:hidden;pointer-events:none;transition:none}

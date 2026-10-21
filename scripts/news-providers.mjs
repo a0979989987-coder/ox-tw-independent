@@ -12,7 +12,7 @@ export function nullableNumber(value) { if (value === null || value === undefine
 export function issuerAssets(rows) {
   return rows.map(row => ({ id: `tw:${row['公司代號']}`, market: 'tw', symbol: row['公司代號'], name: row['公司簡稱'], aliases: [row['公司名稱']] })).filter(a => /^\d{4}$/.test(a.symbol) && a.name);
 }
-function base(id, sourceId, sourceUrl, title, date) { return { id, kind: 'event', sourceId, sourceUrl, link: sourceUrl, title, titleZh: title, translationStatus: 'translated', markets: ['tw'], date, occursAt: null, allDay: true, status: 'date-only', announcementStatus: 'confirmed', originalTimezone: 'Asia/Taipei', impact: { stars: null, reason: '來源未提供重要性分級', ruleVersion: 'unassessed-v1' } }; }
+export function base(id, sourceId, sourceUrl, title, date) { return { id, kind: 'event', sourceId, sourceUrl, link: sourceUrl, title, titleZh: title, translationStatus: 'translated', markets: ['tw'], date, occursAt: null, allDay: true, status: 'date-only', announcementStatus: 'confirmed', originalTimezone: 'Asia/Taipei', impact: { stars: null, reason: '來源未提供重要性分級', ruleVersion: 'unassessed-v1' } }; }
 export function dividends(rows, updatedAt) {
   return rows.map(row => {
     const date = rocDate(row.Date), symbol = String(row.Code || ''), company = row.Name;
