@@ -18,6 +18,10 @@ import {
   getOfficialTWCandles
 } from "./candles.js";
 
+import {
+  loadPublishedUniverse
+} from "./universe-snapshot.js";
+
 
 /*
  * OX v4.0 Modular
@@ -624,6 +628,21 @@ function applyBreadthIndicators(
     );
 
 
+  // One exchange's counts are not the market's counts: label them on screen.
+  const partial =
+    breadth.complete === false;
+
+  const scope =
+    partial
+      ? `${breadth.coverageLabel || "來源不完整"} · `
+      : "";
+
+  const scopeNote =
+    partial
+      ? `${breadth.coverageLabel || "來源不完整"}（另一市場來源失敗，不是全市場）`
+      : "";
+
+
   if (
     advancers !==
       null ||
@@ -641,7 +660,7 @@ function applyBreadthIndicators(
           decliners ??
           0
         ),
-        `${
+        `${scope}${
           formatNumber(
             advancers,
             0
@@ -662,6 +681,7 @@ function applyBreadthIndicators(
               } 平`
             : ""
         }`,
+        scopeNote ||
         "上市＋上櫃股票廣度"
       );
   }
@@ -683,9 +703,11 @@ function applyBreadthIndicators(
     readings.advanceDeclineRatio =
       reading(
         ratio,
+        scope +
         ratio.toFixed(
           2
         ),
+        scopeNote ||
         "上漲家數 ÷ 下跌家數"
       );
   }
@@ -708,7 +730,7 @@ function applyBreadthIndicators(
           limitDown ??
           0
         ),
-        `${
+        `${scope}${
           formatNumber(
             limitUp,
             0
@@ -719,6 +741,7 @@ function applyBreadthIndicators(
             0
           )
         } 跌停`,
+        scopeNote ||
         "官方市場漲跌停家數"
       );
   }
@@ -2682,6 +2705,62 @@ function applyUnavailableNotes(
 
 
 /* ========================================================================== */
+/* Market list                                                                */
+/* ========================================================================== */
+
+// The radar-derived readings need the whole common-stock list with its latest
+// verified close. The published list already holds it in oxScore order (see
+// universe-snapshot.js); the six-source live rebuild is only the fallback, and
+// a one-market live list is reported instead of being totalled as the market.
+async function loadIndicatorRadar() {
+
+  const published =
+    await loadPublishedUniverse();
+
+  if (published) {
+    return {
+      radar: published.rows,
+      dataDate: published.dataDate,
+      updatedAt: published.updatedAt,
+      meta: published.meta
+    };
+  }
+
+
+  const source =
+    await getOfficialTWRadar(
+      {
+        market:
+          "ALL",
+
+        tier:
+          "ALL",
+
+        sort:
+          "oxScore",
+
+        limit:
+          2000
+      }
+    );
+
+
+  if (source?.meta?.partial !== false) {
+    throw new TWIndicatorProviderError(
+      "Taiwan indicator universe is incomplete.",
+      {
+        code: "TW_INDICATORS_UNIVERSE_INCOMPLETE",
+        details: { dataDate: source?.dataDate || null, sources: source?.meta?.sources || null }
+      }
+    );
+  }
+
+
+  return source;
+}
+
+
+/* ========================================================================== */
 /* Public                                                                     */
 /* ========================================================================== */
 
@@ -2731,23 +2810,19 @@ export async function getOfficialTWIndicators(
 
       getOfficialTWMoneyFlow(),
 
-      getOfficialTWRadar(
-        {
-          market:
-            "ALL",
-
-          tier:
-            "ALL",
-
-          sort:
-            "oxScore",
-
-          limit:
-            2000
-        }
-      )
+      loadIndicatorRadar()
 
     ]);
+
+
+  // Totals and rankings from one exchange would read as the whole market.
+  if (
+    radarResult.reason?.code ===
+    "TW_INDICATORS_UNIVERSE_INCOMPLETE"
+  ) {
+
+    throw radarResult.reason;
+  }
 
 
   const marketResults =
@@ -2994,6 +3069,16 @@ export async function getOfficialTWIndicators(
         requestedIds:
           Object.freeze(
             requestedIds
+          ),
+
+        universeSource:
+          radarPayload
+            ?.meta
+            ?.universeSource ||
+          (
+            radarPayload
+              ? "official-tw-live"
+              : null
           ),
 
         sources:

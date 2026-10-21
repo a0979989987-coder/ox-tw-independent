@@ -2,6 +2,11 @@ import {
   getOfficialTWRadar
 } from "./radar.js";
 
+import {
+  loadPublishedUniverse,
+  UNIVERSE_SNAPSHOT_SOURCE
+} from "./universe-snapshot.js";
+
 
 /*
  * OX v4.0 Modular
@@ -285,7 +290,18 @@ function finiteNumber(
 /* Radar universe                                                             */
 /* ========================================================================== */
 
-async function loadQuoteUniverse() {
+// Quotes and candles read the published list first (see universe-snapshot.js).
+export { universeFromSnapshot as quoteUniverseFromSnapshot } from "./universe-snapshot.js";
+
+async function loadQuoteUniverse(progress = {}) {
+
+  if (typeof globalThis.__twReadAsset === "function") {
+    progress.source = UNIVERSE_SNAPSHOT_SOURCE;
+    const snapshot = await loadPublishedUniverse();
+    if (snapshot) return snapshot;
+  }
+
+  progress.source = "official-tw universe (TWSE MI_INDEX / STOCK_DAY_ALL, TPEx daily close / openapi)";
 
   try {
 
@@ -332,6 +348,19 @@ async function loadQuoteUniverse() {
         {
           code:
             "TW_QUOTE_UNIVERSE_EMPTY"
+        }
+      );
+    }
+
+
+    // A one-exchange list cannot prove that a stock does not exist. Report the
+    // incomplete source instead of answering "not found" for the other market.
+    if (source?.meta?.partial !== false) {
+      throw new TWQuoteProviderError(
+        "Taiwan quote universe is incomplete.",
+        {
+          code: "TW_QUOTE_UNIVERSE_INCOMPLETE",
+          details: { dataDate: source?.dataDate || null, sources: source?.meta?.sources || null }
         }
       );
     }
@@ -544,7 +573,13 @@ function normalizeQuote(
       false,
 
     source:
-      "official-tw-daily-snapshot"
+      "official-tw-daily-snapshot",
+
+    universeSource:
+      source
+        ?.meta
+        ?.universeSource ||
+      "official-tw-live"
 
   });
 }
@@ -599,7 +634,8 @@ function buildQuoteIndex(
 /* ========================================================================== */
 
 export async function getOfficialTWQuote(
-  symbol
+  symbol,
+  { progress = {} } = {}
 ) {
 
   const requestedSymbol =
@@ -609,11 +645,12 @@ export async function getOfficialTWQuote(
 
 
   const source =
-    await loadQuoteUniverse();
+    await loadQuoteUniverse(progress);
 
 
+  // A parsed snapshot universe is reused for a minute; index it once.
   const index =
-    buildQuoteIndex(
+    source.index ||= buildQuoteIndex(
       source.rows,
       source
     );
@@ -665,7 +702,7 @@ export async function getOfficialTWQuotes(
 
 
   const index =
-    buildQuoteIndex(
+    source.index ||= buildQuoteIndex(
       source.rows,
       source
     );

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chartHistory,loadHistoryPage,historyRange,mergeDailyHistory,preserveHistoryViewport} from '../src/markets/tw/chart-history.js';
+import {chartHistory,loadHistoryPage,historyRange,mergeDailyHistory,preserveHistoryViewport,atHistoryEdge} from '../src/markets/tw/chart-history.js';
 import {aggregateChartCandles} from '../src/markets/tw/chart-data.js';
 const bar=date=>({date,open:10,high:12,low:9,close:11,volume:100});
 const page=(record,range,rows=[])=>({symbol:record.symbol,market:record.market,from:range.from,to:range.to,adjusted:false,candles:rows,meta:{historyPage:true,earliestAvailableDate:record.floor}});
@@ -33,7 +33,7 @@ test('concurrent loads coalesce and aborted stock/frame changes cannot replace r
  finish();await Promise.all([first,second]);assert.equal(calls,1);assert.equal(record.complete,true);
  const canceled=await chartHistory('6004','TWSE','2010-12-31',[bar('2010-12-31')]),abort=new AbortController();let resume;
  const pending=loadHistoryPage(canceled,abort.signal,range=>new Promise(resolve=>{resume=()=>resolve(page(canceled,range,[bar('2010-07-01')]));}));
- abort.abort();resume();await assert.rejects(pending,{name:'AbortError'});assert.equal(canceled.cursor,'2010-12-31');assert.equal(canceled.daily.length,1);assert.equal(canceled.error,null);
+ abort.abort();resume();await assert.rejects(pending,{name:'AbortError'});assert.equal(canceled.cursor,'2010-12-30');assert.equal(canceled.daily.length,1);assert.equal(canceled.error,null);
 });
 test('prepend retains visible dates even if a new completed candle is added at the right edge',()=>{
  const previous=[{time:20},{time:30},{time:40}],next=[{time:0},{time:10},...previous,{time:50}];
@@ -51,6 +51,25 @@ test('verified first months and quarters are complete without requiring a candle
  assert.deepEqual(aggregateChartCandles(daily,'1Q','2010-04-01',{coverageStart:'2010-01-13'}),[]);
 });
 
+
+test('the first official page starts the day before the K-line pack and each call loads one page only',async()=>{
+ const pack=[bar('2026-01-19'),bar('2026-01-20'),bar('2026-10-16')],ranges=[];
+ const record=await chartHistory('8299','TPEX','2026-10-16',pack);
+ assert.equal(record.cursor,'2026-01-18');assert.equal(record.coverageStart,'2026-01-19');assert.equal(record.complete,false);
+ const fetchPage=range=>{ranges.push({from:range.from,to:range.to});return page(record,range,[bar('2025-12-31')]);};
+ await loadHistoryPage(record,null,fetchPage);
+ assert.deepEqual(ranges,[{from:'2025-11-01',to:'2026-01-18'}]);
+ assert.equal(record.cursor,'2025-10-31');assert.equal(record.daily[0].date,'2025-12-31');assert.equal(record.complete,false);
+ // A pack already reaching the official floor needs no request at all.
+ const floor=await chartHistory('2330','TWSE','2010-03-31',[bar('2010-01-04'),bar('2010-03-31')]);
+ assert.equal(floor.complete,false);assert.equal(floor.cursor,'2010-01-03');
+ const whole=await chartHistory('1101','TWSE','2010-03-31',[bar('2009-12-31'),bar('2010-03-31')]);
+ assert.equal(whole.complete,true);
+});
+test('older pages are requested only when the first loaded bar is on screen',()=>{
+ assert.equal(atHistoryEdge({from:-3,to:60}),true);assert.equal(atHistoryEdge({from:0.5,to:60}),true);
+ assert.equal(atHistoryEdge({from:12,to:80}),false);assert.equal(atHistoryEdge(null),false);assert.equal(atHistoryEdge({from:NaN,to:1}),false);
+});
 
 test('blocked optional browser storage cannot prevent verified seed candles from rendering',async t=>{
  const previous=globalThis.indexedDB;

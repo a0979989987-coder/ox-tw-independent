@@ -65,6 +65,15 @@ const DEFAULT_TIMEOUT_MS =
   12000;
 
 
+// The API answers quote / candle requests within 20 s (JSON naming the slow
+// official source); wait longer than that so the server's answer arrives.
+const LIVE_DATA_TIMEOUT_MS =
+  25000;
+
+const LIVE_DATA_ENDPOINTS =
+  new Set(["quote", "quotes", "candles"]);
+
+
 /*
  * No production API is hard-coded yet.
  *
@@ -814,7 +823,9 @@ function unwrapPayload(
 
 function request(endpoint, options = {}) {
   const started=Date.now(),budget=options.params?.history?45000:28000;
-  return retryTWRequest(() => requestOnce(endpoint, {...options,timeoutMs:Math.max(1000,Math.min(options.timeoutMs||DEFAULT_TIMEOUT_MS,budget-(Date.now()-started)))}), { signal: options.signal, ...(options.params?.history ? {delays:[2000,5000,10000]} : {}), budgetMs:budget });
+  const minimum=LIVE_DATA_ENDPOINTS.has(endpoint)?LIVE_DATA_TIMEOUT_MS:0;
+  const timeoutMs=Math.max(options.timeoutMs||DEFAULT_TIMEOUT_MS,minimum);
+  return retryTWRequest(() => requestOnce(endpoint, {...options,timeoutMs:Math.max(1000,Math.min(timeoutMs,budget-(Date.now()-started)))}), { signal: options.signal, ...(options.params?.history ? {delays:[2000,5000,10000]} : {}), budgetMs:budget });
 }
 
 async function requestOnce(

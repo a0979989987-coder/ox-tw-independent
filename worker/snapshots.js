@@ -22,6 +22,22 @@ export async function readSnapshotAsset(path,assets,{fetcher=fetch,now=Date.now(
   }
  })().finally(()=>pending.delete(path));pending.set(path,job);return job;
 }
+// Pre-compressed .json.gz is sent as application/gzip with no Content-Encoding:
+// the CDN leaves that type alone and the browser hands the gzip bytes to the
+// page, which decompresses them itself. Labelling it application/json let the
+// CDN wrap a second gzip layer around it, so the page received gzip bytes.
+const etags=new WeakMap();
+async function etagOf(bytes){
+ if(!etags.has(bytes)){const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));etags.set(bytes,'W/"'+[...digest.slice(0,16)].map(b=>b.toString(16).padStart(2,'0')).join('')+'"');}
+ return etags.get(bytes);
+}
+export async function snapshotAssetResponse(path,request,assets,options){
+ const bytes=await readSnapshotAsset(path,assets,options),gzip=path.endsWith('.gz');
+ if(gzip&&(bytes[0]!==0x1f||bytes[1]!==0x8b))throw Error('Invalid gzip snapshot');
+ const headers={'Content-Type':gzip?'application/gzip':'application/json','Cache-Control':'public, max-age=0, must-revalidate','ETag':await etagOf(bytes)};
+ if(request.headers.get('If-None-Match')===headers.ETag)return new Response(null,{status:304,headers});
+ return new Response(bytes,{headers});
+}
 export async function snapshotEndpoint(endpoint,params,read){
  if(!['radar','home','research'].includes(endpoint))return null;
  const snapshot=await read(`data/tw-${endpoint}.json`);

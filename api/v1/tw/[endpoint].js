@@ -86,6 +86,14 @@ import {
 const DEFAULT_ALLOWED_ORIGINS = Object.freeze([]);
 
 
+const INCOMPLETE_UNIVERSE_MESSAGES = Object.freeze({
+  TW_QUOTE_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法判斷此股票",
+  TW_THEME_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法計算產業排行",
+  TW_INDICATORS_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法計算市場指標",
+  TW_SEARCH_UNIVERSE_INCOMPLETE: "台股全市場清單來源不完整，暫時無法完整搜尋股票"
+});
+
+
 /* ========================================================================== */
 /* Response helpers                                                           */
 /* ========================================================================== */
@@ -180,6 +188,32 @@ function fail(
 
     }
   );
+}
+
+
+/* ========================================================================== */
+/* Deadline                                                                   */
+/* ========================================================================== */
+
+// Quote and candle requests answer with JSON before the hosting platform cuts
+// the connection. The provider records the source it is waiting on so the
+// timeout says which official feed was slow. The browser waits longer (25 s).
+export const LIVE_REQUEST_DEADLINE_MS = 20000;
+
+export async function withRequestDeadline(work, timeoutMs = LIVE_REQUEST_DEADLINE_MS) {
+  const progress = { source: "" };
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(
+      new Error(`Taiwan market data did not finish within ${timeoutMs / 1000} seconds.`),
+      { code: "TW_UPSTREAM_TIMEOUT", source: progress.source || "official-tw", timeoutMs }
+    )), timeoutMs);
+  });
+  try {
+    return await Promise.race([work(progress), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 
@@ -1019,8 +1053,12 @@ async function handleQuote(
 
 
   const data =
-    await getOfficialTWQuote(
-      symbol
+    await withRequestDeadline(
+      progress =>
+        getOfficialTWQuote(
+          symbol,
+          { progress }
+        )
     );
 
 
@@ -1177,12 +1215,16 @@ async function handleSearch(
 
 
   const data =
-    await searchOfficialTWSymbols(
-      query,
-      {
-        market,
-        limit
-      }
+    await withRequestDeadline(
+      progress =>
+        searchOfficialTWSymbols(
+          query,
+          {
+            market,
+            limit,
+            progress
+          }
+        )
     );
 
 
@@ -1301,28 +1343,34 @@ async function handleCandles(
 
 
   const data =
-    await getOfficialTWCandles(
-      symbol,
-      {
-        interval,
-        range,
+    await withRequestDeadline(
+      progress =>
+        getOfficialTWCandles(
+          symbol,
+          {
+            interval,
+            range,
 
-        from:
-          from ||
-          null,
+            from:
+              from ||
+              null,
 
-        to:
-          to ||
-          null,
+            to:
+              to ||
+              null,
 
-        limit,
-        adjusted,
-        history: booleanParam(req.query.history,false)
-      }
+            limit,
+            adjusted,
+            history: booleanParam(req.query.history,false),
+            progress
+          }
+        )
     );
 
 
-  setShortCache(
+  // A partial chart is retried on the next request instead of being cached.
+  if (data.partial) res.setHeader("Cache-Control", "no-store");
+  else setShortCache(
     res,
     300
   );
@@ -1335,6 +1383,9 @@ async function handleCandles(
 
       provider:
         "official-tw",
+
+      partial:
+        data.partial,
 
       historical:
         true,
@@ -1695,6 +1746,35 @@ export async function handleTWRequest(
         errorCode,
         error?.message ||
         "Invalid Taiwan market request."
+      );
+    }
+
+
+    /*
+     * The request deadline expired while an official feed was pending.
+     */
+    if (errorCode === "TW_UPSTREAM_TIMEOUT") {
+      return fail(
+        res,
+        504,
+        errorCode,
+        `台股官方來源逾時：${error.source}`,
+        {endpoint,source:String(error.source).slice(0,120),timeoutMs:error.timeoutMs,elapsedMs:Date.now()-requestStarted}
+      );
+    }
+
+
+    /*
+     * Only one exchange answered. Absence from that list proves nothing, and
+     * rankings or totals built from it would leave out the other market.
+     */
+    if (Object.hasOwn(INCOMPLETE_UNIVERSE_MESSAGES, errorCode)) {
+      return fail(
+        res,
+        503,
+        errorCode,
+        INCOMPLETE_UNIVERSE_MESSAGES[errorCode],
+        {endpoint,dataDate:error.details?.dataDate||null,sources:error.details?.sources||null,elapsedMs:Date.now()-requestStarted}
       );
     }
 

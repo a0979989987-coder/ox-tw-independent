@@ -1,8 +1,16 @@
+import {
+  loadPublishedUniverse
+} from "./universe-snapshot.js";
+
+
 /*
  * OX v4.0 Modular
  * Taiwan Theme / Industry Provider
  *
- * Official sources:
+ * Published list first: data/tw-radar.json holds both exchanges' official
+ * quotes and industries for one trading day (see universe-snapshot.js).
+ *
+ * Live fallback, official sources:
  *
  * TWSE
  * - STOCK_DAY_ALL
@@ -1703,6 +1711,110 @@ function errorSummary(
 
 
 /* ========================================================================== */
+/* Published list                                                             */
+/* ========================================================================== */
+
+function snapshotThemeRow(
+  row,
+  dataDate
+) {
+
+  const market =
+    textValue(row?.market).toUpperCase();
+
+  const industry =
+    normalizeIndustry(row?.industry);
+
+  const close =
+    numberValue(row?.price);
+
+  const change =
+    numberValue(row?.change);
+
+
+  // Same rule as the live rows: one trading day, a listed industry, a close.
+  if (
+    (market !== "TWSE" && market !== "TPEX") ||
+    !industry ||
+    close === null ||
+    close <= 0 ||
+    row.dataDate !== dataDate
+  ) {
+
+    return null;
+  }
+
+
+  return Object.freeze({
+    symbol: textValue(row.symbol),
+    name: textValue(row.name),
+    market,
+    industry,
+    close,
+    change,
+    changePct: numberValue(row.changePct) ?? calculateChangePct(close, change),
+    turnoverTwd: numberValue(row.turnoverTwd),
+    dataDate
+  });
+}
+
+
+// Null when either exchange has no usable industry row; the caller then
+// rebuilds the list live instead of ranking one market as the whole.
+function themesFromPublishedUniverse(
+  universe,
+  limit
+) {
+
+  const rows =
+    universe.rows
+      .map(row => snapshotThemeRow(row, universe.dataDate))
+      .filter(Boolean);
+
+  const counts = {
+    TWSE: rows.filter(row => row.market === "TWSE").length,
+    TPEX: rows.filter(row => row.market === "TPEX").length
+  };
+
+  if (!counts.TWSE || !counts.TPEX) {
+    return null;
+  }
+
+
+  const themes =
+    aggregateThemes(rows).slice(0, limit);
+
+  if (!themes.length) {
+    return null;
+  }
+
+
+  return Object.freeze({
+
+    themes: Object.freeze(themes),
+
+    dataDate: universe.dataDate,
+
+    updatedAt: universe.updatedAt || universe.meta.snapshotUpdatedAt,
+
+    meta: Object.freeze({
+      provider: "official-tw",
+      methodology: "official-industry-constituent-average",
+      partial: false,
+      flowConnected: false,
+      historicalVolumeConnected: false,
+      sources: Object.freeze({ TWSE: "ready", TPEX: "ready" }),
+      rows: Object.freeze(counts),
+      errors: Object.freeze({ TWSE: null, TPEX: null }),
+      universeSource: universe.meta.universeSource,
+      snapshotUpdatedAt: universe.meta.snapshotUpdatedAt
+    })
+
+  });
+}
+
+
+/* ========================================================================== */
 /* Public                                                                     */
 /* ========================================================================== */
 
@@ -1718,6 +1830,21 @@ export async function getOfficialTWThemes(
       limit,
       30
     );
+
+
+  const published =
+    await loadPublishedUniverse();
+
+  const publishedThemes =
+    published &&
+    themesFromPublishedUniverse(
+      published,
+      normalizedLimit
+    );
+
+  if (publishedThemes) {
+    return publishedThemes;
+  }
 
 
   const [
@@ -1774,6 +1901,33 @@ export async function getOfficialTWThemes(
               tpexResult
             )
 
+        }
+      }
+    );
+  }
+
+
+  /*
+   * One exchange alone is not the Taiwan market: its industry averages and
+   * leaders would silently leave out the other. Report the missing source.
+   */
+  if (
+    !twse ||
+    !tpex
+  ) {
+
+    throw new TWThemeProviderError(
+      "Taiwan theme universe is incomplete.",
+      {
+        code:
+          "TW_THEME_UNIVERSE_INCOMPLETE",
+
+        source:
+          "official-tw",
+
+        details: {
+          dataDate: twse?.dataDate || tpex?.dataDate || null,
+          sources: { TWSE: twse ? "ready" : "error", TPEX: tpex ? "ready" : "error" }
         }
       }
     );
@@ -1903,6 +2057,9 @@ export async function getOfficialTWThemes(
 
         historicalVolumeConnected:
           false,
+
+        universeSource:
+          "official-tw-live",
 
         sources:
           Object.freeze({

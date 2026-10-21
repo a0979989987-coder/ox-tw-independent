@@ -1,3 +1,8 @@
+import {
+  shareRecentResult
+} from "./shared-result.js";
+
+
 /*
  * OX v4.0 Modular
  * Taiwan Money Flow Provider
@@ -1195,7 +1200,15 @@ function errorSummary(
 /* Public                                                                     */
 /* ========================================================================== */
 
-export async function getOfficialTWMoneyFlow() {
+// Indicators asks for the same money flow the home page requests directly at
+// the same moment; both share one set of official requests (see shared-result.js).
+export const getOfficialTWMoneyFlow =
+  shareRecentResult(
+    loadOfficialTWMoneyFlow
+  );
+
+
+async function loadOfficialTWMoneyFlow() {
 
   const [
     twseResult,

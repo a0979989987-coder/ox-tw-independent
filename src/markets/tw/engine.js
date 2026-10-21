@@ -680,6 +680,16 @@ export function normalizeTWBreadth(
 
   return Object.freeze({
 
+    // "TWSE" / "TPEX" when only one exchange answered; never shown as the market.
+    coverage:
+      typeof raw.coverage === "string" ? raw.coverage : "ALL",
+
+    complete:
+      raw.complete !== false,
+
+    coverageLabel:
+      typeof raw.coverageLabel === "string" ? raw.coverageLabel : "全市場",
+
     advancers:
       finiteNumber(
         raw.advancers ??

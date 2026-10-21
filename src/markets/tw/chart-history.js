@@ -11,6 +11,8 @@ export function historyRange(cursor,floor){
  return {from:start<floor?floor:start,to:cursor};
 }
 export function mergeDailyHistory(older,newer,asOf){return dailyCandles([...older,...newer],asOf);}
+// Older pages are requested only once the first loaded bar is on screen.
+export const atHistoryEdge=range=>!!range&&Number.isFinite(range.from)&&range.from<=1;
 export function preserveHistoryViewport(previous,next,range){
  if(!range||!previous.length||!next.length)return range;
  const anchor=Math.min(previous.length-1,Math.max(0,Math.floor(range.from)));
@@ -48,8 +50,11 @@ export async function chartHistory(symbol,market,asOf,seed=[],signal){
  abort(signal);if(!/^\d{4}$/.test(symbol)||!HISTORY_START[market]||!/^\d{4}-\d{2}-\d{2}$/.test(asOf))throw Error('股票歷史資料識別尚未取得');
  const key=`${symbol}:${market}:${asOf}`;let record=records.get(key);
  if(!record){const stored=await readStoredWithinBudget(key);abort(signal);
-  record={key,symbol,market,asOf,floor:HISTORY_START[market],cursor:asOf,coverageStart:seed[0]?.date||asOf,daily:dailyCandles(seed,asOf),complete:false,pending:null,error:null};
-  if(stored?.version===1&&stored.symbol===symbol&&stored.market===market&&stored.asOf===asOf&&stored.coverageStart>=record.floor&&stored.coverageStart<=asOf&&stored.cursor===previousDate(stored.coverageStart)&&stored.complete===(stored.coverageStart===record.floor)&&Array.isArray(stored.daily)){
+  // The verified K-line pack already covers its own dates; the first official
+  // page starts the day before its earliest bar instead of re-reading them.
+  const daily=dailyCandles(seed,asOf),floor=HISTORY_START[market],earliest=daily[0]?.date;
+  record={key,symbol,market,asOf,floor,cursor:earliest?previousDate(earliest):asOf,coverageStart:earliest||asOf,daily,complete:!!earliest&&earliest<=floor,pending:null,error:null};
+  if(stored?.version===1&&stored.symbol===symbol&&stored.market===market&&stored.asOf===asOf&&stored.coverageStart>=record.floor&&stored.coverageStart<record.coverageStart&&stored.cursor===previousDate(stored.coverageStart)&&stored.complete===(stored.coverageStart===record.floor)&&Array.isArray(stored.daily)){
    record.daily=mergeDailyHistory(stored.daily,record.daily,asOf);record.cursor=stored.cursor;record.coverageStart=stored.coverageStart;record.complete=stored.complete;
   }
   records.set(key,record);if(records.size>30)records.delete(records.keys().next().value);

@@ -1,6 +1,8 @@
 import {
   getOfficialTWQuote
 } from "./quotes.js";
+import { readPackCandles } from "./candle-pack.js";
+import { loadTWTradingCalendar } from "../../../../server/markets/tw/surveillance.js";
 
 
 /*
@@ -58,6 +60,20 @@ const MAX_MONTHS =
 
 const REQUEST_CONCURRENCY =
   3;
+
+// A pack this far behind the requested end is treated as stale and skipped.
+const PACK_MAX_LAG_DAYS = 14;
+
+// Closed trading days after the pack date are tried from the official feed for
+// at most this long; on failure or timeout only the pack is returned.
+const AFTER_PACK_TIMEOUT_MS = 5000;
+
+// A failed, timed-out or empty attempt is not repeated for the same symbol
+// within this window.
+const AFTER_PACK_RETRY_MS = 300000;
+
+const TAIPEI_CLOSE_MINUTES = 13 * 60 + 30;
+const afterPackMisses = new Map();
 
 // The exchanges publish daily OHLC from these dates. Completion means the
 // published range has been checked, not that pre-publication prices exist.
@@ -1430,32 +1446,71 @@ async function runMonthBatch(
   }
 
 
-  /*
-   * Never silently return a chart
-   * with missing months caused by
-   * upstream request failures.
-   */
-  if (
-    failures.length
-  ) {
+  // The caller decides whether missing months may be returned as partial.
+  return { candles, failures };
+}
 
-    throw new TWCandleProviderError(
-      "Taiwan historical candle request was incomplete.",
-      {
-        code:
-          "TW_CANDLES_PARTIAL_FAILURE",
+function taipeiClock(now) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+  }).formatToParts(now).map(part => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+}
 
-        details: {
+const nextISODate = date => formatISODate(new Date(Date.parse(date) + 86400000));
 
-          failures
-
-        }
-      }
-    );
+// Weekdays after the pack date whose session has closed: days before today,
+// plus today once Taipei time has passed 13:30. Holidays are checked later
+// against the official calendar, only when such a weekday exists.
+function closedWeekdaysAfter(packDate, endISO, now) {
+  const clock = taipeiClock(now);
+  const yesterday = formatISODate(new Date(Date.parse(clock.date) - 86400000));
+  const last = [endISO, clock.minutes >= TAIPEI_CLOSE_MINUTES ? clock.date : yesterday].sort()[0];
+  const days = [];
+  for (let date = nextISODate(packDate), guard = 0; date <= last && guard < 400; date = nextISODate(date), guard++) {
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) days.push(date);
   }
+  return days;
+}
 
-
+async function officialAfterPack(key, packDate, endISO, loadMonth, now) {
+  const weekdays = closedWeekdaysAfter(packDate, endISO, now);
+  if (!weekdays.length) return [];
+  const missedAt = afterPackMisses.get(key);
+  if (missedAt !== undefined && now.getTime() - missedAt < AFTER_PACK_RETRY_MS) return [];
+  const last = weekdays.at(-1);
+  let timer;
+  const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(null), AFTER_PACK_TIMEOUT_MS); });
+  const attempt = (async () => {
+    // The calendar only removes holidays; without it the weekdays are tried.
+    const calendar = await loadTWTradingCalendar().catch(() => null);
+    if (calendar && weekdays.every(date => calendar.isOpen(date) === false)) return { candles: [], failures: [], holiday: true };
+    return runMonthBatch(buildMonths(dateOnly(weekdays[0]), dateOnly(last)), loadMonth);
+  })();
+  let candles = [];
+  try {
+    const result = await Promise.race([attempt, timeout]);
+    if (result?.holiday) return [];
+    // A missing month would leave a gap after the pack, so all or nothing.
+    if (result && !result.failures.length) candles = result.candles.filter(candle => candle.date > packDate && candle.date <= last);
+  } catch {
+    candles = [];
+  } finally {
+    clearTimeout(timer);
+  }
+  if (candles.length) afterPackMisses.delete(key);
+  else {
+    if (afterPackMisses.size > 2048) afterPackMisses.delete(afterPackMisses.keys().next().value);
+    afterPackMisses.set(key, now.getTime());
+  }
   return candles;
+}
+
+function partialFailure(failures) {
+  return new TWCandleProviderError("Taiwan historical candle request was incomplete.", {
+    code: "TW_CANDLES_PARTIAL_FAILURE", details: { failures }
+  });
 }
 
 
@@ -1484,7 +1539,13 @@ export async function getOfficialTWCandles(
     adjusted =
       true,
 
-    history = false
+    history = false,
+
+    // Injected by tests; decides which sessions after the pack have closed.
+    now = new Date(),
+
+    // Shared with the API deadline so a timeout can name the pending source.
+    progress = {}
   } = {}
 ) {
 
@@ -1506,21 +1567,36 @@ export async function getOfficialTWCandles(
     );
 
 
-  /*
-   * Reuse Quote provider to identify
-   * TWSE / TPEx safely.
-   */
-  const quote =
-    await getOfficialTWQuote(
-      normalizedSymbol
+  const resolved =
+    resolveRange(
+      {
+        range,
+        from,
+        to
+      }
     );
 
 
-  const market =
-    textValue(
-      quote?.market
-    )
-      .toUpperCase();
+  /*
+   * The published K-line pack is read first. It also names the board, so the
+   * quote provider is only needed to identify TWSE / TPEx without it.
+   */
+  let pack = null;
+  try {
+    progress.source = "TW-PATTERNS-PACK";
+    pack = await readPackCandles(normalizedSymbol);
+  }
+  catch (error) { console.warn("Taiwan K-line pack unavailable", normalizedSymbol, error.message); }
+  if (pack && (resolved.end.getTime() - Date.parse(pack.date)) / 86400000 > PACK_MAX_LAG_DAYS) pack = null;
+  // History pages stay all-or-nothing, so they never mix in days after the pack.
+  if (pack && history && formatISODate(resolved.end) > pack.date) pack = null;
+
+  let market = pack?.market || "", name = pack?.name || "";
+  if (!pack) {
+    const quote = await getOfficialTWQuote(normalizedSymbol, { progress });
+    market = textValue(quote?.market).toUpperCase();
+    name = textValue(quote?.name);
+  }
 
 
   if (
@@ -1542,16 +1618,6 @@ export async function getOfficialTWCandles(
     );
   }
 
-
-  const resolved =
-    resolveRange(
-      {
-        range,
-        from,
-        to
-      }
-    );
-
   if(history){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||!dateOnly(from)||!dateOnly(to)||formatISODate(dateOnly(from))!==from||formatISODate(dateOnly(to))!==to)throw new TWCandleProviderError('History pages require valid from and to dates.',{code:'TW_CANDLES_INVALID_RANGE'});
     const floor=dateOnly(TW_HISTORY_START[market]);if(resolved.start<floor)resolved.start=floor;
@@ -1559,11 +1625,35 @@ export async function getOfficialTWCandles(
   }
 
 
-  const months =
-    buildMonths(
-      resolved.start,
+  // Validates the whole requested range even when the pack serves part of it.
+  buildMonths(
+    resolved.start,
+    resolved.end
+  );
+
+
+  const startISO =
+    formatISODate(
+      resolved.start
+    );
+
+
+  const endISO =
+    formatISODate(
       resolved.end
     );
+
+
+  // Official months are fetched only for days before the pack's first trading
+  // day. Inside the pack range the pack always wins.
+  const officialEnd = pack
+    ? new Date(Math.min(resolved.end.getTime(), Date.parse(pack.firstDate) - 86400000))
+    : resolved.end;
+
+  const months =
+    (pack && startISO >= pack.firstDate) || officialEnd < resolved.start
+      ? []
+      : buildMonths(resolved.start, officialEnd);
 
 
   const loader =
@@ -1581,24 +1671,38 @@ export async function getOfficialTWCandles(
           );
 
 
-  let candles =
-    await runMonthBatch(
-      months,
-      month => cachedMonth(market,normalizedSymbol,month,()=>loader(month)),
-      history?{concurrency:1,paceMs:250}:{}
-    );
+  const officialSource =
+    market ===
+      "TWSE"
+      ? "TWSE-STOCK-DAY"
+      : "TPEX-ST43";
+
+  progress.source = months.length || !pack ? officialSource : "TW-PATTERNS-PACK";
 
 
-  const startISO =
-    formatISODate(
-      resolved.start
-    );
+  const loadMonth = month => cachedMonth(market,normalizedSymbol,month,()=>loader(month));
 
+  const batch = months.length
+    ? await runMonthBatch(
+        months,
+        loadMonth,
+        history?{concurrency:1,paceMs:250}:{}
+      )
+    : { candles: [], failures: [] };
 
-  const endISO =
-    formatISODate(
-      resolved.end
-    );
+  const afterPack = pack && endISO > pack.date
+    ? await officialAfterPack(`${market}:${normalizedSymbol}:${pack.date}`, pack.date, endISO, loadMonth, now)
+    : [];
+
+  const source = !pack
+    ? officialSource
+    : months.length || afterPack.length ? `TW-PATTERNS-PACK+${officialSource}` : "TW-PATTERNS-PACK";
+
+  let candles = [
+    ...(pack ? batch.candles.filter(candle => candle.date < pack.firstDate) : batch.candles),
+    ...(pack?.candles || []),
+    ...afterPack
+  ];
 
 
   candles =
@@ -1669,6 +1773,13 @@ export async function getOfficialTWCandles(
   }
 
 
+  // History pages advance a stored cursor, so they stay all-or-nothing. A
+  // chart request returns the months it did get and names the missing ones.
+  const failures = batch.failures;
+  if (failures.length && (history || !candles.length)) throw partialFailure(failures);
+  const partial = failures.length > 0;
+
+
   if (
     !candles.length && !history
   ) {
@@ -1691,10 +1802,7 @@ export async function getOfficialTWCandles(
     symbol:
       normalizedSymbol,
 
-    name:
-      textValue(
-        quote?.name
-      ),
+    name,
 
     market,
 
@@ -1734,6 +1842,8 @@ export async function getOfficialTWCandles(
     realtime:
       false,
 
+    partial,
+
     candles:
       Object.freeze(
         candles
@@ -1749,11 +1859,18 @@ export async function getOfficialTWCandles(
         provider:
           "official-tw",
 
-        source:
-          market ===
-            "TWSE"
-            ? "TWSE-STOCK-DAY"
-            : "TPEX-ST43",
+        source,
+
+        packDate:
+          pack?.date || null,
+
+        afterPackCandles:
+          afterPack.length,
+
+        partial,
+
+        failedMonths:
+          Object.freeze(failures.map(failure => failure.month)),
 
         candleCount:
           candles.length,

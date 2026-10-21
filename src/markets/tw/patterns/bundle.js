@@ -1,5 +1,6 @@
 import { aggregateCandles } from './model.js';
 import { withDeadline } from '../../../components/resource-deadline.js';
+import { readJSONBody } from '../../../components/json-body.js';
 import { computeBundleEntry } from './bundle-compute.js';
 import { validateBundleEntry } from './qualification.js';
 // Official candles and named-pattern classifications are built once on the server.
@@ -16,7 +17,7 @@ async function loadChunk(chunk,next){
  if(chunks.has(key))return chunks.get(key);
  const job=(async()=>{
   if(!/^daily-\d+\.json(?:\.gz)?$/.test(chunk.file))throw Error('分類資料路徑異常');
-  const payload=await withDeadline(async signal=>{const result=await fetch(new URL(chunk.file+'?date='+next.date+'&revision='+encodeURIComponent(next.updatedAt||''),manifestURL),{cache:'default',signal});if(!result.ok)throw Error('分類資料尚未取得');return chunk.file.endsWith('.gz')&&!result.headers.get('content-encoding')?.includes('gzip')?new Response(result.body.pipeThrough(new DecompressionStream('gzip'))).json():result.json();},12000,'分類資料載入逾時');
+  const payload=await withDeadline(async signal=>{const result=await fetch(new URL(chunk.file+'?date='+next.date+'&revision='+encodeURIComponent(next.updatedAt||''),manifestURL),{cache:'default',signal});if(!result.ok)throw Error('分類資料尚未取得');return readJSONBody(result);},12000,'分類資料載入逾時');
   if(payload.date!==next.date||![5,6].includes(payload.algorithmVersion)||!Array.isArray(payload.entries))throw Error('分類資料日期不符');
   for(const e of payload.entries){
    validateBundleEntry(e,next.date);
