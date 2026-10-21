@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { gunzipSync } from 'node:zlib';
 import { getOfficialTWCandles } from '../api/v1/tw/providers/candles.js';
 
 // Market identification needs both exchanges in the official list; a list with
@@ -49,4 +51,79 @@ test('official history pages preserve empty successful months, bound upstream wo
   mode='failure';await assert.rejects(getOfficialTWCandles('6221',{from:'1994-07-01',to:'1994-07-31',history:true}),{code:'TW_CANDLES_PARTIAL_FAILURE'});
   mode='empty';const retried=await getOfficialTWCandles('6221',{from:'1994-07-01',to:'1994-07-31',history:true});assert.deepEqual(retried.candles,[]);assert.equal(calls,8);
  }finally{globalThis.fetch=original;}
+});
+
+// The published K-line pack is read from this repository's data/tw-patterns.
+const packRead = async path => new Uint8Array(await readFile(new URL(`../${path}`, import.meta.url)));
+const packManifest = JSON.parse(await readFile(new URL('../data/tw-patterns/manifest.json', import.meta.url), 'utf8'));
+async function packEntry(symbol) {
+  const chunk = packManifest.chunks.find(row => row.symbols.includes(symbol));
+  const payload = JSON.parse(gunzipSync(await readFile(new URL(`../data/tw-patterns/${chunk.file}`, import.meta.url))));
+  return payload.entries.find(entry => entry.data.symbol === symbol).data;
+}
+
+test('3M candles for 2330, 6210 and 8299 come from the K-line pack without official requests', async t => {
+  const original = globalThis.fetch, requests = [];
+  globalThis.fetch = async input => { requests.push(String(input)); return new Response('unavailable', { status:503 }); };
+  globalThis.__twReadAsset = packRead;
+  t.after(() => { globalThis.fetch = original; delete globalThis.__twReadAsset; });
+  for (const symbol of ['2330', '6210', '8299']) {
+    const entry = await packEntry(symbol);
+    const result = await getOfficialTWCandles(symbol, { range:'3M', to:packManifest.date, adjusted:false });
+    assert.ok(result.candles.length > 0, symbol);
+    assert.equal(result.candles.at(-1).date, entry.candles.at(-1).date, symbol);
+    assert.equal(result.candles.at(-1).close, entry.candles.at(-1).close, symbol);
+    assert.equal(result.market, entry.board, symbol);
+    assert.equal(result.partial, false);
+    assert.equal(result.meta.source, 'TW-PATTERNS-PACK');
+    assert.equal(result.meta.packDate, packManifest.date);
+  }
+  assert.deepEqual(requests, []);
+});
+
+test('ranges older than the pack fetch only the missing official months before the pack', async t => {
+  const original = globalThis.fetch, months = [];
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    if (!url.pathname.endsWith('/STOCK_DAY')) return new Response('unavailable', { status:503 });
+    const date = url.searchParams.get('date'); months.push(date);
+    const roc = `${Number(date.slice(0, 4)) - 1911}/${date.slice(4, 6)}/05`;
+    return new Response(JSON.stringify({ stat:'OK', data:[[roc,'1,000','1,000,000','100','101','99','100','+1','10']] }), { status:200 });
+  };
+  globalThis.__twReadAsset = packRead;
+  t.after(() => { globalThis.fetch = original; delete globalThis.__twReadAsset; });
+  const entry = await packEntry('2330');
+  const result = await getOfficialTWCandles('2330', { range:'1Y', to:packManifest.date, adjusted:false });
+  assert.ok(months.length > 0);
+  assert.ok(months.every(month => `${month.slice(0, 4)}-${month.slice(4, 6)}` <= packManifest.dates[0].slice(0, 7)));
+  const before = result.candles.filter(candle => candle.date < packManifest.dates[0]);
+  assert.ok(before.length > 0 && before.every(candle => candle.close === 100));
+  assert.equal(result.candles.at(-1).date, entry.candles.at(-1).date);
+  assert.equal(result.meta.source, 'TW-PATTERNS-PACK+TWSE-STOCK-DAY');
+});
+
+test('a failed official month returns the months received and is marked partial', async () => {
+  const original = globalThis.fetch;
+  let failAll = false;
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    let data = [];
+    if (url.pathname.endsWith('/mopsfin_t187ap05_O')) data = [{ SecuritiesCompanyCode:'6221', CompanyName:'晉泰', Industry:'資訊服務業' }];
+    if (url.pathname.endsWith('/tpex_mainboard_quotes')) data = [{ Date:'1150924', SecuritiesCompanyCode:'6221', CompanyName:'晉泰', Close:'32.20', Change:'0.60', Open:'31.90', High:'32.80', Low:'31.90', TradingShares:'840000', TransactionAmount:'27079000' }];
+    if (url.pathname.endsWith('/STOCK_DAY_ALL')) data = twseDailyAll;
+    if (url.pathname.endsWith('/tradingStock')) {
+      const date = url.searchParams.get('date');
+      if (failAll || date === '2025/02/01') return new Response('not json', { status:200 });
+      data = { tables:[{ data:[[`114/${date.slice(5, 7)}/10`,'840','27,079','31.90','32.80','31.90','32.20','0.60','766']] }] };
+    }
+    return new Response(JSON.stringify(data), { status:200 });
+  };
+  try {
+    const result = await getOfficialTWCandles('6221', { from:'2025-01-01', to:'2025-03-31', adjusted:false });
+    assert.equal(result.partial, true);
+    assert.deepEqual(result.meta.failedMonths, ['2025-02']);
+    assert.deepEqual(result.candles.map(candle => candle.date), ['2025-01-10', '2025-03-10']);
+    failAll = true;
+    await assert.rejects(getOfficialTWCandles('6221', { from:'2025-04-01', to:'2025-05-31', adjusted:false }), { code:'TW_CANDLES_PARTIAL_FAILURE' });
+  } finally { globalThis.fetch = original; }
 });

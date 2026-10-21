@@ -1368,7 +1368,9 @@ async function handleCandles(
     );
 
 
-  setShortCache(
+  // A partial chart is retried on the next request instead of being cached.
+  if (data.partial) res.setHeader("Cache-Control", "no-store");
+  else setShortCache(
     res,
     300
   );
@@ -1381,6 +1383,9 @@ async function handleCandles(
 
       provider:
         "official-tw",
+
+      partial:
+        data.partial,
 
       historical:
         true,

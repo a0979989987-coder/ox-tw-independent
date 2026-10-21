@@ -1,6 +1,7 @@
 import {
   getOfficialTWQuote
 } from "./quotes.js";
+import { readPackCandles } from "./candle-pack.js";
 
 
 /*
@@ -58,6 +59,9 @@ const MAX_MONTHS =
 
 const REQUEST_CONCURRENCY =
   3;
+
+// A pack this far behind the requested end is treated as stale and skipped.
+const PACK_MAX_LAG_DAYS = 14;
 
 // The exchanges publish daily OHLC from these dates. Completion means the
 // published range has been checked, not that pre-publication prices exist.
@@ -1430,32 +1434,14 @@ async function runMonthBatch(
   }
 
 
-  /*
-   * Never silently return a chart
-   * with missing months caused by
-   * upstream request failures.
-   */
-  if (
-    failures.length
-  ) {
+  // The caller decides whether missing months may be returned as partial.
+  return { candles, failures };
+}
 
-    throw new TWCandleProviderError(
-      "Taiwan historical candle request was incomplete.",
-      {
-        code:
-          "TW_CANDLES_PARTIAL_FAILURE",
-
-        details: {
-
-          failures
-
-        }
-      }
-    );
-  }
-
-
-  return candles;
+function partialFailure(failures) {
+  return new TWCandleProviderError("Taiwan historical candle request was incomplete.", {
+    code: "TW_CANDLES_PARTIAL_FAILURE", details: { failures }
+  });
 }
 
 
@@ -1486,6 +1472,9 @@ export async function getOfficialTWCandles(
 
     history = false,
 
+    // Read the published K-line pack before the official monthly history.
+    pack: usePack = true,
+
     // Shared with the API deadline so a timeout can name the pending source.
     progress = {}
   } = {}
@@ -1509,22 +1498,34 @@ export async function getOfficialTWCandles(
     );
 
 
-  /*
-   * Reuse Quote provider to identify
-   * TWSE / TPEx safely.
-   */
-  const quote =
-    await getOfficialTWQuote(
-      normalizedSymbol,
-      { progress }
+  const resolved =
+    resolveRange(
+      {
+        range,
+        from,
+        to
+      }
     );
 
 
-  const market =
-    textValue(
-      quote?.market
-    )
-      .toUpperCase();
+  /*
+   * The published K-line pack is read first. It also names the board, so the
+   * quote provider is only needed to identify TWSE / TPEx without it.
+   */
+  let pack = null;
+  if (usePack) try {
+    progress.source = "TW-PATTERNS-PACK";
+    pack = await readPackCandles(normalizedSymbol);
+  }
+  catch (error) { console.warn("Taiwan K-line pack unavailable", normalizedSymbol, error.message); }
+  if (pack && (resolved.end.getTime() - Date.parse(pack.date)) / 86400000 > PACK_MAX_LAG_DAYS) pack = null;
+
+  let market = pack?.market || "", name = pack?.name || "";
+  if (!pack) {
+    const quote = await getOfficialTWQuote(normalizedSymbol, { progress });
+    market = textValue(quote?.market).toUpperCase();
+    name = textValue(quote?.name);
+  }
 
 
   if (
@@ -1546,16 +1547,6 @@ export async function getOfficialTWCandles(
     );
   }
 
-
-  const resolved =
-    resolveRange(
-      {
-        range,
-        from,
-        to
-      }
-    );
-
   if(history){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||!dateOnly(from)||!dateOnly(to)||formatISODate(dateOnly(from))!==from||formatISODate(dateOnly(to))!==to)throw new TWCandleProviderError('History pages require valid from and to dates.',{code:'TW_CANDLES_INVALID_RANGE'});
     const floor=dateOnly(TW_HISTORY_START[market]);if(resolved.start<floor)resolved.start=floor;
@@ -1563,11 +1554,35 @@ export async function getOfficialTWCandles(
   }
 
 
-  const months =
-    buildMonths(
-      resolved.start,
+  // Validates the whole requested range even when the pack serves part of it.
+  buildMonths(
+    resolved.start,
+    resolved.end
+  );
+
+
+  const startISO =
+    formatISODate(
+      resolved.start
+    );
+
+
+  const endISO =
+    formatISODate(
       resolved.end
     );
+
+
+  // Official months are fetched only for days before the pack's first trading
+  // day; nothing after the pack date is added, so the last candle matches it.
+  const officialEnd = pack
+    ? new Date(Math.min(resolved.end.getTime(), Date.parse(pack.firstDate) - 86400000))
+    : resolved.end;
+
+  const months =
+    (pack && startISO >= pack.firstDate) || officialEnd < resolved.start
+      ? []
+      : buildMonths(resolved.start, officialEnd);
 
 
   const loader =
@@ -1585,31 +1600,31 @@ export async function getOfficialTWCandles(
           );
 
 
-  progress.source =
+  const officialSource =
     market ===
       "TWSE"
       ? "TWSE-STOCK-DAY"
       : "TPEX-ST43";
 
+  const source = !pack
+    ? officialSource
+    : months.length ? `TW-PATTERNS-PACK+${officialSource}` : "TW-PATTERNS-PACK";
 
-  let candles =
-    await runMonthBatch(
-      months,
-      month => cachedMonth(market,normalizedSymbol,month,()=>loader(month)),
-      history?{concurrency:1,paceMs:250}:{}
-    );
+  progress.source = months.length ? officialSource : source;
 
 
-  const startISO =
-    formatISODate(
-      resolved.start
-    );
+  const batch = months.length
+    ? await runMonthBatch(
+        months,
+        month => cachedMonth(market,normalizedSymbol,month,()=>loader(month)),
+        history?{concurrency:1,paceMs:250}:{}
+      )
+    : { candles: [], failures: [] };
 
-
-  const endISO =
-    formatISODate(
-      resolved.end
-    );
+  let candles = [
+    ...(pack ? batch.candles.filter(candle => candle.date < pack.firstDate) : batch.candles),
+    ...(pack?.candles || [])
+  ];
 
 
   candles =
@@ -1680,6 +1695,13 @@ export async function getOfficialTWCandles(
   }
 
 
+  // History pages advance a stored cursor, so they stay all-or-nothing. A
+  // chart request returns the months it did get and names the missing ones.
+  const failures = batch.failures;
+  if (failures.length && (history || !candles.length)) throw partialFailure(failures);
+  const partial = failures.length > 0;
+
+
   if (
     !candles.length && !history
   ) {
@@ -1702,10 +1724,7 @@ export async function getOfficialTWCandles(
     symbol:
       normalizedSymbol,
 
-    name:
-      textValue(
-        quote?.name
-      ),
+    name,
 
     market,
 
@@ -1745,6 +1764,8 @@ export async function getOfficialTWCandles(
     realtime:
       false,
 
+    partial,
+
     candles:
       Object.freeze(
         candles
@@ -1760,11 +1781,15 @@ export async function getOfficialTWCandles(
         provider:
           "official-tw",
 
-        source:
-          market ===
-            "TWSE"
-            ? "TWSE-STOCK-DAY"
-            : "TPEX-ST43",
+        source,
+
+        packDate:
+          pack?.date || null,
+
+        partial,
+
+        failedMonths:
+          Object.freeze(failures.map(failure => failure.month)),
 
         candleCount:
           candles.length,

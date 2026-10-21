@@ -16,6 +16,8 @@ test('a hung official feed is reported as JSON 504 naming that feed at the 20 s 
  t.mock.method(globalThis,'fetch',input=>{
   const url=String(input?.url??input);
   if(url===REPO+'data/tw-radar.json')return Promise.resolve(snapshotPublished?new Response(snapshot):new Response('missing',{status:404}));
+  // No K-line pack here, so candles go on to the official feed that hangs.
+  if(url.startsWith(REPO+'data/tw-patterns/'))return Promise.resolve(new Response('missing',{status:404}));
   return new Promise(()=>{});
  });
  const env={ASSETS:{fetch:async()=>new Response('missing',{status:404})}};
