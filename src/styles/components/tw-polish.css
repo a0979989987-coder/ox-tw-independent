@@ -39,3 +39,6 @@ main.ox-swipe-in-prev{animation:oxSwipeInPrev 340ms cubic-bezier(.32,.72,0,1) bo
 /* The old trigram's white glow turns the two-tone logo into a pale tile; use a faint blue glow. */
 html body .app-dock .dock-radar .dock-radar-logo{filter:none!important}
 html body:not(.theme-light) .app-dock .dock-radar.active .dock-radar-logo{filter:drop-shadow(0 0 5px rgba(153,200,226,.35))!important}
+/* Radar logo a little larger than the old trigram size (23px). */
+html body .app-dock .dock-radar .dock-radar-orb{width:28px!important;height:28px!important}
+html body .app-dock .dock-radar .dock-radar-logo{width:28px!important;height:28px!important}
