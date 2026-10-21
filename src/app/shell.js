@@ -17,6 +17,9 @@ export function initShell({navigate,refresh,setTheme}){
   document.querySelectorAll('main,.app-dock,.ox-shell-header').forEach(el=>el.inert=true);
   window.OXControlResources?.ensure(overlay,close);focusTimer=setTimeout(()=>document.getElementById('ox-control-close').focus(),310);
  }
+ // The close tab lives on the panel's left edge, so it slides with the panel
+ // and leaves with it instead of guessing the panel width from the overlay.
+ panel.append(document.getElementById('ox-control-close'));
  openers.forEach(el=>el?.addEventListener('click',open));document.getElementById('ox-control-close').onclick=()=>close();
  overlay.addEventListener('click',event=>{if(event.target===overlay)close();});
  document.addEventListener('keydown',event=>{

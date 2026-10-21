@@ -4,6 +4,7 @@ import '../components/chart/drawings.js';
 import '../components/radar/timeframe-filters.js';
 import {twModule} from '../markets/tw/index.js';
 import {stopTWStrength} from '../markets/tw/strength.js';
+import './swipe-views.js';
 // iOS Safari ignores user-scalable=no for pinch; its gesture events still allow blocking it.
 for(const type of ['gesturestart','gesturechange'])document.addEventListener(type,event=>event.preventDefault(),{passive:false});
 import {stopTWRadar} from '../markets/tw/radar.js';
@@ -52,9 +53,9 @@ document.addEventListener('click',event=>{
   }
 });
 const systemTheme=matchMedia('(prefers-color-scheme:light)');
-let theme;try{theme=localStorage.getItem('ox-tw-independent-theme')||'dark';}catch{theme='dark';}
+let theme;try{theme=localStorage.getItem('ox-tw-independent-theme')||'light';}catch{theme='light';}
 function setTheme(choice){
-  theme=['dark','light','system'].includes(choice)?choice:'dark';
+  theme=['dark','light','system'].includes(choice)?choice:'light';
   document.body.classList.toggle('theme-light',theme==='light'||theme==='system'&&systemTheme.matches);
   document.body.dataset.theme=document.body.classList.contains('theme-light')?'light':'dark';
   const resolved=document.body.dataset.theme;

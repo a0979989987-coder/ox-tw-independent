@@ -1,6 +1,6 @@
 (() => {
   try {
-    const choice=localStorage.getItem('ox-tw-independent-theme')||'dark';
+    const choice=localStorage.getItem('ox-tw-independent-theme')||'light';
     const resolved=choice==='light'||choice==='system'&&matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
     document.documentElement.style.colorScheme=resolved;
     if(localStorage.getItem('ox-tw-independent-live-choice-v2')!=='1'){
