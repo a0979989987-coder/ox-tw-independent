@@ -63,6 +63,10 @@ const REQUEST_CONCURRENCY =
 // A pack this far behind the requested end is treated as stale and skipped.
 const PACK_MAX_LAG_DAYS = 14;
 
+// Trading days after the pack date are tried from the official feed for at
+// most this long; on failure or timeout only the pack is returned.
+const AFTER_PACK_TIMEOUT_MS = 5000;
+
 // The exchanges publish daily OHLC from these dates. Completion means the
 // published range has been checked, not that pre-publication prices exist.
 export const TW_HISTORY_START = Object.freeze({TWSE:'2010-01-01',TPEX:'1994-01-01'});
@@ -1438,6 +1442,22 @@ async function runMonthBatch(
   return { candles, failures };
 }
 
+async function officialAfterPack(packDate, end, loadMonth) {
+  const months = buildMonths(new Date(Date.parse(packDate) + 86400000), end), endISO = formatISODate(end);
+  let timer;
+  const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(null), AFTER_PACK_TIMEOUT_MS); });
+  try {
+    const result = await Promise.race([runMonthBatch(months, loadMonth), timeout]);
+    // A missing month would leave a gap after the pack, so all or nothing.
+    if (!result || result.failures.length) return [];
+    return result.candles.filter(candle => candle.date > packDate && candle.date <= endISO);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function partialFailure(failures) {
   return new TWCandleProviderError("Taiwan historical candle request was incomplete.", {
     code: "TW_CANDLES_PARTIAL_FAILURE", details: { failures }
@@ -1471,9 +1491,6 @@ export async function getOfficialTWCandles(
       true,
 
     history = false,
-
-    // Read the published K-line pack before the official monthly history.
-    pack: usePack = true,
 
     // Shared with the API deadline so a timeout can name the pending source.
     progress = {}
@@ -1513,12 +1530,14 @@ export async function getOfficialTWCandles(
    * quote provider is only needed to identify TWSE / TPEx without it.
    */
   let pack = null;
-  if (usePack) try {
+  try {
     progress.source = "TW-PATTERNS-PACK";
     pack = await readPackCandles(normalizedSymbol);
   }
   catch (error) { console.warn("Taiwan K-line pack unavailable", normalizedSymbol, error.message); }
   if (pack && (resolved.end.getTime() - Date.parse(pack.date)) / 86400000 > PACK_MAX_LAG_DAYS) pack = null;
+  // History pages stay all-or-nothing, so they never mix in days after the pack.
+  if (pack && history && formatISODate(resolved.end) > pack.date) pack = null;
 
   let market = pack?.market || "", name = pack?.name || "";
   if (!pack) {
@@ -1574,7 +1593,7 @@ export async function getOfficialTWCandles(
 
 
   // Official months are fetched only for days before the pack's first trading
-  // day; nothing after the pack date is added, so the last candle matches it.
+  // day. Inside the pack range the pack always wins.
   const officialEnd = pack
     ? new Date(Math.min(resolved.end.getTime(), Date.parse(pack.firstDate) - 86400000))
     : resolved.end;
@@ -1606,24 +1625,31 @@ export async function getOfficialTWCandles(
       ? "TWSE-STOCK-DAY"
       : "TPEX-ST43";
 
-  const source = !pack
-    ? officialSource
-    : months.length ? `TW-PATTERNS-PACK+${officialSource}` : "TW-PATTERNS-PACK";
+  progress.source = months.length || !pack ? officialSource : "TW-PATTERNS-PACK";
 
-  progress.source = months.length ? officialSource : source;
 
+  const loadMonth = month => cachedMonth(market,normalizedSymbol,month,()=>loader(month));
 
   const batch = months.length
     ? await runMonthBatch(
         months,
-        month => cachedMonth(market,normalizedSymbol,month,()=>loader(month)),
+        loadMonth,
         history?{concurrency:1,paceMs:250}:{}
       )
     : { candles: [], failures: [] };
 
+  const afterPack = pack && endISO > pack.date
+    ? await officialAfterPack(pack.date, resolved.end, loadMonth)
+    : [];
+
+  const source = !pack
+    ? officialSource
+    : months.length || afterPack.length ? `TW-PATTERNS-PACK+${officialSource}` : "TW-PATTERNS-PACK";
+
   let candles = [
     ...(pack ? batch.candles.filter(candle => candle.date < pack.firstDate) : batch.candles),
-    ...(pack?.candles || [])
+    ...(pack?.candles || []),
+    ...afterPack
   ];
 
 
@@ -1785,6 +1811,9 @@ export async function getOfficialTWCandles(
 
         packDate:
           pack?.date || null,
+
+        afterPackCandles:
+          afterPack.length,
 
         partial,
 

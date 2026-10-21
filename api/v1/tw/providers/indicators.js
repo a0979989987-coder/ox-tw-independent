@@ -2991,10 +2991,6 @@ export async function getOfficialTWIndicators(
               160,
 
             adjusted:
-              false,
-
-            // Indicators keep the official history; the pack serves charts.
-            pack:
               false
           }
         )

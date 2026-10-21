@@ -61,6 +61,14 @@ async function packEntry(symbol) {
   const payload = JSON.parse(gunzipSync(await readFile(new URL(`../data/tw-patterns/${chunk.file}`, import.meta.url))));
   return payload.entries.find(entry => entry.data.symbol === symbol).data;
 }
+const ohlcv = candle => [candle.date, candle.open, candle.high, candle.low, candle.close, candle.volume];
+// Every candle inside the pack range is the pack's own candle.
+function assertPackRange(result, entry, symbol) {
+  const start = result.from > packManifest.dates[0] ? result.from : packManifest.dates[0], inPack = candle => candle.date >= start && candle.date <= packManifest.date;
+  assert.deepEqual(result.candles.filter(inPack).map(ohlcv), entry.candles.filter(inPack).map(ohlcv), symbol);
+}
+const dayAfterPack = days => new Date(Date.parse(packManifest.date) + days * 86400000).toISOString().slice(0, 10);
+const rocDate = iso => `${Number(iso.slice(0, 4)) - 1911}/${iso.slice(5, 7)}/${iso.slice(8)}`;
 
 test('3M candles for 2330, 6210 and 8299 come from the K-line pack without official requests', async t => {
   const original = globalThis.fetch, requests = [];
@@ -71,8 +79,7 @@ test('3M candles for 2330, 6210 and 8299 come from the K-line pack without offic
     const entry = await packEntry(symbol);
     const result = await getOfficialTWCandles(symbol, { range:'3M', to:packManifest.date, adjusted:false });
     assert.ok(result.candles.length > 0, symbol);
-    assert.equal(result.candles.at(-1).date, entry.candles.at(-1).date, symbol);
-    assert.equal(result.candles.at(-1).close, entry.candles.at(-1).close, symbol);
+    assertPackRange(result, entry, symbol);
     assert.equal(result.market, entry.board, symbol);
     assert.equal(result.partial, false);
     assert.equal(result.meta.source, 'TW-PATTERNS-PACK');
@@ -98,8 +105,59 @@ test('ranges older than the pack fetch only the missing official months before t
   assert.ok(months.every(month => `${month.slice(0, 4)}-${month.slice(4, 6)}` <= packManifest.dates[0].slice(0, 7)));
   const before = result.candles.filter(candle => candle.date < packManifest.dates[0]);
   assert.ok(before.length > 0 && before.every(candle => candle.close === 100));
-  assert.equal(result.candles.at(-1).date, entry.candles.at(-1).date);
+  assertPackRange(result, entry, '2330');
   assert.equal(result.meta.source, 'TW-PATTERNS-PACK+TWSE-STOCK-DAY');
+});
+
+test('official days after the pack are appended; inside the pack range the pack wins', async t => {
+  const original = globalThis.fetch, after = dayAfterPack(1);
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    if (!url.pathname.endsWith('/STOCK_DAY')) return new Response('unavailable', { status:503 });
+    return new Response(JSON.stringify({ stat:'OK', data:[
+      [rocDate(packManifest.date),'1,000','1,000,000','1','1','1','1','0','1'],
+      [rocDate(after),'2,000','2,000,000','10','12','9','11','+1','20']
+    ] }), { status:200 });
+  };
+  globalThis.__twReadAsset = packRead;
+  t.after(() => { globalThis.fetch = original; delete globalThis.__twReadAsset; });
+  const entry = await packEntry('2330');
+  const result = await getOfficialTWCandles('2330', { range:'3M', to:dayAfterPack(3), adjusted:false });
+  assertPackRange(result, entry, '2330');
+  assert.deepEqual(ohlcv(result.candles.at(-1)), [after, 10, 12, 9, 11, 2000]);
+  assert.equal(result.meta.afterPackCandles, 1);
+  assert.equal(result.partial, false);
+  assert.equal(result.meta.source, 'TW-PATTERNS-PACK+TWSE-STOCK-DAY');
+});
+
+test('a failed or slow official day after the pack returns the pack alone, not partial', async t => {
+  const original = globalThis.fetch;
+  t.mock.timers.enable({ apis:['setTimeout'] });
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.searchParams.get('code') === '8299') return new Promise((resolve, reject) => init.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))));
+    return new Response('unavailable', { status:503 });
+  };
+  globalThis.__twReadAsset = packRead;
+  t.after(() => { globalThis.fetch = original; delete globalThis.__twReadAsset; });
+  for (const symbol of ['6210', '8299']) {
+    const entry = await packEntry(symbol);
+    let settled = null;
+    const pending = getOfficialTWCandles(symbol, { range:'3M', to:dayAfterPack(3), adjusted:false }).then(value => settled = value);
+    // Advance mocked time while the pack is read for real, until the request settles.
+    const started = Date.now();
+    while (!settled && Date.now() - started < 20000) {
+      await new Promise(resolve => setImmediate(resolve));
+      t.mock.timers.tick(100);
+    }
+    assert.ok(settled, symbol + ' must settle without waiting for the official feed');
+    const result = await pending;
+    assertPackRange(result, entry, symbol);
+    assert.equal(result.candles.at(-1).date, entry.candles.at(-1).date, symbol);
+    assert.equal(result.partial, false, symbol);
+    assert.equal(result.meta.afterPackCandles, 0, symbol);
+    assert.equal(result.meta.source, 'TW-PATTERNS-PACK', symbol);
+  }
 });
 
 test('a failed official month returns the months received and is marked partial', async () => {

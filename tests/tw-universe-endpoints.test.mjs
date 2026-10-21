@@ -30,7 +30,7 @@ function officialMonth(url){
 const env={ASSETS:{fetch:async()=>new Response('missing',{status:404})}};
 const get=async path=>{const response=await worker.fetch(new Request('https://ox.test/api/v1/tw/'+path),env,{});return [response.status,await response.json()];};
 
-test('themes and indicators read the published list: zero market-list requests, no K-line pack',async t=>{
+test('themes and indicators read the published list: zero market-list requests, one K-line pack file at most',async t=>{
  let requested=[];
  t.mock.method(globalThis,'fetch',async input=>{
   const url=new URL(String(input?.url??input));requested.push(url.href);
@@ -65,7 +65,9 @@ test('themes and indicators read the published list: zero market-list requests, 
  assert.equal(symbol.data.meta.sources.candles,'fulfilled');
 
  assert.deepEqual(requested.filter(url=>UNIVERSE.test(url)),[],'no market-list source was requested');
- assert.deepEqual(requested.filter(url=>url.includes('tw-patterns')),[],'the classic evaluation did not load the K-line pack');
+ // Indicator candles read the pack manifest and at most the one file holding the symbol, never the whole pack.
+ const pack=requested.filter(url=>url.includes('tw-patterns'));
+ assert.ok(pack.every(url=>/tw-patterns\/(manifest\.json|daily-\d+\.json\.gz)$/.test(url))&&pack.filter(url=>url.includes('daily-')).length<=1,'pack reads: '+pack.join(', '));
  assert.equal(requested.filter(url=>url===REPO+'data/tw-radar.json').length,0,'the published bytes are memoized across endpoints');
 });
 
