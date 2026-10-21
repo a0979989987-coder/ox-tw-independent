@@ -4,6 +4,7 @@ import { MARKET_NAMES, CATEGORY_NAMES, MARKET_CATEGORIES, TIME_CHOICES, sourceNa
 import { defaultState, taipeiDay, formatNewsTime as fmt, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays } from './model.js?v=20261005-load16';
 import { macroResult, macroValue } from './macro.js?v=20261005-macro1';
 import { node, button, anchoredPanel, modal } from './layers.js';
+import { mountConferences } from './conferences.js?v=20261021-conf1';
 const weekdayFormatter = new Intl.DateTimeFormat('zh-TW', {timeZone:'UTC', weekday:'short'});
 const label = item => item.titleZh || item.title || '標題資料未提供';
 const calendarTone = category => ({ macro: 'red', regulation: 'red', unlock: 'yellow', 'dividend-preview': 'yellow', payment: 'yellow', dividend: 'green', earnings: 'blue', exchange: 'blue', listing: 'blue', network: 'blue', governance: 'green', airdrop: 'green', burn: 'gray', holiday: 'gray' }[category] || 'gray');
@@ -32,7 +33,7 @@ export function mountNewsWorkspace(host, api) {
     const tags = node('div', 'oxn-tags'); for (const [id, text] of [['all', '全部閱讀狀態'], ['unread', '僅未讀'], ['following', '追蹤來源']]) { const b = button(text, '', () => { state.reader = id; persist(); renderContent(); [...tags.children].forEach(n => n.setAttribute('aria-pressed', String(n === b))); }); b.setAttribute('aria-pressed', String((state.reader || 'all') === id)); tags.append(b); }
     body.append(tags, button('恢復隱藏新聞／來源', '', () => { api.save({ hidden: [], mutedSources: [] }); renderContent(); }, 'oxn-action'), button('更新來源快照', '', api.refresh, 'oxn-action'), node('p', 'oxn-caption', '資料依來源快照更新，並非即時串流；重新讀取會保留最後成功資料。'));
   }), 'oxn-close oxn-more'); header.append(more);
-  const rail = createToolsRail({ tabs: [['calendar', '行事曆'], ['key', '關鍵新聞']], selected: state.tab, label: '新聞內容', attribute: 'data-news-tab', equal: true,
+  const rail = createToolsRail({ tabs: [['calendar', '行事曆'], ['key', '關鍵新聞'], ['conferences', '法說會']], selected: state.tab, label: '新聞內容', attribute: 'data-news-tab', equal: true,
     onSelect(tab) { state.tab = tab; persist(); panel?.destroy({ focus: false }); renderControls(); renderContent(); if(tab==='key')api.ensureFeed?.(); } }); rail.element.classList.add('oxn-tabs');
   const compactRailStyle = node('style'); compactRailStyle.textContent = '@media(max-width:600px){.tw-radar-root .twr-mode-rail{padding:3px!important}.tw-radar-root .twr-mode-rail button{min-height:28px!important;padding:4px 8px!important}.tw-radar-root .twr-mode-viewport{margin-bottom:0!important}}'; rail.element.shadowRoot.append(compactRailStyle);
   const controls = node('div', 'oxn-controls'), notification = node('div', 'oxn-notification'), content = node('div', 'oxn-content');
@@ -53,7 +54,7 @@ export function mountNewsWorkspace(host, api) {
     });
   }
   function renderControls() {
-    controls.replaceChildren(); header.querySelector('.oxn-calendar-switch')?.remove(); controls.dataset.tab = state.tab;
+    controls.replaceChildren(); header.querySelector('.oxn-calendar-switch')?.remove(); controls.dataset.tab = state.tab; controls.hidden = state.tab === 'conferences';
     if (state.tab === 'calendar') {
       const prev = button('‹', '上個月', () => changeMonth(-1), 'oxn-close oxn-month-arrow'), next = button('›', '下個月', () => changeMonth(1), 'oxn-close oxn-month-arrow');
       const month = button(state.month.replace('-', '／'), '選擇年份月份', () => showPanel(month, '選擇年月', body => {
@@ -82,7 +83,7 @@ export function mountNewsWorkspace(host, api) {
       controls.append(monthNav);
       if (innerWidth > 600) controls.append(viewSwitch);
       controls.append(events, level);
-    } else {
+    } else if (state.tab === 'key') {
       const time = button('時間', '多選新聞時間', () => showPanel(time, '時間', body => {
         body.classList.add('oxn-time-panel');
         const actions=node('div','oxn-panel-actions'), tags=node('div','oxn-tags oxn-time-options'), form=node('form','oxn-custom-time');
@@ -126,6 +127,8 @@ export function mountNewsWorkspace(host, api) {
   }
   function renderContent() {
     if(window.OXFeatures&&!window.OXFeatures.enterTool(state.tab,'data-news-tab',renderContent))return;
+    // The conference tab owns its toolbar and data; keep it mounted across news updates.
+    if (state.tab === 'conferences') { notification.replaceChildren(); if (!content.querySelector('.oxc-root')) mountConferences(content, { signal: life.signal }); return; }
     content.replaceChildren(); marketChoice.textContent = state.market === 'all' ? '全部市場' : MARKET_NAMES[state.market]; status();
     if (!data.snapshot) { content.append(node('div', 'oxn-empty', data.error ? '暫時無法讀取資料，請重試。' : '載入新聞與事件…')); return; }
     if (state.tab === 'key' && data.snapshot.feedComplete === false) {
