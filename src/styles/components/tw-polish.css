@@ -67,3 +67,7 @@ html body .tw-chart-radar .market-line-card>.market-line-item:not(.market-line-p
 body{display:flow-root}
 html body.ox-terminal #market-unavailable-card.tw-radar-root .tw-chart-radar > section.twcr-quote.compact-summary{margin:4px 0 0!important}
 html body #market-unavailable-card.tw-radar-root .tw-chart-radar .twcr-quote>.market-line-card{margin-bottom:6px!important}
+
+/* Phone calendar (workspace.js): one month grid; collapsed it shows the selected week. */
+.oxn-month-viewport{overflow:hidden;will-change:height}
+.oxn-month-viewport .oxn-calendar-grid{will-change:transform}
