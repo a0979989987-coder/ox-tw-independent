@@ -7,7 +7,7 @@ import { escapeTW as esc } from './radar-card.js';
 import { savedResearch } from './research-data.js?v=20261001-twhome1';
 import { bundleState, bundleEntry, bundleClassification, subscribeBundle, preloadBundle, awaitBundleSymbol } from './patterns/bundle.js?v=20261005-load16';
 import { fetchSeries } from './patterns/source.js?v=20261002-rank8';
-import { CHART_FRAMES, aggregateChartCandles, stockDetails, chartTickFormatter } from './chart-data.js?v=20261001-loading1';
+import { CHART_FRAMES, aggregateChartCandles, stockDetails, chartTickFormatter, chartTimeLabel } from './chart-data.js?v=20261021-taipei1';
 import { radarPart, attachRadarStyles } from '../../components/radar/market-workspace.js';
 import { chartHistory, loadHistoryPage, preserveHistoryViewport, mergeDailyHistory, atHistoryEdge } from './chart-history.js?v=20261001-tiercomb1';
 const UP='#f16a70',DOWN='#48b78e';
@@ -181,7 +181,7 @@ export function mountTWChartRadar(host,{state:marketState,watchlist=new Set()}={
  function ensureChart(){
   if(state.chart)return true;
   const lib=window.LightweightCharts;if(!lib){$('.twcr-status').textContent='圖表元件載入中，請稍後重試';return false;}
-  state.chart=lib.createChart(el,{autoSize:true,layout:{background:{color:'#101216'},textColor:'#a9abb1',fontSize:10},grid:{vertLines:{visible:false},horzLines:{color:'#ffffff12'}},rightPriceScale:{visible:true,autoScale:true,scaleMargins:matchMedia('(max-width:720px)').matches?{top:.08,bottom:.14}:{top:.15,bottom:.2}},leftPriceScale:{visible:false},timeScale:{timeVisible:false,rightOffset:matchMedia('(max-width:720px)').matches?2:5,borderColor:'#ffffff1a'},handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:false,vertTouchDrag:false},handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:false},localization:{locale:'zh-TW'},crosshair:{mode:0}});
+  state.chart=lib.createChart(el,{autoSize:true,layout:{background:{color:'#101216'},textColor:'#a9abb1',fontSize:10},grid:{vertLines:{visible:false},horzLines:{color:'#ffffff12'}},rightPriceScale:{visible:true,autoScale:true,scaleMargins:matchMedia('(max-width:720px)').matches?{top:.08,bottom:.14}:{top:.15,bottom:.2}},leftPriceScale:{visible:false},timeScale:{timeVisible:false,rightOffset:matchMedia('(max-width:720px)').matches?2:5,borderColor:'#ffffff1a'},handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:false,vertTouchDrag:false},handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:false},localization:{locale:'zh-TW',timeFormatter:chartTimeLabel},crosshair:{mode:0}});
   state.candleSeries=state.chart.addCandlestickSeries({upColor:UP,downColor:DOWN,borderUpColor:UP,borderDownColor:DOWN,wickUpColor:UP,wickDownColor:DOWN,autoscaleInfoProvider:provider});
   state.volumeSeries=state.chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'volume',lastValueVisible:false,priceLineVisible:false});state.chart.priceScale('volume').applyOptions({scaleMargins:{top:matchMedia('(max-width:720px)').matches ? .88 : .85,bottom:0},visible:false});
   gestures=window.OXChartGestures?.({container:el,state,formatPrice:num,getRange,setRange,refreshRange,isDrawing:()=>el.querySelector('.chart-drawing-layer.is-editing')});
