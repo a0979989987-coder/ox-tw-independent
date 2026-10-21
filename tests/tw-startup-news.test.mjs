@@ -49,7 +49,7 @@ test('news retries connection and stalled body reads with a finite deadline',asy
 });
 
 test('cached event dates retain Taipei midnight boundaries and update when source values change',()=>{
-  const event={occursAt:'2026-10-11T16:30:00Z',category:'macro',markets:['tw'],title:'Test'};
+  const event={occursAt:'2026-10-11T16:30:00Z',category:'earnings',markets:['tw'],title:'Test'};
   assert.equal(eventDay(event),'2026-10-12');
   assert.equal(eventDay(event),'2026-10-12');
   event.occursAt='2026-10-12T16:30:00Z';assert.equal(eventDay(event),'2026-10-13');

@@ -8,8 +8,13 @@ import { XMLParser } from 'fast-xml-parser';
 import { identifyAssets, issuerAssets, dividends, holidays, paymentEvents, spansFor, tpexDividends } from './news-providers.mjs';
 import { collectConferences } from './news-conferences.mjs';
 import { FINANCE_SOURCES, FINANCE_FEEDS, publisherMatches, financeHeadline } from './news-finance-sources.mjs';
-import { nyseCalendar } from './news-official-calendar.mjs';
+import { collectMopsConferences, twseDividendResults, collectMopsPayments } from './news-tw-events.mjs';
 import { translateHeadlines } from './news-translation.mjs';
+import { eventDay } from '../src/components/news/model.js';
+
+// US calendars (NYSE hours, BLS releases) are not Taiwan market events.
+const NON_TAIWAN_EVENT_SOURCES = new Set(['nyse-calendar', 'bls-calendar']);
+const monthStart = (day, offset) => { const [y, m] = day.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + offset, 1)).toISOString().slice(0, 10); };
 
 // Public publisher and explicitly identified aggregation feeds. Only dated
 // headlines and source links are retained; article bodies are never republished.
@@ -195,7 +200,7 @@ const VERIFIED_TRANSLATIONS = {
 export async function collect() {
   const snapshotURL = new URL('../data/news.json', import.meta.url);
   const old = await readFile(snapshotURL, 'utf8').then(JSON.parse).catch(() => null);
-  const stamp = new Date().toISOString();
+  const stamp = new Date().toISOString(), today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const results = await Promise.allSettled(FEEDS.map(async feed => ({ feed, items: normalizeFeed(await fetchText(feed.url), feed) })));
   const sources = results.map((result, i) => result.status === 'fulfilled'
     ? { id: FEEDS[i].id, name: FEEDS[i].name, markets: FEEDS[i].markets, status: 'ready', count: result.value.items.length, lastSuccessAt: stamp, lastAttemptAt: stamp, access: FEEDS[i].aggregator?'public-aggregated-rss':FEEDS[i].portal?'public-portal-rss':'public-rss-headlines-links', aggregator:Boolean(FEEDS[i].aggregator||FEEDS[i].portal), usage:FEEDS[i].usage, termsUrl:FEEDS[i].termsUrl, scopeLabel:FEEDS[i].scopeLabel, endpoint: FEEDS[i].url }
@@ -210,23 +215,28 @@ export async function collect() {
   try { const research = JSON.parse(await readFile(new URL('../data/tw-research.json', import.meta.url), 'utf8')); catalog = [...new Map([...catalog, ...(research.stocks || []).filter(s => /^\d{4}$/.test(s.symbol) && s.name).map(s => ({ id: `tw:${s.symbol}`, market: 'tw', symbol: s.symbol, name: s.name, aliases: [] }))].map(a => [a.id, a])).values()]; } catch {}
   const news = [...articles.values()].filter(item => item.markets?.includes('tw') && !cryptoRelevant(item.titleZh || item.title)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 6000).map(item => localize({ ...item, contentType: item.contentType || (/sponsored|APY|challenge|giveaway|獎池|限時優惠|抽獎|贊助|業配/i.test(item.title) ? 'promotion' : 'news'), assets: identifyAssets(item.titleZh || item.title, item.markets, catalog) }, allOldNews));
   const providers = [
-    ['nyse-calendar',async()=>nyseCalendar(await fetchText('https://www.nyse.com/trade/hours-calendars'),stamp)],
-    ['bls-calendar', async () => parseBlsCalendar(await fetchText('https://www.bls.gov/schedule/news_release/current_year.asp'))],
     ['twse-dividends', async () => dividends(JSON.parse(await fetchText('https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL')), stamp)],
     ['tpex-dividends', async () => tpexDividends(JSON.parse(await fetchText('https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost')), stamp)],
     ['tpex-dividends-daily', async () => tpexDividends(JSON.parse(await fetchText('https://www.tpex.org.tw/openapi/v1/tpex_exright_daily')), stamp, true)],
     ['twse-holidays', async () => holidays(JSON.parse(await fetchText('https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule')), stamp)],
     ['twse-conferences', async () => collectConferences(fetchText, stamp)],
+    // Complete official lists: every listed and OTC company, not only the TWSE venue table.
+    ['mops-conferences', async () => Object.assign(await collectMopsConferences(stamp, today), { replaceFrom: monthStart(today, -1) })],
+    ['twse-dividends-daily', async () => Object.assign(twseDividendResults(JSON.parse(await fetchText(`https://www.twse.com.tw/rwd/zh/exRight/TWT49U?response=json&startDate=${monthStart(today, -1).replaceAll('-', '')}&endDate=${today.replaceAll('-', '')}`)), stamp), { replaceFrom: monthStart(today, -1) })],
+    ['mops-payments', async () => collectMopsPayments(stamp, today)],
 
   ];
-  sources.push({ id: 'mops-payments', status: 'not-connected', message: '已查核官方股利表，但不含除息交易日與現金發放日，無法生成可靠日期事件。' });
   const eventResults = await Promise.allSettled(providers.map(async ([id, load]) => ({ id, items: await load() })));
-  const events = new Map((old?.events || []).filter(item=>item.markets?.includes('tw')).map(item => [item.id, item]));
+  // The calendar keeps Taiwan market events only; earlier US calendar entries are dropped.
+  const events = new Map((old?.events || []).filter(item=>item.markets?.includes('tw')&&!NON_TAIWAN_EVENT_SOURCES.has(item.sourceId)&&!['macro','exchange'].includes(item.category)).map(item => [item.id, item]));
   const eventCoverage = (old?.eventCoverage || []).filter(item=>item.markets?.includes('tw'));
   eventResults.forEach((result, i) => {
     const id = providers[i][0];
     if (result.status === 'fulfilled') {
-      const items = result.value.items.map(item => item.titleZh ? item : localize(item, old?.events)); items.forEach(item => events.set(item.id, item));
+      const items = result.value.items.map(item => item.titleZh ? item : localize(item, old?.events));
+      // A complete official list replaces its earlier rows from that date, so moved or cancelled entries do not linger.
+      if (result.value.items.replaceFrom) for (const [key, item] of events) if (item.sourceId === id && eventDay(item) >= result.value.items.replaceFrom) events.delete(key);
+      items.forEach(item => events.set(item.id, item));
       sources.push({ id, status: 'ready', count: items.length, lastSuccessAt: stamp, lastAttemptAt: stamp,
         ...(result.value.items.warnings?.length ? { partial: true, message: '部分月份公告格式尚未接入；只收錄解析成功的官方月表。' } : {}) });
       for (let j = eventCoverage.length - 1; j >= 0; j--) if (eventCoverage[j].sourceId === id) eventCoverage.splice(j, 1);
@@ -234,6 +244,9 @@ export async function collect() {
       if (id === 'twse-holidays') { const year = items[0]?.date.slice(0, 4); if (year) eventCoverage.push({ sourceId: id, category: 'holiday', markets: ['tw'], from: `${year}-01-01`, to: `${year}-12-31`, complete: true }); }
     } else sources.push({ ...old?.sources?.find(s => s.id === id), id, status: 'error', lastAttemptAt: stamp, message: String(result.reason?.message || '來源請求失敗').slice(0, 100) });
   });
+  // The MOPS list holds every conference; the TWSE venue table repeats some of them.
+  const mopsConferenceDays = new Set([...events.values()].filter(item => item.sourceId === 'mops-conferences').map(item => `${item.symbol}:${eventDay(item)}`));
+  for (const [key, item] of events) if (item.sourceId === 'twse-conferences' && mopsConferenceDays.has(`${item.symbol}:${eventDay(item)}`)) events.delete(key);
   // Fill fresh English titles on each collection run; retain exact-title
   // translations on later runs so opening the page never waits for translation.
   const translation = await translateHeadlines(news);

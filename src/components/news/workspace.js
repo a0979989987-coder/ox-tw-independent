@@ -1,7 +1,7 @@
 import {createEventIdentity,eventIdentityInfo} from './event-identity.js';
 import { createToolsRail } from '../strength/tools-rail.js?v=20261005-stable18';
-import { MARKET_NAMES, CATEGORY_NAMES, MARKET_CATEGORIES, TIME_CHOICES, sourceName } from './config.js?v=20261005-calendar11';
-import { defaultState, taipeiDay, formatNewsTime as fmt, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays } from './model.js?v=20261005-load16';
+import { MARKET_NAMES, CATEGORY_NAMES, MARKET_CATEGORIES, TIME_CHOICES, sourceName } from './config.js?v=20261021-twevents1';
+import { defaultState, taipeiDay, formatNewsTime as fmt, validDate, monthGrid, shiftMonth, eventDay, eventCategory, importance, matchesImportance, newsBase, filterNews, hotWords, ranking, sourcesFor, coverage, safeLink, plain, agendaDays, inMarket, upcomingEventDays } from './model.js?v=20261021-twevents1';
 import { macroResult, macroValue } from './macro.js?v=20261005-macro1';
 import { node, button, anchoredPanel, modal } from './layers.js';
 import { mountConferences } from './conferences.js?v=20261021-conf1';

@@ -20,7 +20,7 @@ jobs:
     # Preview/manual runs on feature branches must never write production main.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
