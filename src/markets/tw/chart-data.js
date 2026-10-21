@@ -1,12 +1,25 @@
 import { TIMEFRAMES, FRAME_LABELS, aggregateCandles } from './patterns/model.js';
 
 export const CHART_FRAMES = {...FRAME_LABELS,'1Q':'季'};
-export const chartTickFormatter = frame => time => {
+// Candle times are Taipei midnight. The library formats times in UTC, which
+// reads one day early (10/20 00:00 Taipei is 10/19 16:00 UTC), so dates are
+// shown in Taipei time here.
+const taipeiDate = time => typeof time === 'number' ? new Date(time * 1000 + 8 * 3600000) : null;
+export const chartTimeLabel = time => {
+  const d = taipeiDate(time);
+  return d ? `${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}` : '';
+};
+export const chartTickFormatter = frame => (time, type) => {
   // The library requires a callback. Returning null from it enables the
   // default formatter; assigning null to the option causes a render error.
-  if (frame !== '1Q') return null;
-  const d = new Date(time * 1000 + 8 * 3600000);
-  return `${d.getUTCFullYear()} Q${Math.floor(d.getUTCMonth()/3)+1}`;
+  const d = taipeiDate(time);
+  if (!d) return null;
+  if (frame === '1Q') return `${d.getUTCFullYear()} Q${Math.floor(d.getUTCMonth()/3)+1}`;
+  // TickMarkType: 0 year, 1 month, 2 day of month.
+  if (type === 0) return String(d.getUTCFullYear());
+  if (type === 1) return `${d.getUTCMonth()+1}月`;
+  if (type === 2) return String(d.getUTCDate());
+  return null;
 };
 
 export function quarterlyCandles(daily, asOf, {coverageStart}={}) {

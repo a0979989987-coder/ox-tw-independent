@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {quarterlyCandles,aggregateChartCandles,stockDetails,chartTickFormatter,CHART_FRAMES} from '../src/markets/tw/chart-data.js';
+import {quarterlyCandles,aggregateChartCandles,stockDetails,chartTickFormatter,chartTimeLabel,CHART_FRAMES} from '../src/markets/tw/chart-data.js';
 
 test('every chart timeframe supplies a callable tick formatter and restores the library fallback outside quarters',()=>{
  const t=Date.parse('2026-07-01T00:00:00+08:00')/1000;
  for(const frame of Object.keys(CHART_FRAMES)){
   const formatter=chartTickFormatter(frame);assert.equal(typeof formatter,'function');assert.equal(formatter(t),frame==='1Q'?'2026 Q3':null);
  }
+});
+
+test('chart dates read in Taipei time, not one day early in UTC',()=>{
+ const t=Date.parse('2026-10-20T00:00:00+08:00')/1000,month=Date.parse('2026-10-01T00:00:00+08:00')/1000;
+ assert.equal(chartTimeLabel(t),'2026/10/20');
+ const formatter=chartTickFormatter('1D');
+ assert.equal(formatter(t,2),'20');assert.equal(formatter(month,1),'10月');assert.equal(formatter(Date.parse('2026-01-01T00:00:00+08:00')/1000,0),'2026');
+ assert.equal(formatter(t,3),null,'intraday time marks keep the library format');
 });
 
 test('quarter candles preserve actual OHLC and turnover, exclude partial boundary quarters and retain gaps',()=>{
