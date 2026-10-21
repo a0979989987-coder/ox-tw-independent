@@ -78,3 +78,8 @@ html body .oxn-modal-content{max-width:100%;overflow-x:hidden}
 
 /* Radar list: no classification/quote date note above the list. */
 html body .twcr-classification-note{display:none!important}
+
+/* Radar logo: the orb's frosted backdrop (square, 0 radius) showed as a pale
+   square behind the hexagon on iPhone. The logo sits directly on the dock. */
+html body .app-dock .dock-radar .dock-radar-orb{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:none!important;box-shadow:none!important;border-color:transparent!important}
+html body .app-dock .dock-radar .dock-radar-orb::before,html body .app-dock .dock-radar .dock-radar-orb::after{display:none!important}
