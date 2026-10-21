@@ -48,3 +48,22 @@ html body .app-dock .dock-radar .dock-radar-logo{width:28px!important;height:28p
 html body .oxn-calendar .oxn-weekdays{position:relative!important;z-index:2!important;background:#17191d!important;opacity:1!important}
 html body .oxn-calendar .oxn-weekdays>span{opacity:.8}
 html body.theme-light .oxn-calendar .oxn-weekdays{background:#fff!important}
+
+/* The light theme rings every focused [tabindex] (light-platinum.css); Safari
+   applies it to the dialog title it focuses on open. The title is not a control. */
+html body.theme-light.theme-light .twx-dialog header strong[tabindex]:is(:focus,:focus-visible),
+html body .twx-dialog header strong[tabindex]:is(:focus,:focus-visible){outline:none!important;box-shadow:none!important}
+
+/* Radar tab quote card: one compact row, no data-date line, tighter columns. */
+html body .tw-chart-radar .twcr-date{display:none!important}
+html body .tw-chart-radar .market-line-card{display:grid!important;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr)!important;align-items:stretch!important;min-height:0!important;height:auto!important}
+html body .tw-chart-radar .market-line-card>.market-line-item{padding:5px 8px!important;min-height:0!important;display:flex!important;flex-direction:column!important;justify-content:center!important;gap:1px!important}
+html body .tw-chart-radar .market-line-card>.market-line-price strong{font-size:20px!important;line-height:1.1!important}
+html body .tw-chart-radar .market-line-card>.market-line-item:not(.market-line-price) label{font-size:9px!important;line-height:1.2!important}
+html body .tw-chart-radar .market-line-card>.market-line-item:not(.market-line-price) strong{font-size:14px!important;line-height:1.2!important}
+
+/* Dark theme: the first block's top margin collapsed through <body>, showing the
+   darker <html> background as a strip above the page. */
+body{display:flow-root}
+html body.ox-terminal #market-unavailable-card.tw-radar-root .tw-chart-radar > section.twcr-quote.compact-summary{margin:4px 0 0!important}
+html body #market-unavailable-card.tw-radar-root .tw-chart-radar .twcr-quote>.market-line-card{margin-bottom:6px!important}
