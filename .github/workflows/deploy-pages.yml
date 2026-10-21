@@ -12,6 +12,7 @@ on:
       - Update official macro results
       - Update verified TW ETF data
       - Update verified news
+      - Update TW investor conferences
     types: [completed]
     branches: [main]
 permissions:
