@@ -244,6 +244,9 @@ export async function collect() {
       if (id === 'twse-holidays') { const year = items[0]?.date.slice(0, 4); if (year) eventCoverage.push({ sourceId: id, category: 'holiday', markets: ['tw'], from: `${year}-01-01`, to: `${year}-12-31`, complete: true }); }
     } else sources.push({ ...old?.sources?.find(s => s.id === id), id, status: 'error', lastAttemptAt: stamp, message: String(result.reason?.message || '來源請求失敗').slice(0, 100) });
   });
+  // Calendar events are kept for 13 months back; older ones would only grow the
+  // calendar boot that every visit downloads.
+  for (const [key, item] of events) if (eventDay(item) && eventDay(item) < monthStart(today, -13)) events.delete(key);
   // Cash payment dates are kept from the previous month on; older payments are
   // past and would make the calendar boot several times larger.
   for (const [key, item] of events) if (item.sourceId === 'mops-payments' && eventDay(item) < monthStart(today, -1)) events.delete(key);
