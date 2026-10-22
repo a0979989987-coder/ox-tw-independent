@@ -1,3 +1,4 @@
+import { gzipSync } from 'node:zlib';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -16,7 +17,11 @@ test('calendar boot is small without discarding any official events or news reco
   assert.deepEqual(assets.feed.pendingNews,original.pendingNews);
   assert.equal(assets.calendar.feedComplete,false);assert.equal(assets.feed.feedComplete,true);
   assert.deepEqual(assets.calendar.news,[]);
-  assert(JSON.stringify(assets.calendar).length<JSON.stringify(original).length*.15);
+  // The calendar boot is judged by what a visit downloads (gzip), not by its share of the
+  // news snapshot: news is capped at 6000 records while official events keep accumulating.
+  const gz=value=>gzipSync(JSON.stringify(value)).length;
+  assert(gz(assets.calendar)<200*1024,`calendar boot ${Math.round(gz(assets.calendar)/1024)} KB gzip`);
+  assert(gz(assets.calendar)<gz(assets.feed)/4);
   assert(JSON.stringify(assets.headline).length<1024);
 });
 
