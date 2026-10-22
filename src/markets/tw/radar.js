@@ -1,7 +1,7 @@
 import {releaseRangeRows} from './release-range.js';
 import { mountTWChartRadar } from './chart-radar.js?v=20261007-tools2';
 import { radarAvailability } from './recovery.js?v=20261005-recovery20';
-import { TW_RADAR_MODES, normalizeTWStockCard, rowsForTWMode, renderTWStockCard } from "./radar-card.js";
+import { TW_RADAR_MODES, normalizeTWStockCard, rowsForTWMode, renderTWStockCard, renderTWStockRow } from "./radar-card.js";
 import { observeTWMiniCandles, resetTWMiniCandles, openTWStockDetail } from "./radar-candles.js?v=20261005-weeklist4";
 
 /*
@@ -114,14 +114,20 @@ let searchQuery =
 let sortKey =
   "oxScore";
 
-let activeMode = "risk";
+let activeMode = "disposal";
 let releaseRange = '3';
 function activeModeRows(state, rows, watchlist) {
   if(activeMode==='release')return releaseRangeRows(rowsForTWMode(state,'disposal',rows,watchlist),releaseRange);
   return rowsForTWMode(state,activeMode,rows,watchlist);
 }
 let chartRadar=null,latestRadarState=null,pendingChartSymbol=null;
-const RADAR_MODES = [...TW_RADAR_MODES.filter(mode => mode.id !== 'watchlist'), { id: "screener", label: "篩選器" }, ...TW_RADAR_MODES.filter(mode => mode.id === 'watchlist')];
+// 處置、出關、風險 are one tab; a second rail under the main rail picks among
+// them, 處置 first.
+const DISPOSITION_MODES = [{ id: "disposal", label: "處置" }, { id: "release", label: "出關" }, { id: "risk", label: "風險" }];
+const isDispositionMode = mode => DISPOSITION_MODES.some(item => item.id === mode);
+let dispositionMode = "disposal";
+const RADAR_MODES = [{ id: "chart", label: "圖表雷達" }, { id: "disposition", label: "處置" }, { id: "screener", label: "篩選器" }, ...TW_RADAR_MODES.filter(mode => mode.id === 'watchlist')];
+const modeSelected = id => id === activeMode || id === "disposition" && isDispositionMode(activeMode);
 let screener=null, screenerHost=null, screenerGeneration=0;
 function stopScreener(){++screenerGeneration;screener?.destroy();screener=null;screenerHost=null;}
 async function showScreener(host){
@@ -139,11 +145,12 @@ let pageObserver = null;
 let modeResizeObserver = null;
 
 function positionModeIndicator(root) {
-  const rail = root.querySelector('.twr-mode-rail');
-  const selected = rail?.querySelector('.active');
-  if (!selected) return;
-  rail.style.setProperty('--mode-x', `${selected.offsetLeft}px`);
-  rail.style.setProperty('--mode-width', `${selected.offsetWidth}px`);
+  for (const rail of root.querySelectorAll('.twr-mode-rail')) {
+    const selected = rail.querySelector('.active');
+    if (!selected) continue;
+    rail.style.setProperty('--mode-x', `${selected.offsetLeft}px`);
+    rail.style.setProperty('--mode-width', `${selected.offsetWidth}px`);
+  }
 }
 
 
@@ -3006,10 +3013,19 @@ function refreshRadarDataUI(
   }
   const modeRail = root.querySelector(".twr-mode-rail");
   modeRail?.querySelectorAll("[data-twr-mode]").forEach(button => {
-    const selected = button.dataset.twrMode === activeMode;
+    const selected = modeSelected(button.dataset.twrMode);
     button.classList.toggle("active", selected);
     button.setAttribute("aria-selected", String(selected));
   });
+  const subRail = root.querySelector(".twr-sub-viewport");
+  if (subRail) {
+    subRail.hidden = !isDispositionMode(activeMode);
+    subRail.querySelectorAll("[data-twr-sub]").forEach(button => {
+      const selected = button.dataset.twrSub === activeMode;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-selected", String(selected));
+    });
+  }
   positionModeIndicator(root);
   root.querySelectorAll(".twr-classic-only").forEach(section => section.hidden = activeMode !== "classic");
   const chartHost=root.querySelector('#twr-chart-radar');
@@ -3156,12 +3172,14 @@ function refreshRadarDataUI(
 
 
   let shown = 0;
+  const asRows = isDispositionMode(activeMode);
+  list.classList.toggle("is-rows", asRows);
   const appendPage = () => {
     const page = filtered.slice(shown, shown + 40);
     shown += page.length;
     const sentinel = list.querySelector(".twr-more-sentinel");
     sentinel?.insertAdjacentHTML("beforebegin", page.map(row =>
-      renderTWStockCard(normalizeTWStockCard(row), watchlist)).join(""));
+      (asRows ? renderTWStockRow : renderTWStockCard)(normalizeTWStockCard(row), watchlist)).join(""));
     if (shown >= filtered.length) sentinel?.remove();
     observeTWMiniCandles(list);
   };
@@ -3318,7 +3336,7 @@ export function renderTWRadar(
     >
 
 
-      <nav class="twr-mode-viewport" aria-label="台股雷達模式"><div class="twr-mode-rail" role="tablist"><span class="twr-mode-indicator" aria-hidden="true"></span>${RADAR_MODES.map(mode => `<button type="button" role="tab" data-twr-mode="${mode.id}" aria-selected="${mode.id === activeMode}" aria-label="${mode.label}"><span class="twr-label-full">${mode.label}</span><span class="twr-label-short" aria-hidden="true">${({"圖表雷達":"雷達","風險股":"風險","處置中":"處置","即將出關":"出關"})[mode.label]||mode.label}</span></button>`).join("")}</div></nav>
+      <nav class="twr-mode-viewport" aria-label="台股雷達模式"><div class="twr-mode-rail" role="tablist"><span class="twr-mode-indicator" aria-hidden="true"></span>${RADAR_MODES.map(mode => `<button type="button" role="tab" data-twr-mode="${mode.id}" aria-selected="${modeSelected(mode.id)}" aria-label="${mode.label}"><span class="twr-label-full">${mode.label}</span><span class="twr-label-short" aria-hidden="true">${({"圖表雷達":"雷達","風險股":"風險","處置中":"處置","即將出關":"出關"})[mode.label]||mode.label}</span></button>`).join("")}</div></nav><nav class="twr-sub-viewport" aria-label="處置分類" ${isDispositionMode(activeMode) ? "" : "hidden"}><div class="twr-mode-rail twr-sub-rail" role="tablist"><span class="twr-mode-indicator" aria-hidden="true"></span>${DISPOSITION_MODES.map(mode => `<button type="button" role="tab" data-twr-sub="${mode.id}" aria-selected="${mode.id === activeMode}">${mode.label}</button>`).join("")}</div></nav>
       <section id="twr-chart-radar" hidden></section>
       <section id="twr-screener" hidden aria-label="台股篩選器"></section>
 
@@ -4275,9 +4293,11 @@ export function renderTWRadar(
 
         const rangeButton=event.target.closest('[data-twr-release-range]');
         if(rangeButton){releaseRange=rangeButton.dataset.twrReleaseRange;refreshRadarDataUI(root,latestRadarState||state,watchlist);return;}
-        const modeButton = event.target.closest("[data-twr-mode]");
+        const subButton = event.target.closest("[data-twr-sub]");
+        const modeButton = subButton || event.target.closest("[data-twr-mode]");
         if (modeButton) {
-          activeMode = modeButton.dataset.twrMode;
+          if (subButton) activeMode = dispositionMode = subButton.dataset.twrSub;
+          else activeMode = modeButton.dataset.twrMode === "disposition" ? dispositionMode : modeButton.dataset.twrMode;
           modeButton.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
           refreshRadarDataUI(root,latestRadarState||state,watchlist);
           if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
