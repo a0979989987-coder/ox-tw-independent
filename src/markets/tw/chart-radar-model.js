@@ -3,6 +3,8 @@ export function rankChartRows(rows,{tab='all',tier='all',side='long',watchlist=n
  const seen=new Set(),pool=rows.filter(r=>/^\d{4}$/.test(r.symbol)&&Number.isFinite(r.price)&&r.price>0&&!seen.has(r.symbol)&&seen.add(r.symbol));
  const q=query.trim().toLowerCase(),search=r=>!q||`${r.symbol} ${r.name}`.toLowerCase().includes(q);
  if(tab==='watch')return pool.filter(r=>watchlist.has(r.symbol)).filter(search);
+ // 今日最強／最弱前 50：今天有成交的股票依漲跌幅排序，↑ 取漲幅最大、↓ 取跌幅最深。
+ if(tab==='all')return pool.filter(r=>Number.isFinite(r.changePct)&&r.turnoverTwd>0).filter(search).sort((a,b)=>side==='short'?a.changePct-b.changePct:b.changePct-a.changePct).slice(0,50);
  if(tab==='surge')return pool.filter(r=>Number.isFinite(r.changePct)&&(side==='short'?r.changePct<0:r.changePct>0)&&r.turnoverTwd>0).filter(search).sort((a,b)=>(b.turnoverTwd||0)-(a.turnoverTwd||0)).slice(0,50);
  const direction=pool.flatMap(r=>{
   const signal=qualifyClassicRow(r,side,{observations:true});if(!signal)return [];

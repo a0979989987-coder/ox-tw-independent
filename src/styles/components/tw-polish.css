@@ -83,3 +83,34 @@ html body .twcr-classification-note{display:none!important}
    square behind the hexagon on iPhone. The logo sits directly on the dock. */
 html body .app-dock .dock-radar .dock-radar-orb{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:none!important;box-shadow:none!important;border-color:transparent!important}
 html body .app-dock .dock-radar .dock-radar-orb::before,html body .app-dock .dock-radar .dock-radar-orb::after{display:none!important}
+
+/* Radar: 處置／出關／風險 second rail under the main rail (radar.js). */
+html body .tw-radar-root .twr-sub-viewport{margin-top:6px}
+html body .tw-radar-root .twr-sub-viewport[hidden]{display:none!important}
+html body .tw-radar-root .twr-sub-rail{display:flex!important;width:100%!important;min-width:0!important}
+html body .tw-radar-root .twr-sub-rail button{flex:1 1 0!important;min-height:30px!important;font-size:12px!important;justify-content:center;text-align:center}
+
+/* Disposition lists as rows instead of square cards. */
+html body .tw-radar-root .twr-list.is-rows{display:flex!important;flex-direction:column!important;gap:0!important;border:1px solid #ffffff1c;border-radius:14px;overflow:hidden;background:#ffffff06}
+.tw-stock-row{display:grid;grid-template-columns:minmax(0,1fr) auto 30px;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-bottom:1px solid #ffffff14;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tw-stock-row:last-of-type{border-bottom:0}
+.tw-stock-row:active{background:#ffffff0d}
+.tw-row-main{min-width:0}
+.tw-row-id{display:flex;align-items:baseline;gap:6px;min-width:0}
+.tw-row-id strong{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tw-row-id span{flex:none;font-size:12px;opacity:.6;font-variant-numeric:tabular-nums}
+.tw-row-id em{flex:none;font-style:normal;font-size:10px;padding:0 6px;border:1px solid currentColor;border-radius:8px;opacity:.65;white-space:nowrap}
+.tw-row-status{margin-top:3px;font-size:12px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tw-row-status.urgent{opacity:1;color:#d6a531}
+.tw-row-quote{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tw-row-quote strong{display:block;font-size:16px;line-height:1.2}
+.tw-row-quote span{font-size:12px}
+.tw-stock-row .tw-row-id strong{color:#f1f2f4}.tw-stock-row .tw-row-id,.tw-stock-row .tw-row-status{color:#c9ccd2}
+.tw-stock-row.is-up .tw-row-quote{color:#f16a70}.tw-stock-row.is-down .tw-row-quote{color:#48b78e}.tw-stock-row.is-flat .tw-row-quote{color:#d6d1c8}
+html body .tw-stock-row .tw-stock-watch{position:static!important;width:30px!important;height:30px!important;margin:0!important;display:grid;place-items:center}
+body.theme-light .tw-radar-root .twr-list.is-rows{border-color:#d9dee6;background:#fff}
+body.theme-light .tw-stock-row{border-bottom-color:#e8ecf1}
+body.theme-light .tw-stock-row:active{background:#f3f5f8}
+body.theme-light .tw-stock-row .tw-row-id strong{color:#1f2937}body.theme-light .tw-stock-row .tw-row-id,body.theme-light .tw-stock-row .tw-row-status{color:#4b5563}
+body.theme-light .tw-stock-row.is-up .tw-row-quote{color:#d6454d}body.theme-light .tw-stock-row.is-down .tw-row-quote{color:#22916a}body.theme-light .tw-stock-row.is-flat .tw-row-quote{color:#4b5563}
+body.theme-light .tw-row-status.urgent{color:#a7781c}

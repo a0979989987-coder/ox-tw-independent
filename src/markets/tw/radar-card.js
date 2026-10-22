@@ -214,6 +214,26 @@ export function renderTWStockCard(source, watchlist) {
   </article>`;
 }
 
+// Disposition lists (處置／出關／風險) as one-line rows: name, price, change and
+// one status line. Everything else is in the detail panel the row opens.
+export function renderTWStockRow(source, watchlist) {
+  const row = normalizeTWStockCard(source);
+  if (!row) return "";
+  const watched = watchlist.has(row.symbol);
+  const direction = row.changePct > 0 ? "up" : row.changePct < 0 ? "down" : "flat";
+  const d = row.disposition;
+  const status = [riskLabel(row), bottomLabel(row)].filter(text => text && text !== "目前處置中").join(" · ") || "目前處置中";
+  const change = row.changePct === null ? "—" : `${row.changePct > 0 ? "▲" : row.changePct < 0 ? "▼" : ""}${fmt(Math.abs(row.changePct))}%`;
+  return `<article class="tw-stock-row is-${direction}" role="button" tabindex="0" aria-label="查看 ${escapeTW(row.name || row.symbol)} 處置資訊" data-twr-symbol="${escapeTW(row.symbol)}">
+    <div class="tw-row-main">
+      <div class="tw-row-id"><strong title="${escapeTW(row.name)}">${escapeTW(row.name || "名稱待更新")}</strong><span>${escapeTW(row.symbol)}</span>${d.batchMinutes !== null ? `<em>${d.batchMinutes}分盤</em>` : ""}</div>
+      <div class="tw-row-status ${riskLabel(row).includes("最快") ? "urgent" : ""}" title="${escapeTW(status)}">${escapeTW(status)}</div>
+    </div>
+    <div class="tw-row-quote"><strong>${fmt(row.price)}</strong><span>${change}</span></div>
+    <button class="tw-stock-watch ${watched ? "active" : ""}" type="button" data-twr-watch="${escapeTW(row.symbol)}" aria-label="${watched ? "取消收藏" : "收藏"} ${escapeTW(row.name || row.symbol)}" aria-pressed="${watched}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.4l6.2-.9z"/></svg></button>
+  </article>`;
+}
+
 export function renderTWCurrentCandle(candles) {
   // Show precisely one supplied session, including doji and its high/low wicks.
   // Do not silently substitute an older valid candle for a missing latest session.
